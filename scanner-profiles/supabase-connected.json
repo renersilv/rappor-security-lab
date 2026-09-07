@@ -1,0 +1,34 @@
+{
+  "id": "supabase-connected",
+  "version": 1,
+  "target": {
+    "relation": "public.rappor_lab_documents",
+    "data": "generated-dummy-only"
+  },
+  "actors": ["anon", "authenticated"],
+  "requestTimeoutMs": 10000,
+  "operations": [
+    {
+      "name": "read",
+      "method": "HEAD",
+      "responseBody": false,
+      "count": "exact"
+    },
+    {
+      "name": "write",
+      "method": "POST",
+      "return": "minimal",
+      "responseBody": false
+    }
+  ],
+  "credentials": {
+    "client": "publishable-key",
+    "administrative": "external-pg-service"
+  },
+  "report": {
+    "fields": ["status", "caseId", "present"],
+    "responseBodies": false,
+    "credentials": false,
+    "rowIdentifiers": false
+  }
+}

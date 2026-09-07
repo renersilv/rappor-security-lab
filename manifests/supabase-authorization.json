@@ -1,0 +1,398 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "targets": [
+    {
+      "id": "supabase-authorization-vulnerable",
+      "control": "controlled",
+      "layer": "connected",
+      "revision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "accessControl": {
+        "relation": "public.rappor_lab_documents",
+        "rlsEnabled": false,
+        "grants": {
+          "anon": [
+            "select",
+            "insert"
+          ],
+          "authenticated": [
+            "select",
+            "insert"
+          ]
+        },
+        "policies": []
+      }
+    },
+    {
+      "id": "supabase-authorization-partially-fixed",
+      "control": "controlled",
+      "layer": "connected",
+      "revision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "accessControl": {
+        "relation": "public.rappor_lab_documents",
+        "rlsEnabled": true,
+        "grants": {
+          "anon": [
+            "select"
+          ],
+          "authenticated": [
+            "select",
+            "insert"
+          ]
+        },
+        "policies": [
+          {
+            "name": "lab_public_read",
+            "command": "select",
+            "roles": [
+              "anon",
+              "authenticated"
+            ],
+            "using": "true",
+            "withCheck": null
+          },
+          {
+            "name": "lab_authenticated_write",
+            "command": "insert",
+            "roles": [
+              "authenticated"
+            ],
+            "using": null,
+            "withCheck": "true"
+          }
+        ]
+      }
+    },
+    {
+      "id": "supabase-authorization-fixed",
+      "control": "controlled",
+      "layer": "connected",
+      "revision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "accessControl": {
+        "relation": "public.rappor_lab_documents",
+        "rlsEnabled": true,
+        "grants": {
+          "anon": [],
+          "authenticated": [
+            "select",
+            "insert"
+          ]
+        },
+        "policies": [
+          {
+            "name": "lab_authenticated_read",
+            "command": "select",
+            "roles": [
+              "authenticated"
+            ],
+            "using": "true",
+            "withCheck": null
+          },
+          {
+            "name": "lab_authenticated_write",
+            "command": "insert",
+            "roles": [
+              "authenticated"
+            ],
+            "using": null,
+            "withCheck": "true"
+          }
+        ]
+      }
+    },
+    {
+      "id": "supabase-authorization-reintroduced",
+      "control": "controlled",
+      "layer": "connected",
+      "revision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "accessControl": {
+        "relation": "public.rappor_lab_documents",
+        "rlsEnabled": false,
+        "grants": {
+          "anon": [
+            "select",
+            "insert"
+          ],
+          "authenticated": [
+            "select",
+            "insert"
+          ]
+        },
+        "policies": []
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "supabase-anon-read-vulnerable",
+      "targetId": "supabase-authorization-vulnerable",
+      "targetRevision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "state": "vulnerable",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-anonymous-read-access",
+      "expectedPresence": true,
+      "expectedSeverity": "high",
+      "groupingKey": "supabase-anonymous-access",
+      "safeEvidence": "An unauthenticated HEAD request can count the declared dummy seed row without returning its contents.",
+      "fixedCaseId": "supabase-anon-read-fixed",
+      "functionalAssertion": "The read check uses HEAD with an exact count and never retrieves a row body.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-write-vulnerable",
+      "targetId": "supabase-authorization-vulnerable",
+      "targetRevision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "state": "vulnerable",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-anonymous-write-access",
+      "expectedPresence": true,
+      "expectedSeverity": "critical",
+      "groupingKey": "supabase-anonymous-access",
+      "safeEvidence": "An unauthenticated request can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-anon-write-fixed",
+      "functionalAssertion": "The write check uses return=minimal and records no response body or inserted identifier.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-read-denied-vulnerable",
+      "targetId": "supabase-authorization-vulnerable",
+      "targetRevision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "state": "vulnerable",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-authenticated-read-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can count the declared dummy seed row without receiving its contents.",
+      "fixedCaseId": "supabase-authenticated-read-denied-fixed",
+      "functionalAssertion": "Authenticated access uses a short-lived user token obtained with the publishable key.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-write-denied-vulnerable",
+      "targetId": "supabase-authorization-vulnerable",
+      "targetRevision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "state": "vulnerable",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-authenticated-write-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-authenticated-write-denied-fixed",
+      "functionalAssertion": "The authenticated write returns no row representation and stores only a generated dummy marker.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-read-partially-fixed",
+      "targetId": "supabase-authorization-partially-fixed",
+      "targetRevision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "state": "partially-fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-anonymous-read-access",
+      "expectedPresence": true,
+      "expectedSeverity": "high",
+      "groupingKey": "supabase-anonymous-access",
+      "safeEvidence": "An unauthenticated HEAD request can count the declared dummy seed row without returning its contents.",
+      "fixedCaseId": "supabase-anon-read-fixed",
+      "functionalAssertion": "The read check uses HEAD with an exact count and never retrieves a row body.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-write-partially-fixed",
+      "targetId": "supabase-authorization-partially-fixed",
+      "targetRevision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "state": "partially-fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-anonymous-write-access",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "An unauthenticated request cannot insert a generated dummy marker.",
+      "fixedCaseId": "supabase-anon-write-fixed",
+      "functionalAssertion": "The write check uses return=minimal and records no response body or inserted identifier.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-read-denied-partially-fixed",
+      "targetId": "supabase-authorization-partially-fixed",
+      "targetRevision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "state": "partially-fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-authenticated-read-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can count the declared dummy seed row without receiving its contents.",
+      "fixedCaseId": "supabase-authenticated-read-denied-fixed",
+      "functionalAssertion": "Authenticated access uses a short-lived user token obtained with the publishable key.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-write-denied-partially-fixed",
+      "targetId": "supabase-authorization-partially-fixed",
+      "targetRevision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "state": "partially-fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-authenticated-write-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-authenticated-write-denied-fixed",
+      "functionalAssertion": "The authenticated write returns no row representation and stores only a generated dummy marker.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-read-fixed",
+      "targetId": "supabase-authorization-fixed",
+      "targetRevision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "state": "fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-anonymous-read-access",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "An unauthenticated HEAD request cannot observe the declared dummy seed row.",
+      "fixedCaseId": "supabase-anon-read-fixed",
+      "functionalAssertion": "The read check uses HEAD with an exact count and never retrieves a row body.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-write-fixed",
+      "targetId": "supabase-authorization-fixed",
+      "targetRevision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "state": "fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-anonymous-write-access",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "An unauthenticated request cannot insert a generated dummy marker.",
+      "fixedCaseId": "supabase-anon-write-fixed",
+      "functionalAssertion": "The write check uses return=minimal and records no response body or inserted identifier.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-read-denied-fixed",
+      "targetId": "supabase-authorization-fixed",
+      "targetRevision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "state": "fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-authenticated-read-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can count the declared dummy seed row without receiving its contents.",
+      "fixedCaseId": "supabase-authenticated-read-denied-fixed",
+      "functionalAssertion": "Authenticated access uses a short-lived user token obtained with the publishable key.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-write-denied-fixed",
+      "targetId": "supabase-authorization-fixed",
+      "targetRevision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "state": "fixed",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-authenticated-write-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-authenticated-write-denied-fixed",
+      "functionalAssertion": "The authenticated write returns no row representation and stores only a generated dummy marker.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-read-reintroduced",
+      "targetId": "supabase-authorization-reintroduced",
+      "targetRevision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "state": "reintroduced",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-anonymous-read-access",
+      "expectedPresence": true,
+      "expectedSeverity": "high",
+      "groupingKey": "supabase-anonymous-access",
+      "safeEvidence": "An unauthenticated HEAD request can count the declared dummy seed row without returning its contents.",
+      "fixedCaseId": "supabase-anon-read-fixed",
+      "functionalAssertion": "The read check uses HEAD with an exact count and never retrieves a row body.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-anon-write-reintroduced",
+      "targetId": "supabase-authorization-reintroduced",
+      "targetRevision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "state": "reintroduced",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-anonymous-write-access",
+      "expectedPresence": true,
+      "expectedSeverity": "critical",
+      "groupingKey": "supabase-anonymous-access",
+      "safeEvidence": "An unauthenticated request can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-anon-write-fixed",
+      "functionalAssertion": "The write check uses return=minimal and records no response body or inserted identifier.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-read-denied-reintroduced",
+      "targetId": "supabase-authorization-reintroduced",
+      "targetRevision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "state": "reintroduced",
+      "scanner": "connected-scan",
+      "capability": "authorization-read",
+      "ruleFamily": "supabase-authenticated-read-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can count the declared dummy seed row without receiving its contents.",
+      "fixedCaseId": "supabase-authenticated-read-denied-fixed",
+      "functionalAssertion": "Authenticated access uses a short-lived user token obtained with the publishable key.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    },
+    {
+      "id": "supabase-authenticated-write-denied-reintroduced",
+      "targetId": "supabase-authorization-reintroduced",
+      "targetRevision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "state": "reintroduced",
+      "scanner": "connected-scan",
+      "capability": "authorization-write",
+      "ruleFamily": "supabase-authenticated-write-denied",
+      "expectedPresence": false,
+      "expectedSeverity": null,
+      "groupingKey": null,
+      "safeEvidence": "The disposable authenticated user can insert a generated dummy marker with no representation returned.",
+      "fixedCaseId": "supabase-authenticated-write-denied-fixed",
+      "functionalAssertion": "The authenticated write returns no row representation and stores only a generated dummy marker.",
+      "scannerProfile": "supabase-connected@1",
+      "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0"
+    }
+  ]
+}

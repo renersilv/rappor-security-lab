@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation, executable manifests, controlled static code corpus and controlled public vibe-coding target sources created. No public deployment, Supabase project or real benchmark result exists yet.
+Repository foundation, executable manifests, controlled static code corpus, public target sources and disposable Supabase authorization target sources created. No public deployment, Supabase project or real benchmark result exists yet.
 
 ## Current work
 
-Issue #3 provides four digest-pinned public target states with independent local HTTP and DOM assertions. Publication remains an explicit owner action requiring disposable Vercel resources and an isolated laboratory domain.
+Issue #4 provides four digest-pinned Supabase RLS, grant and policy states, a sanitized connected-access runner and verified reset/disposal procedures. Connected execution remains an explicit owner action requiring a disposable laboratory project and credentials supplied outside Git.
 
 ## Constraints
 

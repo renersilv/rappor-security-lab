@@ -84,6 +84,34 @@ Publication is not part of repository checks and requires an owner-authorized,
 disposable Vercel account and isolated laboratory domain. See the target README for
 the deployment safety boundary.
 
+## Disposable Supabase authorization target
+
+`targets/connected/supabase-authorization` declares four immutable database states:
+RLS absent, partial remediation, complete remediation and reintroduction. Its
+manifest pins the expected table grants and policies alongside independent
+anonymous and authenticated read/write cases.
+
+Local checks verify the SQL, state digests, manifest and the bounded HTTP protocol
+without contacting Supabase. A live lifecycle uses a publishable key for Auth and
+Data API requests, `HEAD` for reads, `return=minimal` for writes, and an external
+PostgreSQL service definition for administrative migrations:
+
+```sh
+npm run supabase:lifecycle -- --output /tmp/supabase-authorization-run.json
+node src/compare.mjs \
+  manifests/supabase-authorization.json \
+  /tmp/supabase-authorization-run.json
+```
+
+No project URL, credential, user identifier, row body or inserted identifier is
+retained in the report. Project provisioning and deletion are explicit owner
+actions because they require an isolated Supabase organization, credentials from a
+secure channel and irreversible provider operations. Follow the target README for
+the complete lifecycle, reset and disposal verification procedure. The controls
+follow Supabase's current guidance for [API keys](https://supabase.com/docs/guides/getting-started/api-keys),
+[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) and
+[project deletion](https://supabase.com/docs/guides/platform/delete-project).
+
 ## Autonomous execution
 
 The reviewed operational contract, controls and user-service examples for João are

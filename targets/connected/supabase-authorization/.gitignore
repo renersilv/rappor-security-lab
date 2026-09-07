@@ -1,0 +1,4 @@
+.env
+.env.*
+*.report.json
+*.run.json

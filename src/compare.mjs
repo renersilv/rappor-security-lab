@@ -29,10 +29,49 @@ const SEVERITIES = new Set(["info", "low", "medium", "high", "critical"]);
 const RUN_STATUSES = new Set(["completed", "partial", "failed"]);
 const IDENTIFIER = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
+const PRIVILEGES = new Set(["select", "insert", "update", "delete"]);
+const POLICY_COMMANDS = new Set(PRIVILEGES);
+const POLICY_ROLES = new Set(["anon", "authenticated"]);
 
 function assertObject(value, path) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);
+  }
+}
+
+function validateAccessControl(accessControl, path) {
+  assertObject(accessControl, path);
+  if (typeof accessControl.relation !== "string" || !/^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/.test(accessControl.relation)) {
+    throw new Error(`${path}.relation is invalid`);
+  }
+  if (typeof accessControl.rlsEnabled !== "boolean") {
+    throw new Error(`${path}.rlsEnabled must be boolean`);
+  }
+  assertObject(accessControl.grants, `${path}.grants`);
+  for (const role of POLICY_ROLES) {
+    const privileges = accessControl.grants[role];
+    if (!Array.isArray(privileges) || new Set(privileges).size !== privileges.length || privileges.some((item) => !PRIVILEGES.has(item))) {
+      throw new Error(`${path}.grants.${role} is invalid`);
+    }
+  }
+  if (!Array.isArray(accessControl.policies)) throw new Error(`${path}.policies must be an array`);
+  const policyNames = new Set();
+  for (const [index, policy] of accessControl.policies.entries()) {
+    const policyPath = `${path}.policies[${index}]`;
+    assertObject(policy, policyPath);
+    if (typeof policy.name !== "string" || !IDENTIFIER.test(policy.name) || policyNames.has(policy.name)) {
+      throw new Error(`${policyPath}.name must be unique`);
+    }
+    if (!POLICY_COMMANDS.has(policy.command)) throw new Error(`${policyPath}.command is invalid`);
+    if (!Array.isArray(policy.roles) || policy.roles.length === 0 || new Set(policy.roles).size !== policy.roles.length || policy.roles.some((role) => !POLICY_ROLES.has(role))) {
+      throw new Error(`${policyPath}.roles is invalid`);
+    }
+    for (const field of ["using", "withCheck"]) {
+      if (policy[field] !== null && (typeof policy[field] !== "string" || policy[field].length === 0)) {
+        throw new Error(`${policyPath}.${field} is invalid`);
+      }
+    }
+    policyNames.add(policy.name);
   }
 }
 
@@ -59,6 +98,12 @@ export function validateInputs(manifest, run) {
     }
     if (typeof target.revision !== "string" || target.revision.length === 0) {
       throw new Error(`manifest.targets[${index}].revision is required`);
+    }
+    if ("accessControl" in target) {
+      if (target.layer !== "connected") {
+        throw new Error(`manifest.targets[${index}].accessControl requires the connected layer`);
+      }
+      validateAccessControl(target.accessControl, `manifest.targets[${index}].accessControl`);
     }
     targets.set(target.id, target);
   }
