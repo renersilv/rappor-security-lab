@@ -6,6 +6,8 @@ REPOSITORY_PATH=${JOAO_REPOSITORY_PATH:-$(CDPATH='' cd -- "$SCRIPT_DIR/../.." &&
 REPOSITORY_SLUG=renersilv/rappor-security-lab
 MAIN_BRANCH=main
 OWNER_LOGIN=renersilv
+GIT_IDENTITY_NAME=Joao
+GIT_IDENTITY_EMAIL=codex@openai.com
 MODEL=gpt-5.6-sol
 REASONING_EFFORT=xhigh
 ISSUE_TIMEOUT=3h
@@ -107,6 +109,16 @@ validate_origin_urls() {
   done <<< "$urls"
 }
 
+configure_git_identity() {
+  local configured_name configured_email
+  $GIT_BIN -C "$REPOSITORY_PATH" config --local user.name "$GIT_IDENTITY_NAME"
+  $GIT_BIN -C "$REPOSITORY_PATH" config --local user.email "$GIT_IDENTITY_EMAIL"
+  configured_name=$($GIT_BIN -C "$REPOSITORY_PATH" config --local --get user.name)
+  configured_email=$($GIT_BIN -C "$REPOSITORY_PATH" config --local --get user.email)
+  [[ $configured_name == "$GIT_IDENTITY_NAME" ]] || fail "Git commit identity name is invalid"
+  [[ $configured_email == "$GIT_IDENTITY_EMAIL" ]] || fail "Git commit identity email is invalid"
+}
+
 fetch_batch_branch() {
   local repository=$1 branch=$2 remote_ref
   safe_branch "$branch" || { fail "batch branch is invalid"; return 1; }
@@ -131,6 +143,7 @@ preflight() {
   [[ $STATE_SETTLE_DELAY_SECONDS =~ ^[0-9]+$ ]] || fail "state settle delay must be a non-negative integer"
   root=$($GIT_BIN -C "$REPOSITORY_PATH" rev-parse --show-toplevel)
   [[ $root == "$REPOSITORY_PATH" ]] || fail "repository path does not match its Git root"
+  configure_git_identity
   validate_origin_urls
   branch=$($GIT_BIN -C "$REPOSITORY_PATH" symbolic-ref --short HEAD)
   [[ $branch == "$MAIN_BRANCH" ]] || fail "repository worktree must remain on main"

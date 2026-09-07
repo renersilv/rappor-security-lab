@@ -465,6 +465,22 @@ test_unexpected_push_url_is_rejected() (
   fi
 )
 
+test_git_identity_is_configured_locally() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  git -C "$JOAO_REPOSITORY_PATH" init --quiet
+  git -C "$JOAO_REPOSITORY_PATH" config --local user.name "Unexpected User"
+  git -C "$JOAO_REPOSITORY_PATH" config --local user.email "unexpected@example.invalid"
+  GIT_BIN=git
+  configure_git_identity
+  assert_equal "Joao" \
+    "$(git -C "$JOAO_REPOSITORY_PATH" config --local --get user.name)" \
+    "preflight pins the João commit name"
+  assert_equal "codex@openai.com" \
+    "$(git -C "$JOAO_REPOSITORY_PATH" config --local --get user.email)" \
+    "preflight pins the João commit email"
+)
+
 test_batch_fetch_records_an_exact_remote_tracking_ref() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -714,6 +730,7 @@ test_blocked_delivery_with_commit_is_preserved_and_suspended
 test_prompt_requires_external_preconditions_before_editing
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
+test_git_identity_is_configured_locally
 test_batch_fetch_records_an_exact_remote_tracking_ref
 test_stale_worktree_is_rejected
 test_wrapper_integration_and_final_states
