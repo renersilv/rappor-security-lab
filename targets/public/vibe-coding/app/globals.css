@@ -1,0 +1,20 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 2rem;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 48rem;
+}
+
+form,
+output {
+  display: block;
+  margin-block: 1rem;
+}

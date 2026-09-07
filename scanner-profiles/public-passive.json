@@ -1,0 +1,21 @@
+{
+  "id": "public-passive",
+  "version": 2,
+  "execution": {
+    "methods": ["GET", "HEAD"],
+    "activeTesting": false,
+    "followPublicResources": true
+  },
+  "rules": [
+    "nextjs-technology",
+    "vercel-hosting",
+    "lovable-generator",
+    "supabase-client",
+    "supabase-public-keys",
+    "missing-content-security-policy",
+    "insecure-cookie-attributes",
+    "password-form-uses-get",
+    "mixed-content",
+    "synthetic-elevated-secret"
+  ]
+}

@@ -60,6 +60,30 @@ and content digests referenced by the benchmark manifest. These fixtures are for
 static scanning only. Do not build, run or publish the Kubernetes manifests as a
 service.
 
+## Controlled public vibe-coding target
+
+`targets/public/vibe-coding` is a real Next.js source fixture configured for an
+eventual isolated Vercel deployment. It provides deterministic Next.js, Vercel,
+Lovable and network-disabled Supabase client signals. Its public response matrix
+covers security headers, cookie attributes, an inert password form, mixed content,
+synthetic elevated markers, and negative controls for Supabase publishable and anon
+values.
+
+The default state is `fixed`. The `RAPPOR_LAB_STATE` build and runtime value selects
+`vulnerable`, `partially-fixed`, `fixed` or `reintroduced`; each selection has a
+content digest pinned in `manifests/public-vibe-coding.json`. The local verifier
+starts only an ephemeral loopback server and performs independent HTTP and DOM
+assertions:
+
+```sh
+node src/verify-public-target.mjs
+```
+
+The target has no registration, write route, analytics or visitor persistence.
+Publication is not part of repository checks and requires an owner-authorized,
+disposable Vercel account and isolated laboratory domain. See the target README for
+the deployment safety boundary.
+
 ## Autonomous execution
 
 The reviewed operational contract, controls and user-service examples for João are

@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation, executable benchmark manifest and controlled static code corpus created. No public deployment, Supabase project or real benchmark result exists yet.
+Repository foundation, executable manifests, controlled static code corpus and controlled public vibe-coding target sources created. No public deployment, Supabase project or real benchmark result exists yet.
 
 ## Current work
 
-Issue #7 provides the reviewed autonomous batch runner, private recovery state, controls and user-service examples. Unit installation remains an explicit owner action after branch review.
+Issue #3 provides four digest-pinned public target states with independent local HTTP and DOM assertions. Publication remains an explicit owner action requiring disposable Vercel resources and an isolated laboratory domain.
 
 ## Constraints
 
