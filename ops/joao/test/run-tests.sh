@@ -401,6 +401,36 @@ test_blocked_issue_does_not_stop_independent_delivery() (
   assert_equal " 5" "$PROCESSED" "Codex skips blocked Issue"
 )
 
+test_blocked_delivery_with_commit_is_preserved_and_suspended() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 4
+  issue_operational_state() { printf 'blocked'; }
+  validate_worktree() { return 0; }
+  blocked_git() {
+    case "$*" in
+      *"status --porcelain"*) ;;
+      *"rev-parse HEAD"*) printf '%040d\n' 1 ;;
+    esac
+  }
+  GIT_BIN=blocked_git
+  set +e
+  accept_blocked 4 "$(read_state worktree)" "$(read_state branch)" 1 >/dev/null 2>&1
+  result=$?
+  set -e
+  [[ $result -ne 0 ]]
+  [[ -f $(state_file suspended) ]]
+  assert_equal 4 "$(read_state current_issue)" "changed blocked Issue retains ownership"
+  assert_equal 1 "$(read_state next)" "changed blocked Issue retains the cursor"
+  [[ ! -s $(state_file not_delivered) ]]
+)
+
+test_prompt_requires_external_preconditions_before_editing() {
+  grep -Fq 'Before the first worktree change' "$ROOT/ops/joao/PROMPT.md"
+  grep -Fq 'Never implement partially' "$ROOT/ops/joao/PROMPT.md"
+  grep -Fq 'do not edit files, commit or push' "$ROOT/ops/joao/PROMPT.md"
+}
+
 test_conflicting_labels_and_closed_issue_are_rejected() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -680,6 +710,8 @@ test_validating_crash_recovery_skips_codex
 test_issue_boundary_recovery_is_idempotent
 test_recorded_cursor_after_cleanup_skips_validation
 test_blocked_issue_does_not_stop_independent_delivery
+test_blocked_delivery_with_commit_is_preserved_and_suspended
+test_prompt_requires_external_preconditions_before_editing
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
 test_batch_fetch_records_an_exact_remote_tracking_ref

@@ -491,13 +491,16 @@ accept_blocked() {
   [[ $(issue_operational_state "$issue") == blocked ]] || return 1
   validate_worktree "$branch" "$worktree" "$(read_state base_sha)" || return 1
   [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || {
-    fail "blocked Issue #$issue left worktree changes"
+    suspend "blocked Issue #$issue changed the worktree; work was preserved and requires owner replanning"
     return 1
   }
   issue_base_sha=$(read_state issue_base_sha)
   [[ $issue_base_sha =~ ^[a-f0-9]{40}$ ]] || suspend "saved Issue base revision is invalid"
   head=$($GIT_BIN -C "$worktree" rev-parse HEAD)
-  [[ $head == "$issue_base_sha" ]] || { fail "blocked Issue #$issue changed HEAD"; return 1; }
+  [[ $head == "$issue_base_sha" ]] || {
+    suspend "blocked Issue #$issue created a commit; work was preserved and requires owner replanning"
+    return 1
+  }
   advance_issue "$issue" not_delivered "$next"
 }
 
