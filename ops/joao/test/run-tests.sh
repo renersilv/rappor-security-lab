@@ -157,6 +157,35 @@ test_doing_uniqueness() (
   assert_equal 1 "$(read_state next)" "uniqueness failure preserves cursor"
 )
 
+test_label_listing_uses_direct_api() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  api_gh() {
+    printf '%s\n' "$*" > "$TEST_SANDBOX/gh-arguments"
+    printf '3\n'
+  }
+  GH_BIN=api_gh
+  assert_equal 3 "$(list_open_with_label doing)" "direct API returns the matching Issue"
+  grep -Fq 'api --method GET --paginate repos/renersilv/rappor-security-lab/issues -f state=open -f labels=doing -f per_page=100' "$TEST_SANDBOX/gh-arguments"
+)
+
+test_doing_transition_tolerates_delayed_listing() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  printf '0\n' > "$TEST_SANDBOX/list-attempt"
+  STATE_SETTLE_ATTEMPTS=3
+  STATE_SETTLE_DELAY_SECONDS=0
+  list_open_with_label() {
+    local attempt
+    attempt=$(<"$TEST_SANDBOX/list-attempt")
+    attempt=$((attempt + 1))
+    printf '%s\n' "$attempt" > "$TEST_SANDBOX/list-attempt"
+    (( attempt < 3 )) || printf '8\n'
+  }
+  wait_for_doing_state 8
+  assert_equal 3 "$(<"$TEST_SANDBOX/list-attempt")" "doing transition waits for the authoritative label listing"
+)
+
 test_timeout_preserves_resume() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -605,6 +634,8 @@ test_fixed_batch_and_delivery
 test_owner_or_explicit_approval
 test_session_resume
 test_doing_uniqueness
+test_label_listing_uses_direct_api
+test_doing_transition_tolerates_delayed_listing
 test_timeout_preserves_resume
 test_codex_session_and_parameters
 test_reboot_recovers_surviving_jsonl

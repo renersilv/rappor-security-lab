@@ -9,6 +9,8 @@ OWNER_LOGIN=renersilv
 MODEL=gpt-5.6-sol
 REASONING_EFFORT=xhigh
 ISSUE_TIMEOUT=3h
+STATE_SETTLE_ATTEMPTS=${JOAO_STATE_SETTLE_ATTEMPTS:-6}
+STATE_SETTLE_DELAY_SECONDS=${JOAO_STATE_SETTLE_DELAY_SECONDS:-2}
 STATE_ROOT=${JOAO_STATE_ROOT:-${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao}
 RUNTIME_TMP="$STATE_ROOT/tmp"
 export TMPDIR="$RUNTIME_TMP"
@@ -110,6 +112,8 @@ preflight() {
   for command_name in "$GH_BIN" "$GIT_BIN" "$CODEX_BIN" "$TIMEOUT_BIN" "$NODE_BIN" "$NPM_BIN" flock; do
     require_command "$command_name"
   done
+  [[ $STATE_SETTLE_ATTEMPTS =~ ^[1-9][0-9]*$ ]] || fail "state settle attempts must be a positive integer"
+  [[ $STATE_SETTLE_DELAY_SECONDS =~ ^[0-9]+$ ]] || fail "state settle delay must be a non-negative integer"
   root=$($GIT_BIN -C "$REPOSITORY_PATH" rev-parse --show-toplevel)
   [[ $root == "$REPOSITORY_PATH" ]] || fail "repository path does not match its Git root"
   validate_origin_urls
@@ -125,8 +129,24 @@ preflight() {
 
 list_open_with_label() {
   local label=$1
-  $GH_BIN issue list --repo "$REPOSITORY_SLUG" --state open --label "$label" --limit 100 \
-    --json number --jq '.[].number'
+  $GH_BIN api --method GET --paginate "repos/$REPOSITORY_SLUG/issues" \
+    -f state=open -f labels="$label" -f per_page=100 \
+    --jq '.[] | select(.pull_request == null) | .number'
+}
+
+wait_for_doing_state() {
+  local expected=${1:-} attempt
+  for ((attempt = 1; attempt <= STATE_SETTLE_ATTEMPTS; attempt++)); do
+    mapfile -t doing_issues < <(list_open_with_label doing)
+    if [[ -z $expected && ${#doing_issues[@]} == 0 ]]; then
+      return 0
+    fi
+    if [[ -n $expected && ${#doing_issues[@]} == 1 && ${doing_issues[0]} == "$expected" ]]; then
+      return 0
+    fi
+    (( attempt == STATE_SETTLE_ATTEMPTS )) || sleep "$STATE_SETTLE_DELAY_SECONDS"
+  done
+  return 1
 }
 
 issue_operational_state() {
@@ -517,8 +537,7 @@ execute_issues() {
       (( doing_count == 0 )) || suspend "another Issue is already in doing"
       $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label to-do --add-label doing >/dev/null
       [[ $(issue_operational_state "$issue") == doing ]] || suspend "Issue #$issue did not enter doing exclusively"
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      if (( ${#doing_issues[@]} != 1 )) || [[ ${doing_issues[0]} != "$issue" ]]; then
+      if ! wait_for_doing_state "$issue"; then
         suspend "doing uniqueness changed while starting Issue #$issue"
       fi
     elif [[ $operational == doing ]]; then
@@ -532,13 +551,11 @@ execute_issues() {
     run_codex "$issue" "$worktree" "$branch" || return $?
     operational=$(issue_operational_state "$issue") || suspend "Issue #$issue delivery state is invalid"
     if [[ $operational == validating ]]; then
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      (( ${#doing_issues[@]} == 0 )) || suspend "doing remained after Issue #$issue delivery"
+      wait_for_doing_state || suspend "doing remained after Issue #$issue delivery"
       verify_delivery "$issue" "$worktree" "$branch"
       advance_issue "$issue" delivered "$next"
     elif [[ $operational == blocked ]]; then
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      (( ${#doing_issues[@]} == 0 )) || suspend "doing remained after Issue #$issue blocking"
+      wait_for_doing_state || suspend "doing remained after Issue #$issue blocking"
       accept_blocked "$issue" "$worktree" "$branch" "$next"
     elif [[ $operational == doing ]]; then
       fail "Issue #$issue returned without delivery and remains doing"
