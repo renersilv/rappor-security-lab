@@ -64,8 +64,8 @@ marker and starts the service; it does not erase the fixed batch.
 
 The versioned user units assume the repository is checked out at
 `$HOME/rappor-security-lab`. Installation is intentionally a separate owner action.
-The service fixes a closed executable `PATH`, applies process hardening and runs
-the preflight as `ExecStartPre` in the same environment as each cycle. With the
+The service fixes a closed executable `PATH`, applies hardening supported by the
+unprivileged user manager and runs the preflight as `ExecStartPre` in the same environment as each cycle. With the
 timer stopped, review and run:
 
 ```sh
