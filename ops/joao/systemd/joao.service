@@ -1,0 +1,15 @@
+[Unit]
+Description=Rappor Security laboratory autonomous João cycle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/rappor-security-lab
+ExecStart=%h/rappor-security-lab/ops/joao/run.sh cycle
+EnvironmentFile=-%h/.config/rappor-security-lab/joao.env
+TimeoutStartSec=infinity
+UMask=0077
+
+[Install]
+WantedBy=default.target

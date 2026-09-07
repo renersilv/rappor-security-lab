@@ -59,3 +59,9 @@ npm run check
 and content digests referenced by the benchmark manifest. These fixtures are for
 static scanning only. Do not build, run or publish the Kubernetes manifests as a
 service.
+
+## Autonomous execution
+
+The reviewed operational contract, controls and user-service examples for João are
+documented in [`ops/joao/README.md`](ops/joao/README.md). Installation is an
+explicit owner action; repository checks do not install or start the units.

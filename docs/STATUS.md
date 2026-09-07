@@ -6,7 +6,7 @@ Repository foundation, executable benchmark manifest and controlled static code 
 
 ## Current work
 
-Issue #2 provides deterministic Semgrep, Gitleaks and Trivy fixtures across the vulnerable, partially fixed, fixed and reintroduced states.
+Issue #7 provides the reviewed autonomous batch runner, private recovery state, controls and user-service examples. Unit installation remains an explicit owner action after branch review.
 
 ## Constraints
 
