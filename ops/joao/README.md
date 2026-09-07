@@ -16,7 +16,8 @@ and worktree are created from `origin/main`. Codex runs as `gpt-5.6-sol` with
 `xhigh` reasoning, one Issue at a time, and has three hours per Issue. A timeout
 keeps the Issue in `doing`, retains its JSONL events, session and worktree, and
 resumes on the next cycle. A crash after delivery recognizes the exclusive
-`validating` state and advances without rerunning Codex. A legitimate `blocked`
+`validating` state and advances without rerunning Codex. Batch publication and
+per-Issue outcome/cursor transitions are crash-idempotent. A legitimate `blocked`
 Issue advances only when its worktree is clean and unchanged, so independent batch
 items continue. Correctable operational errors do not become `blocked`.
 
@@ -33,16 +34,19 @@ Private state is stored below
 `${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao` with mode `0700`.
 It contains only the batch, delivered and non-delivered lists, branch, base and
 delivered revisions, worktree, cursor, current Issue, phase and Codex session needed
-for recovery. The runner uses separate run and main integration locks and shares no
-path with Raimundo. Existing worktrees must match the exact root, Git common
-directory, branch and saved base ancestry before use.
+for recovery. The runner's state, worktree and locks are distinct from Raimundo's.
+Existing worktrees must match the exact root, Git common directory, branch and saved
+base ancestry before use. This logical separation is not a physical security
+boundary: Codex uses the operator's existing `CODEX_HOME` authentication and session
+store.
 
 Every fetch and push URL configured for `origin` must resolve exactly to
 `renersilv/rappor-security-lab`. This prevents repository confusion, but `gh` still
 uses the operator's existing credential. That credential is a residual operational
 risk: the wrapper does not create or store a replacement credential, validates the
 repository slug strictly, and the versioned prompt explicitly prohibits access to
-the product repository.
+the product repository. The existing Codex and GitHub credentials therefore remain
+residual risks rather than physically isolated capabilities.
 
 ## Control
 
@@ -87,6 +91,7 @@ The deterministic test harness replaces GitHub, Codex, timeout and integration
 effects with local functions. It covers closed-batch capture, owner approval,
 reboot/session recovery, timeout artifacts, validating recovery, blocked
 continuation, conflicting labels, repository URL rejection, stale worktrees,
+atomic capture recovery, Issue-boundary recovery, staged merge recovery,
 delivered-head preservation, wrapper-only integration, leased branch deletion,
 final states, real lock contention and sanitized controls.
 

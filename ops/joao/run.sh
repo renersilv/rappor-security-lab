@@ -171,7 +171,7 @@ suspend() {
 }
 
 capture_batch() {
-  local doing_count issue first last stamp branch worktree base_sha
+  local doing_count issue first last stamp branch worktree base_sha pending
   mapfile -t doing_issues < <(list_open_with_label doing)
   doing_count=${#doing_issues[@]}
   if (( doing_count > 1 )); then
@@ -183,23 +183,24 @@ capture_batch() {
     return 1
   fi
 
-  : > "$(state_file batch)"
-  chmod 600 "$(state_file batch)"
+  pending=$(state_file batch.pending)
+  : > "$pending"
+  chmod 600 "$pending"
   while IFS= read -r issue; do
     safe_issue "$issue" || continue
     if issue_is_eligible "$issue"; then
-      printf '%s\n' "$issue" >> "$(state_file batch)"
+      printf '%s\n' "$issue" >> "$pending"
     fi
   done < <(list_open_with_label to-do | sort -n)
 
-  if [[ ! -s $(state_file batch) ]]; then
-    clear_state_file batch
+  if [[ ! -s $pending ]]; then
+    clear_state_file batch.pending
     log "no eligible work"
     return 2
   fi
 
-  first=$(head -n 1 "$(state_file batch)")
-  last=$(tail -n 1 "$(state_file batch)")
+  first=$(head -n 1 "$pending")
+  last=$(tail -n 1 "$pending")
   stamp=${JOAO_BATCH_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
   branch="joao/batch-$stamp-$first-$last"
   safe_branch "$branch" || suspend "generated branch name is invalid"
@@ -213,8 +214,50 @@ capture_batch() {
   : > "$(state_file delivered)"
   : > "$(state_file not_delivered)"
   chmod 600 "$(state_file delivered)" "$(state_file not_delivered)"
+  mv -f -- "$pending" "$(state_file batch)"
   mkdir -p -- "$(dirname -- "$worktree")"
   ensure_worktree
+}
+
+recover_incomplete_capture() {
+  local branch worktree base_sha next phase name worktree_list
+  [[ ! -e $(state_file batch) ]] || { suspend "cannot recover capture while a batch exists"; return 1; }
+  branch=$(read_state branch)
+  worktree=$(read_state worktree)
+  base_sha=$(read_state base_sha)
+  next=$(read_state next)
+  phase=$(read_state phase)
+
+  [[ -z $branch ]] || safe_branch "$branch" || { suspend "incomplete capture has an invalid branch"; return 1; }
+  if [[ -n $worktree ]]; then
+    if [[ -z $branch ]] || ! safe_worktree "$branch" "$worktree"; then
+      suspend "incomplete capture has an invalid worktree path"
+      return 1
+    fi
+    worktree_list=$($GIT_BIN -C "$REPOSITORY_PATH" worktree list --porcelain) || {
+      suspend "could not validate incomplete capture worktrees"
+      return 1
+    }
+    if [[ -e $worktree ]] || grep -Fxq "worktree $worktree" <<< "$worktree_list"; then
+      suspend "incomplete capture unexpectedly has a worktree"
+      return 1
+    fi
+  fi
+  [[ -z $base_sha || $base_sha =~ ^[a-f0-9]{40}$ ]] || {
+    suspend "incomplete capture has an invalid base revision"
+    return 1
+  }
+  [[ -z $next || $next == 1 ]] || { suspend "incomplete capture has an invalid cursor"; return 1; }
+  [[ -z $phase || $phase == setup ]] || { suspend "batch-less state has an invalid phase"; return 1; }
+  for name in delivered not_delivered; do
+    [[ ! -s $(state_file "$name") ]] || { suspend "incomplete capture contains outcomes"; return 1; }
+  done
+  for name in current_issue issue_base_sha session delivered_head integrated_head resolver_remote_head; do
+    [[ ! -e $(state_file "$name") ]] || { suspend "incomplete capture contains item or integration state"; return 1; }
+  done
+  for name in batch.pending delivered not_delivered branch worktree base_sha next phase; do
+    clear_state_file "$name"
+  done
 }
 
 ensure_worktree() {
@@ -344,11 +387,54 @@ append_unique_state() {
   grep -Fxq "$issue" "$path" || printf '%s\n' "$issue" >> "$path"
 }
 
+recorded_outcome() {
+  local issue=$1 delivered_match=0 not_delivered_match=0
+  if [[ -f $(state_file delivered) ]] && grep -Fxq "$issue" "$(state_file delivered)"; then
+    delivered_match=1
+  fi
+  if [[ -f $(state_file not_delivered) ]] && grep -Fxq "$issue" "$(state_file not_delivered)"; then
+    not_delivered_match=1
+  fi
+  if (( delivered_match + not_delivered_match > 1 )); then
+    suspend "Issue #$issue appears in conflicting private outcome lists"
+    return 1
+  fi
+  (( delivered_match == 0 )) || { printf 'delivered'; return 0; }
+  (( not_delivered_match == 0 )) || { printf 'not_delivered'; return 0; }
+}
+
 clear_item_state() {
   local name
   for name in session current_issue issue_base_sha issue-prompt.md codex-events.jsonl codex-errors.log; do
     clear_state_file "$name"
   done
+}
+
+reconcile_stale_item() {
+  local cursor_issue=$1 next=$2 saved_issue saved_line outcome name
+  saved_issue=$(read_state current_issue)
+  if [[ -z $saved_issue ]]; then
+    for name in session issue_base_sha issue-prompt.md codex-events.jsonl codex-errors.log; do
+      if [[ -e $(state_file "$name") ]]; then
+        suspend "orphaned item state has no owning Issue"
+        return 1
+      fi
+    done
+    return 0
+  fi
+  safe_issue "$saved_issue" || { suspend "saved stale Issue is invalid"; return 1; }
+  saved_line=$(grep -n -m 1 -Fx "$saved_issue" "$(state_file batch)" | cut -d: -f1 || true)
+  [[ $saved_line =~ ^[1-9][0-9]*$ && $saved_line -le $next ]] || {
+    suspend "stale item state does not belong to the completed cursor"
+    return 1
+  }
+  outcome=$(recorded_outcome "$saved_issue") || return 1
+  [[ -n $outcome ]] || {
+    [[ $saved_issue == "$cursor_issue" ]] && return 0
+    suspend "stale previous Issue has no recorded outcome"
+    return 1
+  }
+  clear_item_state
 }
 
 advance_issue() {
@@ -374,7 +460,7 @@ accept_blocked() {
 }
 
 execute_issues() {
-  local branch worktree next total issue doing_count operational
+  local branch worktree next total issue doing_count operational outcome
   branch=$(read_state branch)
   worktree=$(read_state worktree)
   safe_branch "$branch" || suspend "saved branch is invalid"
@@ -387,6 +473,18 @@ execute_issues() {
   while (( next <= total )); do
     issue=$(sed -n "${next}p" "$(state_file batch)")
     safe_issue "$issue" || suspend "saved Issue is invalid"
+    outcome=$(recorded_outcome "$issue") || return 1
+    if [[ -n $outcome ]]; then
+      if [[ -n $(read_state current_issue) ]]; then
+        reconcile_stale_item "$issue" "$next" || return 1
+      else
+        clear_item_state
+      fi
+      next=$((next + 1))
+      write_state next "$next"
+      continue
+    fi
+    reconcile_stale_item "$issue" "$next" || return 1
     write_state current_issue "$issue"
     if [[ ! -f $(state_file issue_base_sha) ]]; then
       write_state issue_base_sha "$($GIT_BIN -C "$worktree" rev-parse HEAD)"
@@ -477,7 +575,7 @@ require_delivered_states() {
 
 clear_batch_state() {
   local name
-  for name in batch delivered not_delivered branch worktree base_sha next phase current_issue \
+  for name in batch batch.pending delivered not_delivered branch worktree base_sha next phase current_issue \
     issue_base_sha session suspended delivered_head integrated_head resolver_remote_head \
     issue-prompt.md codex-events.jsonl codex-errors.log integration-prompt.md \
     integration-events.jsonl integration-errors.log; do
@@ -584,7 +682,8 @@ integrate_batch() {
     return 1
   }
 
-  if [[ -n $($GIT_BIN -C "$worktree" diff --name-only --diff-filter=U) ]]; then
+  if $GIT_BIN -C "$worktree" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 ||
+    [[ -n $($GIT_BIN -C "$worktree" diff --name-only --diff-filter=U) ]]; then
     if [[ -n $(read_state resolver_remote_head) ]]; then
       [[ $(read_state resolver_remote_head) == "$remote_before" ]] || {
         fail "remote batch head changed during interrupted conflict recovery"
@@ -596,12 +695,16 @@ integrate_batch() {
     resolve_conflict "$worktree" "$branch" || return $?
   else
     [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || { fail "integration worktree is not clean"; return 1; }
+    write_state resolver_remote_head "$remote_before"
     if ! $GIT_BIN -C "$worktree" merge --no-edit "origin/$MAIN_BRANCH"; then
-      write_state resolver_remote_head "$remote_before"
       resolve_conflict "$worktree" "$branch" || return $?
     fi
   fi
 
+  if $GIT_BIN -C "$worktree" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    fail "conflict resolver left the merge unfinished"
+    return 1
+  fi
   $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
   remote_after=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
   [[ $remote_after == "$remote_before" ]] || { fail "remote batch head changed during conflict recovery"; return 1; }
@@ -643,12 +746,17 @@ run_cycle() {
   [[ ! -f $(state_file suspended) ]] || fail "execution is suspended; use control.sh resume"
   preflight
   if [[ ! -f $(state_file batch) ]]; then
+    recover_incomplete_capture || return $?
     capture_batch || {
       local capture_exit=$?
       (( capture_exit == 2 )) && return 0
       return "$capture_exit"
     }
   fi
+  case $(read_state phase) in
+    setup|issues|integration|finalization) ;;
+    *) suspend "saved batch has an invalid phase"; return 1 ;;
+  esac
   if [[ $(read_state phase) == setup ]]; then
     ensure_worktree
   fi

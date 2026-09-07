@@ -55,6 +55,8 @@ test_fixed_batch_and_delivery() (
     elif [[ $* == *"show-ref --verify"* ]]; then
       return 1
     elif [[ $* == *"worktree add"* ]]; then
+      [[ -f $(state_file batch) ]]
+      assert_equal setup "$(read_state phase)" "batch is published only after setup state"
       mkdir -p "$(read_state worktree)"
     fi
   }
@@ -115,6 +117,7 @@ prepare_resumable_issue() {
   write_state worktree "$worktree"
   write_state base_sha 0000000000000000000000000000000000000000
   write_state issue_base_sha 0000000000000000000000000000000000000000
+  write_state current_issue "$issue"
   write_state next 1
   write_state phase issues
   mkdir -p "$worktree"
@@ -265,6 +268,62 @@ test_validating_crash_recovery_skips_codex() (
   assert_equal integration "$(read_state phase)" "validating crash recovery advances"
 )
 
+test_issue_boundary_recovery_is_idempotent() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  branch=joao/batch-20260907T000000Z-10-11
+  worktree="$JOAO_STATE_ROOT/worktrees/${branch//\//-}"
+  printf '10\n11\n' > "$(state_file batch)"
+  printf '10\n' > "$(state_file delivered)"
+  : > "$(state_file not_delivered)"
+  write_state branch "$branch"
+  write_state worktree "$worktree"
+  write_state base_sha 0000000000000000000000000000000000000000
+  write_state next 2
+  write_state phase issues
+  write_state current_issue 10
+  write_state issue_base_sha 1111111111111111111111111111111111111111
+  write_state session 11111111-1111-1111-1111-111111111111
+  mkdir -p "$worktree"
+  OP_STATE=validating
+  VERIFY_COUNT=0
+  CODEX_COUNT=0
+  issue_operational_state() { printf '%s' "$OP_STATE"; }
+  list_open_with_label() { return 0; }
+  verify_delivery() { VERIFY_COUNT=$((VERIFY_COUNT + 1)); }
+  run_codex() { CODEX_COUNT=$((CODEX_COUNT + 1)); }
+  boundary_git() {
+    [[ $* != *"rev-parse HEAD"* ]] || printf '2222222222222222222222222222222222222222\n'
+  }
+  GIT_BIN=boundary_git
+  execute_issues
+  assert_equal 1 "$VERIFY_COUNT" "only the unrecorded cursor Issue is verified"
+  assert_equal 0 "$CODEX_COUNT" "recorded and validating Issues do not rerun Codex"
+  assert_equal $'10\n11' "$(cat "$(state_file delivered)")" "boundary recovery appends once"
+  [[ ! -e $(state_file current_issue) ]]
+  [[ ! -e $(state_file issue_base_sha) ]]
+  assert_equal 3 "$(read_state next)" "boundary recovery advances the cursor once"
+)
+
+test_recorded_cursor_after_cleanup_skips_validation() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 12
+  printf '12\n' > "$(state_file delivered)"
+  : > "$(state_file not_delivered)"
+  clear_item_state
+  write_state issue_base_sha 1111111111111111111111111111111111111111
+  write_state session 11111111-1111-1111-1111-111111111111
+  issue_operational_state() { printf 'not ok - recorded cursor was revalidated\n' >&2; return 1; }
+  list_open_with_label() { return 0; }
+  run_codex() { printf 'not ok - recorded cursor reran Codex\n' >&2; return 1; }
+  execute_issues
+  [[ ! -e $(state_file issue_base_sha) ]]
+  [[ ! -e $(state_file session) ]]
+  assert_equal 2 "$(read_state next)" "post-cleanup crash advances the cursor once"
+  assert_equal integration "$(read_state phase)" "post-cleanup crash completes issue phase"
+)
+
 test_blocked_issue_does_not_stop_independent_delivery() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -277,6 +336,7 @@ test_blocked_issue_does_not_stop_independent_delivery() (
   write_state worktree "$worktree"
   write_state base_sha 0000000000000000000000000000000000000000
   write_state issue_base_sha 0000000000000000000000000000000000000000
+  write_state current_issue 4
   write_state next 1
   write_state phase issues
   mkdir -p "$worktree"
@@ -382,6 +442,7 @@ test_wrapper_integration_and_final_states() (
   integrated_sha=2222222222222222222222222222222222222222
   HEAD_SHA=$delivered_sha
   REMOTE_SHA=$delivered_sha
+  MERGE_ACTIVE=1
   declare -A OPS=([2]=validating [3]=validating [4]=blocked)
   preflight() { return 0; }
   validate_worktree() { return 0; }
@@ -393,8 +454,12 @@ test_wrapper_integration_and_final_states() (
       *"rev-parse HEAD"*) printf '%s\n' "$HEAD_SHA" ;;
       *"rev-parse origin/$branch"*) printf '%s\n' "$REMOTE_SHA" ;;
       *"rev-parse origin/main"*) printf '%s\n' "$integrated_sha" ;;
+      *"rev-parse -q --verify MERGE_HEAD"*)
+        (( MERGE_ACTIVE == 1 )) && return 0
+        return 1
+        ;;
       *"ls-remote --exit-code --heads origin refs/heads/$branch"*) printf '%s\trefs/heads/%s\n' "$integrated_sha" "$branch" ;;
-      *"merge --no-edit origin/main"*) return 1 ;;
+      *"merge --no-edit origin/main"*) printf 'not ok - active staged merge was restarted\n' >&2; return 1 ;;
       *"push origin $branch"*) REMOTE_SHA=$integrated_sha ;;
     esac
     return 0
@@ -404,6 +469,7 @@ test_wrapper_integration_and_final_states() (
     assert_equal "$delivered_sha" "$(read_state delivered_head)" "delivered head survives conflict recovery"
     assert_equal "$delivered_sha" "$(read_state resolver_remote_head)" "resolver pins the remote batch head"
     HEAD_SHA=$integrated_sha
+    MERGE_ACTIVE=0
   }
   mock_gh() {
     if [[ $* == *"--add-label done"* ]]; then
@@ -421,6 +487,50 @@ test_wrapper_integration_and_final_states() (
   [[ $(cat "$TEST_SANDBOX/git.log") == *"merge-base --is-ancestor $delivered_sha HEAD"* ]]
   [[ $(cat "$TEST_SANDBOX/git.log") == *"--force-with-lease=refs/heads/$branch:$integrated_sha origin --delete $branch"* ]]
   [[ ! -e $(state_file batch) ]]
+)
+
+test_capture_crash_is_recovered_before_recapture() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  branch=joao/batch-20260907T000000Z-2-3
+  worktree="$JOAO_STATE_ROOT/worktrees/${branch//\//-}"
+  printf '2\n3\n' > "$(state_file batch.pending)"
+  write_state branch "$branch"
+  write_state worktree "$worktree"
+  write_state base_sha 0000000000000000000000000000000000000000
+  write_state next 1
+  write_state phase setup
+  : > "$(state_file delivered)"
+  : > "$(state_file not_delivered)"
+  capture_git() {
+    [[ $* != *"worktree list --porcelain"* ]] || return 0
+  }
+  GIT_BIN=capture_git
+  preflight() { return 0; }
+  capture_batch() {
+    for name in batch.pending branch worktree base_sha next phase delivered not_delivered; do
+      [[ ! -e $(state_file "$name") ]]
+    done
+    printf '7\n' > "$(state_file batch)"
+    write_state phase finalization
+  }
+  finalize_batch() { write_state recaptured true; }
+  run_cycle
+  assert_equal true "$(read_state recaptured)" "batch-less capture state is cleared before recapture"
+)
+
+test_invalid_phase_with_published_batch_suspends() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  printf '7\n' > "$(state_file batch)"
+  write_state phase corrupt
+  preflight() { return 0; }
+  set +e
+  run_cycle >/dev/null 2>&1
+  result=$?
+  set -e
+  [[ $result -ne 0 ]]
+  [[ -f $(state_file suspended) ]]
 )
 
 test_returned_delivery_is_not_finalized() (
@@ -491,11 +601,15 @@ test_codex_session_and_parameters
 test_reboot_recovers_surviving_jsonl
 test_timeout_preserves_jsonl_and_session
 test_validating_crash_recovery_skips_codex
+test_issue_boundary_recovery_is_idempotent
+test_recorded_cursor_after_cleanup_skips_validation
 test_blocked_issue_does_not_stop_independent_delivery
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
 test_stale_worktree_is_rejected
 test_wrapper_integration_and_final_states
+test_capture_crash_is_recovered_before_recapture
+test_invalid_phase_with_published_batch_suspends
 test_returned_delivery_is_not_finalized
 test_service_uses_closed_path_and_preflight
 test_control_status_and_resume
