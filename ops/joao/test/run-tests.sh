@@ -228,6 +228,8 @@ test_codex_session_and_parameters() (
   run_codex 7 "$worktree" "$branch"
   [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec -C $worktree -m gpt-5.6-sol"* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") == *'model_reasoning_effort="xhigh"'* ]]
+  [[ $(cat "$TEST_SANDBOX/codex.log") == *"--approve-for-me --json -"* ]]
+  [[ $(cat "$TEST_SANDBOX/codex.log") != *"--sandbox"* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec resume -m gpt-5.6-sol"* ]]
   assert_equal $'--signal=TERM --kill-after=30s 3h\n--signal=TERM --kill-after=30s 3h' \
     "$(cat "$TEST_SANDBOX/timeout.log")" "timeout is applied per new and resumed execution"

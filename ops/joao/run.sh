@@ -367,7 +367,7 @@ run_codex() {
     JOAO_ISSUE_NUMBER=$issue JOAO_BATCH_BRANCH=$branch \
       "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$ISSUE_TIMEOUT" \
       "$CODEX_BIN" exec -C "$worktree" -m "$MODEL" -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-      --sandbox workspace-write --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
+      --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
     extracted=$(extract_session "$events")
     if [[ -n $extracted ]]; then
       safe_session "$extracted" || suspend "new Codex session is invalid"
@@ -580,7 +580,7 @@ resolve_conflict() {
   chmod 600 "$prompt"
   "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$ISSUE_TIMEOUT" \
     "$CODEX_BIN" exec -C "$worktree" -m "$MODEL" -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-    --sandbox workspace-write --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
+    --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
   clear_state_file integration-prompt.md
   clear_state_file integration-events.jsonl
   clear_state_file integration-errors.log
