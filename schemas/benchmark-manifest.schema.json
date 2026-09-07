@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/benchmark-manifest.schema.json",
+  "title": "Rappor Security benchmark manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["benchmarkVersion", "targets", "cases"],
+  "properties": {
+    "benchmarkVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    },
+    "exampleRun": { "$ref": "#/$defs/run" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "control", "layer", "revision"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "control": { "enum": ["controlled", "external"] },
+        "layer": { "enum": ["code", "public", "connected"] },
+        "revision": { "type": "string", "minLength": 1 }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "targetId",
+        "targetRevision",
+        "state",
+        "scanner",
+        "capability",
+        "ruleFamily",
+        "expectedPresence",
+        "expectedSeverity",
+        "groupingKey",
+        "safeEvidence",
+        "fixedCaseId",
+        "functionalAssertion",
+        "scannerProfile",
+        "rulesetDigest"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "targetId": { "$ref": "#/$defs/identifier" },
+        "targetRevision": { "type": "string", "minLength": 1 },
+        "state": {
+          "enum": ["vulnerable", "partially-fixed", "fixed", "reintroduced"]
+        },
+        "scanner": { "enum": ["semgrep", "gitleaks", "trivy", "public-scan", "connected-scan"] },
+        "capability": { "type": "string", "minLength": 1 },
+        "ruleFamily": { "type": "string", "minLength": 1 },
+        "expectedPresence": { "type": "boolean" },
+        "expectedSeverity": {
+          "oneOf": [
+            { "enum": ["info", "low", "medium", "high", "critical"] },
+            { "type": "null" }
+          ]
+        },
+        "groupingKey": {
+          "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+        },
+        "safeEvidence": { "type": "string", "minLength": 1 },
+        "fixedCaseId": { "$ref": "#/$defs/identifier" },
+        "functionalAssertion": { "type": "string", "minLength": 1 },
+        "scannerProfile": { "type": "string", "minLength": 1 },
+        "rulesetDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "present"],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/identifier" },
+        "present": { "type": "boolean" },
+        "evidence": { "type": "string" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observations"],
+      "properties": {
+        "status": { "enum": ["completed", "partial", "failed"] },
+        "observations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/observation" }
+        }
+      }
+    }
+  }
+}

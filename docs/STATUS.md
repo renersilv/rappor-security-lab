@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation created. No vulnerable application, public deployment, Supabase project or benchmark result exists yet.
+Repository foundation and executable benchmark manifest created. No vulnerable application, public deployment, Supabase project or real benchmark result exists yet.
 
 ## Current work
 
-No Issue is in implementation. João must start with the oldest approved open Issue carrying `to-do`.
+Issue #1 provides the versioned manifest schema, minimum confidence matrix and sanitized comparator.
 
 ## Constraints
 
@@ -15,4 +15,3 @@ No Issue is in implementation. João must start with the oldest approved open Is
 - No active testing of third-party targets.
 - No deterministic expectation based on a moving external target.
 - No GitHub Actions until explicitly authorized.
-
