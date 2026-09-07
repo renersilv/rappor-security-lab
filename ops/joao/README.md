@@ -35,8 +35,10 @@ Private state is stored below
 It contains only the batch, delivered and non-delivered lists, branch, base and
 delivered revisions, worktree, cursor, current Issue, phase and Codex session needed
 for recovery. The runner's state, worktree and locks are distinct from Raimundo's.
-Existing worktrees must match the exact root, Git common directory, branch and saved
-base ancestry before use. This logical separation is not a physical security
+It also exports a private `TMPDIR` below this state root so scanner and test
+processes do not depend on the machine-wide `/tmp` capacity. Existing worktrees
+must match the exact root, Git common directory, branch and saved base ancestry
+before use. This logical separation is not a physical security
 boundary: Codex uses the operator's existing `CODEX_HOME` authentication and session
 store.
 

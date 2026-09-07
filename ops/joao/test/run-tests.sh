@@ -561,6 +561,15 @@ test_service_uses_closed_path_and_preflight() (
   grep -Fxq 'ProtectSystem=full' "$service_file"
 )
 
+test_runner_uses_private_temporary_directory() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  assert_equal "$JOAO_STATE_ROOT/tmp" "$TMPDIR" "runner exports a private temporary directory"
+  prepare_private_directories
+  [[ -d $TMPDIR ]]
+  assert_equal 700 "$(stat -c '%a' "$TMPDIR")" "private temporary directory permissions"
+)
+
 test_control_status_and_resume() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -612,5 +621,6 @@ test_capture_crash_is_recovered_before_recapture
 test_invalid_phase_with_published_batch_suspends
 test_returned_delivery_is_not_finalized
 test_service_uses_closed_path_and_preflight
+test_runner_uses_private_temporary_directory
 test_control_status_and_resume
 printf 'ok - joao runner scenarios\n'

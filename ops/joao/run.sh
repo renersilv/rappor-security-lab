@@ -10,6 +10,8 @@ MODEL=gpt-5.6-sol
 REASONING_EFFORT=xhigh
 ISSUE_TIMEOUT=3h
 STATE_ROOT=${JOAO_STATE_ROOT:-${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao}
+RUNTIME_TMP="$STATE_ROOT/tmp"
+export TMPDIR="$RUNTIME_TMP"
 GH_BIN=gh
 GIT_BIN=git
 CODEX_BIN=codex
@@ -27,6 +29,11 @@ log() {
 fail() {
   log "$*" >&2
   return 1
+}
+
+prepare_private_directories() {
+  mkdir -p -- "$STATE_ROOT" "$RUNTIME_TMP"
+  chmod 700 "$STATE_ROOT" "$RUNTIME_TMP"
 }
 
 state_file() {
@@ -736,8 +743,7 @@ integrate_batch() {
 }
 
 run_cycle() {
-  mkdir -p -- "$STATE_ROOT"
-  chmod 700 "$STATE_ROOT"
+  prepare_private_directories
   exec 9> "$RUN_LOCK"
   flock -n 9 || {
     log "another run is active"
@@ -777,8 +783,7 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
       run_cycle
       ;;
     preflight)
-      mkdir -p -- "$STATE_ROOT"
-      chmod 700 "$STATE_ROOT"
+      prepare_private_directories
       preflight
       log "preflight passed"
       ;;
