@@ -25,7 +25,7 @@ status() {
   [[ ! -f $STATE_ROOT/suspended ]] || suspended_state=yes
   [[ $branch =~ ^joao/batch-[0-9TZ-]+-[0-9]+-[0-9]+$ ]] || branch=none
   [[ $issue =~ ^[1-9][0-9]*$ ]] || issue=none
-  [[ $phase == setup || $phase == issues || $phase == integration ]] || phase=idle
+  [[ $phase == setup || $phase == issues || $phase == integration || $phase == finalization ]] || phase=idle
   printf 'phase=%s\nbatch_size=%s\nbranch=%s\ncurrent_issue=%s\nsession_saved=%s\nsuspended=%s\n' \
     "$phase" "$batch_count" "$branch" "$issue" "$session_state" "$suspended_state"
 }
@@ -33,12 +33,13 @@ status() {
 resume() {
   mkdir -p -- "$STATE_ROOT"
   chmod 700 "$STATE_ROOT"
-  exec 9> "$STATE_ROOT/run.lock"
-  flock -n 9 || {
-    printf 'resume_failed=runner_active\n' >&2
-    return 1
-  }
-  rm -f -- "$STATE_ROOT/suspended"
+  {
+    flock -n 9 || {
+      printf 'resume_failed=runner_active\n' >&2
+      return 1
+    }
+    rm -f -- "$STATE_ROOT/suspended"
+  } 9> "$STATE_ROOT/run.lock"
   "$SYSTEMCTL_BIN" --user start joao.service
   printf 'resume_requested=yes\n'
 }

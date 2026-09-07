@@ -14,21 +14,35 @@ open `to-do` Issue in numeric order. Eligibility means the Issue was opened by
 The captured list does not change during the cycle. A private `joao/batch-*` branch
 and worktree are created from `origin/main`. Codex runs as `gpt-5.6-sol` with
 `xhigh` reasoning, one Issue at a time, and has three hours per Issue. A timeout
-keeps the Issue in `doing`, retains its session and worktree, and resumes on the
-next cycle. Correctable operational errors do not become `blocked`.
+keeps the Issue in `doing`, retains its JSONL events, session and worktree, and
+resumes on the next cycle. A crash after delivery recognizes the exclusive
+`validating` state and advances without rerunning Codex. A legitimate `blocked`
+Issue advances only when its worktree is clean and unchanged, so independent batch
+items continue. Correctable operational errors do not become `blocked`.
 
 After every Issue is delivered as `validating`, the wrapper acquires its private
 main-integration lock, incorporates current `origin/main` into the batch branch,
 resolves ordinary conflicts only in that worktree, and runs both `npm test` and
 `npm run check`. The wrapper then fast-forwards and pushes `main` without rewriting
 history. Only after that does it move the batch from `validating` to `done`; it
-never closes Issues.
+never closes Issues. Integration and finalization read only the private delivered
+list. The wrapper rejects a delivered Issue that was returned or blocked, and
+removes an integrated remote batch branch with an exact SHA lease.
 
 Private state is stored below
 `${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao` with mode `0700`.
-It contains only the batch, branch, base revision, worktree, cursor, current Issue,
-phase and Codex session needed for recovery. The runner uses separate run and main
-integration locks and shares no path with Raimundo.
+It contains only the batch, delivered and non-delivered lists, branch, base and
+delivered revisions, worktree, cursor, current Issue, phase and Codex session needed
+for recovery. The runner uses separate run and main integration locks and shares no
+path with Raimundo. Existing worktrees must match the exact root, Git common
+directory, branch and saved base ancestry before use.
+
+Every fetch and push URL configured for `origin` must resolve exactly to
+`renersilv/rappor-security-lab`. This prevents repository confusion, but `gh` still
+uses the operator's existing credential. That credential is a residual operational
+risk: the wrapper does not create or store a replacement credential, validates the
+repository slug strictly, and the versioned prompt explicitly prohibits access to
+the product repository.
 
 ## Control
 
@@ -44,7 +58,9 @@ marker and starts the service; it does not erase the fixed batch.
 
 The versioned user units assume the repository is checked out at
 `$HOME/rappor-security-lab`. Installation is intentionally a separate owner action.
-With the timer stopped, review and run:
+The service fixes a closed executable `PATH`, applies process hardening and runs
+the preflight as `ExecStartPre` in the same environment as each cycle. With the
+timer stopped, review and run:
 
 ```sh
 systemctl --user stop joao.timer
@@ -69,8 +85,10 @@ credentials or other secrets in the optional João environment file.
 
 The deterministic test harness replaces GitHub, Codex, timeout and integration
 effects with local functions. It covers closed-batch capture, owner approval,
-session resume, `doing` uniqueness, timeout preservation, delivery, wrapper-only
-integration, final states and sanitized controls.
+reboot/session recovery, timeout artifacts, validating recovery, blocked
+continuation, conflicting labels, repository URL rejection, stale worktrees,
+delivered-head preservation, wrapper-only integration, leased branch deletion,
+final states, real lock contention and sanitized controls.
 
 ```sh
 bash -n ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh

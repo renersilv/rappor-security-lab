@@ -6,10 +6,22 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=%h/rappor-security-lab
-ExecStart=%h/rappor-security-lab/ops/joao/run.sh cycle
 EnvironmentFile=-%h/.config/rappor-security-lab/joao.env
+Environment=PATH=%h/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=%h/rappor-security-lab/ops/joao/run.sh preflight
+ExecStart=%h/rappor-security-lab/ops/joao/run.sh cycle
 TimeoutStartSec=infinity
 UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=default.target
