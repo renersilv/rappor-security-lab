@@ -435,6 +435,40 @@ test_unexpected_push_url_is_rejected() (
   fi
 )
 
+test_batch_fetch_records_an_exact_remote_tracking_ref() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  remote="$TEST_SANDBOX/remote.git"
+  branch=joao/batch-20260907T000000Z-2-3
+  git init --quiet --bare "$remote"
+  git -C "$JOAO_REPOSITORY_PATH" init --quiet
+  git -C "$JOAO_REPOSITORY_PATH" config user.name "Joao Test"
+  git -C "$JOAO_REPOSITORY_PATH" config user.email "joao-test@example.invalid"
+  git -C "$JOAO_REPOSITORY_PATH" commit --quiet --allow-empty -m "test: initialize repository"
+  git -C "$JOAO_REPOSITORY_PATH" branch -M main
+  git -C "$JOAO_REPOSITORY_PATH" remote add origin "$remote"
+  git -C "$JOAO_REPOSITORY_PATH" config remote.origin.fetch \
+    '+refs/heads/main:refs/remotes/origin/main'
+  git -C "$JOAO_REPOSITORY_PATH" push --quiet origin main
+  git -C "$JOAO_REPOSITORY_PATH" switch --quiet -c "$branch"
+  git -C "$JOAO_REPOSITORY_PATH" commit --quiet --allow-empty -m "test: deliver batch"
+  expected=$(git -C "$JOAO_REPOSITORY_PATH" rev-parse HEAD)
+  git -C "$JOAO_REPOSITORY_PATH" push --quiet origin "$branch"
+  git -C "$JOAO_REPOSITORY_PATH" update-ref -d "refs/remotes/origin/$branch"
+
+  if git -C "$JOAO_REPOSITORY_PATH" show-ref --verify --quiet \
+    "refs/remotes/origin/$branch"; then
+    printf 'not ok - setup retained the batch remote-tracking ref\n' >&2
+    return 1
+  fi
+
+  fetch_batch_branch "$JOAO_REPOSITORY_PATH" "$branch"
+  actual=$(git -C "$JOAO_REPOSITORY_PATH" rev-parse --verify \
+    "refs/remotes/origin/$branch")
+  assert_equal "$expected" "$actual" \
+    "exact batch fetch records the remote-tracking ref with a main-only fetch configuration"
+)
+
 test_stale_worktree_is_rejected() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -483,7 +517,7 @@ test_wrapper_integration_and_final_states() (
       *"symbolic-ref --short HEAD"*) printf '%s\n' "$branch" ;;
       *"status --porcelain"*|*"diff --name-only --diff-filter=U"*) ;;
       *"rev-parse HEAD"*) printf '%s\n' "$HEAD_SHA" ;;
-      *"rev-parse origin/$branch"*) printf '%s\n' "$REMOTE_SHA" ;;
+      *"rev-parse --verify refs/remotes/origin/$branch"*) printf '%s\n' "$REMOTE_SHA" ;;
       *"rev-parse origin/main"*) printf '%s\n' "$integrated_sha" ;;
       *"rev-parse -q --verify MERGE_HEAD"*)
         (( MERGE_ACTIVE == 1 )) && return 0
@@ -648,6 +682,7 @@ test_recorded_cursor_after_cleanup_skips_validation
 test_blocked_issue_does_not_stop_independent_delivery
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
+test_batch_fetch_records_an_exact_remote_tracking_ref
 test_stale_worktree_is_rejected
 test_wrapper_integration_and_final_states
 test_capture_crash_is_recovered_before_recapture

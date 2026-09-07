@@ -107,6 +107,21 @@ validate_origin_urls() {
   done <<< "$urls"
 }
 
+fetch_batch_branch() {
+  local repository=$1 branch=$2 remote_ref
+  safe_branch "$branch" || { fail "batch branch is invalid"; return 1; }
+  remote_ref="refs/remotes/origin/$branch"
+  if ! $GIT_BIN -C "$repository" fetch --quiet --no-tags origin \
+    "refs/heads/$branch:$remote_ref"; then
+    fail "remote batch branch could not be fetched"
+    return 1
+  fi
+  $GIT_BIN -C "$repository" show-ref --verify --quiet "$remote_ref" || {
+    fail "remote batch branch was not recorded locally"
+    return 1
+  }
+}
+
 preflight() {
   local root branch
   for command_name in "$GH_BIN" "$GIT_BIN" "$CODEX_BIN" "$TIMEOUT_BIN" "$NODE_BIN" "$NPM_BIN" flock; do
@@ -391,8 +406,8 @@ verify_delivery() {
   validate_worktree "$branch" "$worktree" "$(read_state base_sha)" || return 1
   [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || { fail "delivered worktree is not clean"; return 1; }
   local_head=$($GIT_BIN -C "$worktree" rev-parse HEAD)
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_head=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_head=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   [[ $local_head == "$remote_head" ]] || { fail "batch branch was not pushed"; return 1; }
   base_sha=$(read_state base_sha)
   [[ $base_sha =~ ^[a-f0-9]{40}$ ]] || suspend "saved base revision is invalid"
@@ -699,8 +714,8 @@ integrate_batch() {
   actual_branch=$($GIT_BIN -C "$worktree" symbolic-ref --short HEAD)
   [[ $actual_branch == "$branch" ]] || { fail "integration worktree branch mismatch"; return 1; }
 
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_before=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_before=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   $GIT_BIN -C "$worktree" merge-base --is-ancestor "$delivered_head" "$remote_before" || {
     fail "remote batch branch lost the delivered revision"
     return 1
@@ -729,8 +744,8 @@ integrate_batch() {
     fail "conflict resolver left the merge unfinished"
     return 1
   fi
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_after=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_after=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   [[ $remote_after == "$remote_before" ]] || { fail "remote batch head changed during conflict recovery"; return 1; }
   clear_state_file resolver_remote_head
   actual_branch=$($GIT_BIN -C "$worktree" symbolic-ref --short HEAD)
