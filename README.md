@@ -38,3 +38,24 @@ node src/compare.mjs manifests/example.json run.json \
 
 Partial and failed runs are always non-clean. Controlled target discrepancies block
 the verdict; external target discrepancies remain informational.
+
+## Controlled code corpus
+
+`corpus/code` contains four static, non-deployable revisions: `vulnerable`,
+`partially-fixed`, `fixed` and `reintroduced`. Each revision has a JavaScript
+dynamic-code fixture, a Rappor-owned non-functional marker fixture and a Kubernetes
+configuration fixture. The fixed variants preserve the same deterministic
+`parseQuantity("2") === 2` assertion.
+
+The files under `scanner-profiles` pin the local Semgrep rule, Gitleaks marker rule
+and Trivy misconfiguration mode. No scanner or network access is required for the
+repository checks:
+
+```sh
+npm run check
+```
+
+`src/verify-corpus.mjs` verifies the expected signal matrix, functional assertion
+and content digests referenced by the benchmark manifest. These fixtures are for
+static scanning only. Do not build, run or publish the Kubernetes manifests as a
+service.

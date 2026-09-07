@@ -1,0 +1,5 @@
+scan:
+  scanners:
+    - misconfig
+misconfiguration:
+  include-non-failures: true

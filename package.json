@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/compare.mjs && node --test --test-isolation=none",
+    "check": "node --check src/compare.mjs && node --check src/verify-corpus.mjs && node src/verify-corpus.mjs && node --test --test-isolation=none",
     "test": "node --test --test-isolation=none"
   }
 }

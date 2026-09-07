@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation and executable benchmark manifest created. No vulnerable application, public deployment, Supabase project or real benchmark result exists yet.
+Repository foundation, executable benchmark manifest and controlled static code corpus created. No public deployment, Supabase project or real benchmark result exists yet.
 
 ## Current work
 
-Issue #1 provides the versioned manifest schema, minimum confidence matrix and sanitized comparator.
+Issue #2 provides deterministic Semgrep, Gitleaks and Trivy fixtures across the vulnerable, partially fixed, fixed and reintroduced states.
 
 ## Constraints
 

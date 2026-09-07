@@ -1,0 +1,6 @@
+rules:
+  - id: rappor-lab.javascript.dynamic-function
+    message: Dynamic code construction in the controlled laboratory fixture.
+    languages: [javascript]
+    severity: ERROR
+    pattern: Function(...)

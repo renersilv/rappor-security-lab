@@ -1,0 +1,7 @@
+title = "Rappor Security laboratory synthetic markers"
+
+[[rules]]
+id = "rappor-lab-synthetic-marker"
+description = "Non-functional marker reserved for the controlled laboratory"
+regex = '''RAPPOR_LAB_SYNTHETIC_SECRET_DO_NOT_USE_[A-Z0-9]{16}'''
+keywords = ["RAPPOR_LAB_SYNTHETIC_SECRET_DO_NOT_USE_"]
