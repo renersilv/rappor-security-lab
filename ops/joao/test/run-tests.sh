@@ -627,7 +627,7 @@ test_control_status_and_resume() (
   JOAO_STATE_ROOT="$JOAO_STATE_ROOT" JOAO_SYSTEMCTL_BIN="$mock_systemctl" "$CONTROL" resume >/dev/null
   [[ -f $(state_file batch) ]]
   [[ ! -e $(state_file suspended) ]]
-  assert_equal "--user start joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "resume starts the service"
+  assert_equal "--user start --no-block joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "resume starts the service in the background"
 )
 
 test_fixed_batch_and_delivery
