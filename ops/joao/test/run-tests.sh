@@ -157,6 +157,35 @@ test_doing_uniqueness() (
   assert_equal 1 "$(read_state next)" "uniqueness failure preserves cursor"
 )
 
+test_label_listing_uses_direct_api() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  api_gh() {
+    printf '%s\n' "$*" > "$TEST_SANDBOX/gh-arguments"
+    printf '3\n'
+  }
+  GH_BIN=api_gh
+  assert_equal 3 "$(list_open_with_label doing)" "direct API returns the matching Issue"
+  grep -Fq 'api --method GET --paginate repos/renersilv/rappor-security-lab/issues -f state=open -f labels=doing -f per_page=100' "$TEST_SANDBOX/gh-arguments"
+)
+
+test_doing_transition_tolerates_delayed_listing() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  printf '0\n' > "$TEST_SANDBOX/list-attempt"
+  STATE_SETTLE_ATTEMPTS=3
+  STATE_SETTLE_DELAY_SECONDS=0
+  list_open_with_label() {
+    local attempt
+    attempt=$(<"$TEST_SANDBOX/list-attempt")
+    attempt=$((attempt + 1))
+    printf '%s\n' "$attempt" > "$TEST_SANDBOX/list-attempt"
+    (( attempt < 3 )) || printf '8\n'
+  }
+  wait_for_doing_state 8
+  assert_equal 3 "$(<"$TEST_SANDBOX/list-attempt")" "doing transition waits for the authoritative label listing"
+)
+
 test_timeout_preserves_resume() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -199,6 +228,8 @@ test_codex_session_and_parameters() (
   run_codex 7 "$worktree" "$branch"
   [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec -C $worktree -m gpt-5.6-sol"* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") == *'model_reasoning_effort="xhigh"'* ]]
+  [[ $(cat "$TEST_SANDBOX/codex.log") == *"--approve-for-me --json -"* ]]
+  [[ $(cat "$TEST_SANDBOX/codex.log") != *"--sandbox"* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec resume -m gpt-5.6-sol"* ]]
   assert_equal $'--signal=TERM --kill-after=30s 3h\n--signal=TERM --kill-after=30s 3h' \
     "$(cat "$TEST_SANDBOX/timeout.log")" "timeout is applied per new and resumed execution"
@@ -370,6 +401,36 @@ test_blocked_issue_does_not_stop_independent_delivery() (
   assert_equal " 5" "$PROCESSED" "Codex skips blocked Issue"
 )
 
+test_blocked_delivery_with_commit_is_preserved_and_suspended() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 4
+  issue_operational_state() { printf 'blocked'; }
+  validate_worktree() { return 0; }
+  blocked_git() {
+    case "$*" in
+      *"status --porcelain"*) ;;
+      *"rev-parse HEAD"*) printf '%040d\n' 1 ;;
+    esac
+  }
+  GIT_BIN=blocked_git
+  set +e
+  accept_blocked 4 "$(read_state worktree)" "$(read_state branch)" 1 >/dev/null 2>&1
+  result=$?
+  set -e
+  [[ $result -ne 0 ]]
+  [[ -f $(state_file suspended) ]]
+  assert_equal 4 "$(read_state current_issue)" "changed blocked Issue retains ownership"
+  assert_equal 1 "$(read_state next)" "changed blocked Issue retains the cursor"
+  [[ ! -s $(state_file not_delivered) ]]
+)
+
+test_prompt_requires_external_preconditions_before_editing() {
+  grep -Fq 'Before the first worktree change' "$ROOT/ops/joao/PROMPT.md"
+  grep -Fq 'Never implement partially' "$ROOT/ops/joao/PROMPT.md"
+  grep -Fq 'do not edit files, commit or push' "$ROOT/ops/joao/PROMPT.md"
+}
+
 test_conflicting_labels_and_closed_issue_are_rejected() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -402,6 +463,56 @@ test_unexpected_push_url_is_rejected() (
     printf 'not ok - unexpected push URL was accepted\n' >&2
     return 1
   fi
+)
+
+test_git_identity_is_configured_locally() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  git -C "$JOAO_REPOSITORY_PATH" init --quiet
+  git -C "$JOAO_REPOSITORY_PATH" config --local user.name "Unexpected User"
+  git -C "$JOAO_REPOSITORY_PATH" config --local user.email "unexpected@example.invalid"
+  GIT_BIN=git
+  configure_git_identity
+  assert_equal "Joao" \
+    "$(git -C "$JOAO_REPOSITORY_PATH" config --local --get user.name)" \
+    "preflight pins the João commit name"
+  assert_equal "codex@openai.com" \
+    "$(git -C "$JOAO_REPOSITORY_PATH" config --local --get user.email)" \
+    "preflight pins the João commit email"
+)
+
+test_batch_fetch_records_an_exact_remote_tracking_ref() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  remote="$TEST_SANDBOX/remote.git"
+  branch=joao/batch-20260907T000000Z-2-3
+  git init --quiet --bare "$remote"
+  git -C "$JOAO_REPOSITORY_PATH" init --quiet
+  git -C "$JOAO_REPOSITORY_PATH" config user.name "Joao Test"
+  git -C "$JOAO_REPOSITORY_PATH" config user.email "joao-test@example.invalid"
+  git -C "$JOAO_REPOSITORY_PATH" commit --quiet --allow-empty -m "test: initialize repository"
+  git -C "$JOAO_REPOSITORY_PATH" branch -M main
+  git -C "$JOAO_REPOSITORY_PATH" remote add origin "$remote"
+  git -C "$JOAO_REPOSITORY_PATH" config remote.origin.fetch \
+    '+refs/heads/main:refs/remotes/origin/main'
+  git -C "$JOAO_REPOSITORY_PATH" push --quiet origin main
+  git -C "$JOAO_REPOSITORY_PATH" switch --quiet -c "$branch"
+  git -C "$JOAO_REPOSITORY_PATH" commit --quiet --allow-empty -m "test: deliver batch"
+  expected=$(git -C "$JOAO_REPOSITORY_PATH" rev-parse HEAD)
+  git -C "$JOAO_REPOSITORY_PATH" push --quiet origin "$branch"
+  git -C "$JOAO_REPOSITORY_PATH" update-ref -d "refs/remotes/origin/$branch"
+
+  if git -C "$JOAO_REPOSITORY_PATH" show-ref --verify --quiet \
+    "refs/remotes/origin/$branch"; then
+    printf 'not ok - setup retained the batch remote-tracking ref\n' >&2
+    return 1
+  fi
+
+  fetch_batch_branch "$JOAO_REPOSITORY_PATH" "$branch"
+  actual=$(git -C "$JOAO_REPOSITORY_PATH" rev-parse --verify \
+    "refs/remotes/origin/$branch")
+  assert_equal "$expected" "$actual" \
+    "exact batch fetch records the remote-tracking ref with a main-only fetch configuration"
 )
 
 test_stale_worktree_is_rejected() (
@@ -452,7 +563,7 @@ test_wrapper_integration_and_final_states() (
       *"symbolic-ref --short HEAD"*) printf '%s\n' "$branch" ;;
       *"status --porcelain"*|*"diff --name-only --diff-filter=U"*) ;;
       *"rev-parse HEAD"*) printf '%s\n' "$HEAD_SHA" ;;
-      *"rev-parse origin/$branch"*) printf '%s\n' "$REMOTE_SHA" ;;
+      *"rev-parse --verify refs/remotes/origin/$branch"*) printf '%s\n' "$REMOTE_SHA" ;;
       *"rev-parse origin/main"*) printf '%s\n' "$integrated_sha" ;;
       *"rev-parse -q --verify MERGE_HEAD"*)
         (( MERGE_ACTIVE == 1 )) && return 0
@@ -598,13 +709,15 @@ test_control_status_and_resume() (
   JOAO_STATE_ROOT="$JOAO_STATE_ROOT" JOAO_SYSTEMCTL_BIN="$mock_systemctl" "$CONTROL" resume >/dev/null
   [[ -f $(state_file batch) ]]
   [[ ! -e $(state_file suspended) ]]
-  assert_equal "--user start joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "resume starts the service"
+  assert_equal "--user start --no-block joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "resume starts the service in the background"
 )
 
 test_fixed_batch_and_delivery
 test_owner_or_explicit_approval
 test_session_resume
 test_doing_uniqueness
+test_label_listing_uses_direct_api
+test_doing_transition_tolerates_delayed_listing
 test_timeout_preserves_resume
 test_codex_session_and_parameters
 test_reboot_recovers_surviving_jsonl
@@ -613,8 +726,12 @@ test_validating_crash_recovery_skips_codex
 test_issue_boundary_recovery_is_idempotent
 test_recorded_cursor_after_cleanup_skips_validation
 test_blocked_issue_does_not_stop_independent_delivery
+test_blocked_delivery_with_commit_is_preserved_and_suspended
+test_prompt_requires_external_preconditions_before_editing
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
+test_git_identity_is_configured_locally
+test_batch_fetch_records_an_exact_remote_tracking_ref
 test_stale_worktree_is_rejected
 test_wrapper_integration_and_final_states
 test_capture_crash_is_recovered_before_recapture

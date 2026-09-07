@@ -40,7 +40,7 @@ resume() {
     }
     rm -f -- "$STATE_ROOT/suspended"
   } 9> "$STATE_ROOT/run.lock"
-  "$SYSTEMCTL_BIN" --user start joao.service
+  "$SYSTEMCTL_BIN" --user start --no-block joao.service
   printf 'resume_requested=yes\n'
 }
 

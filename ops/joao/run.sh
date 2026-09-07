@@ -6,9 +6,13 @@ REPOSITORY_PATH=${JOAO_REPOSITORY_PATH:-$(CDPATH='' cd -- "$SCRIPT_DIR/../.." &&
 REPOSITORY_SLUG=renersilv/rappor-security-lab
 MAIN_BRANCH=main
 OWNER_LOGIN=renersilv
+GIT_IDENTITY_NAME=Joao
+GIT_IDENTITY_EMAIL=codex@openai.com
 MODEL=gpt-5.6-sol
 REASONING_EFFORT=xhigh
 ISSUE_TIMEOUT=3h
+STATE_SETTLE_ATTEMPTS=${JOAO_STATE_SETTLE_ATTEMPTS:-6}
+STATE_SETTLE_DELAY_SECONDS=${JOAO_STATE_SETTLE_DELAY_SECONDS:-2}
 STATE_ROOT=${JOAO_STATE_ROOT:-${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao}
 RUNTIME_TMP="$STATE_ROOT/tmp"
 export TMPDIR="$RUNTIME_TMP"
@@ -105,13 +109,41 @@ validate_origin_urls() {
   done <<< "$urls"
 }
 
+configure_git_identity() {
+  local configured_name configured_email
+  $GIT_BIN -C "$REPOSITORY_PATH" config --local user.name "$GIT_IDENTITY_NAME"
+  $GIT_BIN -C "$REPOSITORY_PATH" config --local user.email "$GIT_IDENTITY_EMAIL"
+  configured_name=$($GIT_BIN -C "$REPOSITORY_PATH" config --local --get user.name)
+  configured_email=$($GIT_BIN -C "$REPOSITORY_PATH" config --local --get user.email)
+  [[ $configured_name == "$GIT_IDENTITY_NAME" ]] || fail "Git commit identity name is invalid"
+  [[ $configured_email == "$GIT_IDENTITY_EMAIL" ]] || fail "Git commit identity email is invalid"
+}
+
+fetch_batch_branch() {
+  local repository=$1 branch=$2 remote_ref
+  safe_branch "$branch" || { fail "batch branch is invalid"; return 1; }
+  remote_ref="refs/remotes/origin/$branch"
+  if ! $GIT_BIN -C "$repository" fetch --quiet --no-tags origin \
+    "refs/heads/$branch:$remote_ref"; then
+    fail "remote batch branch could not be fetched"
+    return 1
+  fi
+  $GIT_BIN -C "$repository" show-ref --verify --quiet "$remote_ref" || {
+    fail "remote batch branch was not recorded locally"
+    return 1
+  }
+}
+
 preflight() {
   local root branch
   for command_name in "$GH_BIN" "$GIT_BIN" "$CODEX_BIN" "$TIMEOUT_BIN" "$NODE_BIN" "$NPM_BIN" flock; do
     require_command "$command_name"
   done
+  [[ $STATE_SETTLE_ATTEMPTS =~ ^[1-9][0-9]*$ ]] || fail "state settle attempts must be a positive integer"
+  [[ $STATE_SETTLE_DELAY_SECONDS =~ ^[0-9]+$ ]] || fail "state settle delay must be a non-negative integer"
   root=$($GIT_BIN -C "$REPOSITORY_PATH" rev-parse --show-toplevel)
   [[ $root == "$REPOSITORY_PATH" ]] || fail "repository path does not match its Git root"
+  configure_git_identity
   validate_origin_urls
   branch=$($GIT_BIN -C "$REPOSITORY_PATH" symbolic-ref --short HEAD)
   [[ $branch == "$MAIN_BRANCH" ]] || fail "repository worktree must remain on main"
@@ -125,8 +157,24 @@ preflight() {
 
 list_open_with_label() {
   local label=$1
-  $GH_BIN issue list --repo "$REPOSITORY_SLUG" --state open --label "$label" --limit 100 \
-    --json number --jq '.[].number'
+  $GH_BIN api --method GET --paginate "repos/$REPOSITORY_SLUG/issues" \
+    -f state=open -f labels="$label" -f per_page=100 \
+    --jq '.[] | select(.pull_request == null) | .number'
+}
+
+wait_for_doing_state() {
+  local expected=${1:-} attempt
+  for ((attempt = 1; attempt <= STATE_SETTLE_ATTEMPTS; attempt++)); do
+    mapfile -t doing_issues < <(list_open_with_label doing)
+    if [[ -z $expected && ${#doing_issues[@]} == 0 ]]; then
+      return 0
+    fi
+    if [[ -n $expected && ${#doing_issues[@]} == 1 && ${doing_issues[0]} == "$expected" ]]; then
+      return 0
+    fi
+    (( attempt == STATE_SETTLE_ATTEMPTS )) || sleep "$STATE_SETTLE_DELAY_SECONDS"
+  done
+  return 1
 }
 
 issue_operational_state() {
@@ -347,7 +395,7 @@ run_codex() {
     JOAO_ISSUE_NUMBER=$issue JOAO_BATCH_BRANCH=$branch \
       "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$ISSUE_TIMEOUT" \
       "$CODEX_BIN" exec -C "$worktree" -m "$MODEL" -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-      --sandbox workspace-write --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
+      --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
     extracted=$(extract_session "$events")
     if [[ -n $extracted ]]; then
       safe_session "$extracted" || suspend "new Codex session is invalid"
@@ -371,8 +419,8 @@ verify_delivery() {
   validate_worktree "$branch" "$worktree" "$(read_state base_sha)" || return 1
   [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || { fail "delivered worktree is not clean"; return 1; }
   local_head=$($GIT_BIN -C "$worktree" rev-parse HEAD)
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_head=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_head=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   [[ $local_head == "$remote_head" ]] || { fail "batch branch was not pushed"; return 1; }
   base_sha=$(read_state base_sha)
   [[ $base_sha =~ ^[a-f0-9]{40}$ ]] || suspend "saved base revision is invalid"
@@ -456,13 +504,16 @@ accept_blocked() {
   [[ $(issue_operational_state "$issue") == blocked ]] || return 1
   validate_worktree "$branch" "$worktree" "$(read_state base_sha)" || return 1
   [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || {
-    fail "blocked Issue #$issue left worktree changes"
+    suspend "blocked Issue #$issue changed the worktree; work was preserved and requires owner replanning"
     return 1
   }
   issue_base_sha=$(read_state issue_base_sha)
   [[ $issue_base_sha =~ ^[a-f0-9]{40}$ ]] || suspend "saved Issue base revision is invalid"
   head=$($GIT_BIN -C "$worktree" rev-parse HEAD)
-  [[ $head == "$issue_base_sha" ]] || { fail "blocked Issue #$issue changed HEAD"; return 1; }
+  [[ $head == "$issue_base_sha" ]] || {
+    suspend "blocked Issue #$issue created a commit; work was preserved and requires owner replanning"
+    return 1
+  }
   advance_issue "$issue" not_delivered "$next"
 }
 
@@ -517,8 +568,7 @@ execute_issues() {
       (( doing_count == 0 )) || suspend "another Issue is already in doing"
       $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label to-do --add-label doing >/dev/null
       [[ $(issue_operational_state "$issue") == doing ]] || suspend "Issue #$issue did not enter doing exclusively"
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      if (( ${#doing_issues[@]} != 1 )) || [[ ${doing_issues[0]} != "$issue" ]]; then
+      if ! wait_for_doing_state "$issue"; then
         suspend "doing uniqueness changed while starting Issue #$issue"
       fi
     elif [[ $operational == doing ]]; then
@@ -532,13 +582,11 @@ execute_issues() {
     run_codex "$issue" "$worktree" "$branch" || return $?
     operational=$(issue_operational_state "$issue") || suspend "Issue #$issue delivery state is invalid"
     if [[ $operational == validating ]]; then
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      (( ${#doing_issues[@]} == 0 )) || suspend "doing remained after Issue #$issue delivery"
+      wait_for_doing_state || suspend "doing remained after Issue #$issue delivery"
       verify_delivery "$issue" "$worktree" "$branch"
       advance_issue "$issue" delivered "$next"
     elif [[ $operational == blocked ]]; then
-      mapfile -t doing_issues < <(list_open_with_label doing)
-      (( ${#doing_issues[@]} == 0 )) || suspend "doing remained after Issue #$issue blocking"
+      wait_for_doing_state || suspend "doing remained after Issue #$issue blocking"
       accept_blocked "$issue" "$worktree" "$branch" "$next"
     elif [[ $operational == doing ]]; then
       fail "Issue #$issue returned without delivery and remains doing"
@@ -563,7 +611,7 @@ resolve_conflict() {
   chmod 600 "$prompt"
   "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$ISSUE_TIMEOUT" \
     "$CODEX_BIN" exec -C "$worktree" -m "$MODEL" -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-    --sandbox workspace-write --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
+    --approve-for-me --json - < "$prompt" > "$events" 2> "$errors" || exit_code=$?
   clear_state_file integration-prompt.md
   clear_state_file integration-events.jsonl
   clear_state_file integration-errors.log
@@ -682,8 +730,8 @@ integrate_batch() {
   actual_branch=$($GIT_BIN -C "$worktree" symbolic-ref --short HEAD)
   [[ $actual_branch == "$branch" ]] || { fail "integration worktree branch mismatch"; return 1; }
 
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_before=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_before=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   $GIT_BIN -C "$worktree" merge-base --is-ancestor "$delivered_head" "$remote_before" || {
     fail "remote batch branch lost the delivered revision"
     return 1
@@ -712,8 +760,8 @@ integrate_batch() {
     fail "conflict resolver left the merge unfinished"
     return 1
   fi
-  $GIT_BIN -C "$worktree" fetch --quiet origin "$branch"
-  remote_after=$($GIT_BIN -C "$worktree" rev-parse "origin/$branch")
+  fetch_batch_branch "$worktree" "$branch" || return 1
+  remote_after=$($GIT_BIN -C "$worktree" rev-parse --verify "refs/remotes/origin/$branch")
   [[ $remote_after == "$remote_before" ]] || { fail "remote batch head changed during conflict recovery"; return 1; }
   clear_state_file resolver_remote_head
   actual_branch=$($GIT_BIN -C "$worktree" symbolic-ref --short HEAD)

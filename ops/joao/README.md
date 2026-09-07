@@ -20,6 +20,12 @@ resumes on the next cycle. A crash after delivery recognizes the exclusive
 per-Issue outcome/cursor transitions are crash-idempotent. A legitimate `blocked`
 Issue advances only when its worktree is clean and unchanged, so independent batch
 items continue. Correctable operational errors do not become `blocked`.
+Before editing, João must verify every owner-controlled prerequisite required by
+the Issue. A missing prerequisite blocks the Issue with a clean, unchanged
+worktree. Partial implementation followed by `blocked` is invalid: the wrapper
+preserves the work and suspends instead of discarding, accepting or repeatedly
+advancing it. The owner must then return the Issue to `doing` or explicitly
+replan its independently deliverable scope.
 
 After every Issue is delivered as `validating`, the wrapper acquires its private
 main-integration lock, incorporates current `origin/main` into the batch branch,
@@ -65,8 +71,10 @@ marker and starts the service; it does not erase the fixed batch.
 The versioned user units assume the repository is checked out at
 `$HOME/rappor-security-lab`. Installation is intentionally a separate owner action.
 The service fixes a closed executable `PATH`, applies hardening supported by the
-unprivileged user manager and runs the preflight as `ExecStartPre` in the same environment as each cycle. With the
-timer stopped, review and run:
+unprivileged user manager and runs the preflight as `ExecStartPre` in the same
+environment as each cycle. The preflight pins the repository-local commit identity
+to `Joao <codex@openai.com>`; GitHub access and pushes still use the operator's
+existing authenticated credential. With the timer stopped, review and run:
 
 ```sh
 systemctl --user stop joao.timer
@@ -96,6 +104,8 @@ continuation, conflicting labels, repository URL rejection, stale worktrees,
 atomic capture recovery, Issue-boundary recovery, staged merge recovery,
 delivered-head preservation, wrapper-only integration, leased branch deletion,
 final states, real lock contention and sanitized controls.
+It also covers precondition-first blocking and preservation when a blocked Issue
+violates the unchanged-worktree invariant.
 
 ```sh
 bash -n ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh

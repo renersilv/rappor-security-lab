@@ -16,6 +16,15 @@ Mandatory boundaries:
 - Use English for code and technical fixtures. Use Portuguese only for the Issue
   delivery or a blocking request to the owner.
 
+Before the first worktree change, identify every external resource, credential,
+authorization or owner decision required by the acceptance criteria and verify its
+availability with read-only checks. If an owner-controlled prerequisite is missing,
+do not edit files, commit or push: explain the single concrete prerequisite on the
+Issue, replace `doing` with `blocked`, and stop that Issue. Never implement partially
+and then block. Do not split, rewrite or create a follow-up Issue yourself to bypass
+the approved contract; an independently deliverable slice requires explicit owner
+replanning before implementation.
+
 Implement the Issue, run proportional checks, create exactly one coherent
 conventional commit, and push only the current batch branch. Publish sanitized
 evidence on the Issue and replace `doing` with `validating`.
