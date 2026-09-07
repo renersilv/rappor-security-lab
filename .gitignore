@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+out/
+coverage/
+artifacts/
+reports/private/
+.data/
+*.key
+*.pfx
+
