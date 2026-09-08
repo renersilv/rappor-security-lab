@@ -138,6 +138,14 @@ follow Supabase's current guidance for [API keys](https://supabase.com/docs/guid
 [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) and
 [project deletion](https://supabase.com/docs/guides/platform/delete-project).
 
+The dated record in `observations/supabase-connected` retains only the pinned
+state revisions, boolean access assertions, comparison classifications and reset
+confirmation. Verify that record locally, without credentials or network access:
+
+```sh
+node src/verify-supabase-connected-report.mjs
+```
+
 ## External public observations
 
 `observations/public-external` contains dated, sanitized observations made through

@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/supabase-connected-report.schema.json",
+  "title": "Rappor Security connected Supabase observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "benchmarkVersion",
+    "recordedAt",
+    "laboratory",
+    "target",
+    "execution",
+    "summary",
+    "states",
+    "cleanup",
+    "sanitization"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/supabase-connected-report.schema.json" },
+    "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "benchmarkVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "laboratory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sourceCommit"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "layer", "provider", "resource", "relation", "data"],
+      "properties": {
+        "control": { "const": "controlled" },
+        "layer": { "const": "connected" },
+        "provider": { "const": "supabase" },
+        "resource": { "const": "disposable-laboratory-project" },
+        "relation": { "const": "public.rappor_lab_documents" },
+        "data": { "const": "generated-dummy-only" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface", "scope", "authenticated", "activeTesting", "profile", "rulesetDigest", "actors", "operations"],
+      "properties": {
+        "interface": { "const": "data-api-and-postgresql" },
+        "scope": { "const": "active-owner-authorized" },
+        "authenticated": { "const": true },
+        "activeTesting": { "const": true },
+        "profile": { "const": "supabase-connected@1" },
+        "rulesetDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "actors": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "anon" },
+            { "const": "authenticated" }
+          ],
+          "items": false
+        },
+        "operations": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "read" },
+            { "const": "write" }
+          ],
+          "items": false
+        }
+      }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "states": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/state" }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reset", "relation", "relationAbsent", "projectDisposition"],
+      "properties": {
+        "status": { "const": "completed" },
+        "reset": { "const": true },
+        "relation": { "const": "public.rappor_lab_documents" },
+        "relationAbsent": { "const": true },
+        "projectDisposition": { "const": "retained-empty-per-owner-authorization" }
+      }
+    },
+    "sanitization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retained", "excluded"],
+      "properties": {
+        "retained": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "excluded": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "classification": {
+      "enum": ["true-positive", "false-positive", "true-negative", "false-negative", "inconclusive"]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["true-positive", "false-positive", "true-negative", "false-negative", "inconclusive"],
+      "properties": {
+        "true-positive": { "type": "integer", "minimum": 0 },
+        "false-positive": { "type": "integer", "minimum": 0 },
+        "true-negative": { "type": "integer", "minimum": 0 },
+        "false-negative": { "type": "integer", "minimum": 0 },
+        "inconclusive": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runStatus", "verdict", "clean", "counts"],
+      "properties": {
+        "runStatus": { "enum": ["completed", "partial", "failed"] },
+        "verdict": { "enum": ["passed", "blocked", "informational"] },
+        "clean": { "type": "boolean" },
+        "counts": { "$ref": "#/$defs/counts" }
+      }
+    },
+    "actorAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read", "write"],
+      "properties": {
+        "read": { "type": "boolean" },
+        "write": { "type": "boolean" }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anon", "authenticated"],
+      "properties": {
+        "anon": { "$ref": "#/$defs/actorAccess" },
+        "authenticated": { "$ref": "#/$defs/actorAccess" }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "present", "classification"],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/identifier" },
+        "present": { "type": "boolean" },
+        "classification": { "$ref": "#/$defs/classification" }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "targetId", "targetRevision", "runStatus", "access", "cases"],
+      "properties": {
+        "state": { "enum": ["vulnerable", "partially-fixed", "fixed", "reintroduced"] },
+        "targetId": { "$ref": "#/$defs/identifier" },
+        "targetRevision": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "runStatus": { "const": "completed" },
+        "access": { "$ref": "#/$defs/access" },
+        "cases": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/case" }
+        }
+      }
+    }
+  }
+}

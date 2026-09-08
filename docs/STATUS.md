@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation, executable manifests, controlled static code corpus, controlled public target sources and disposable Supabase authorization target sources created. Four public lifecycle states are deployed in an isolated laboratory Vercel account at the source commit selected by the owner. Dated, sanitized external and controlled public observations exist for the selected staging public flow. No disposable Supabase project or connected benchmark result exists yet.
+Repository foundation, executable manifests, controlled static code corpus, controlled public target sources and disposable Supabase authorization target sources created. Four public lifecycle states are deployed in an isolated laboratory Vercel account at the source commit selected by the owner. Dated, sanitized external, controlled public and connected Supabase observations now exist. The disposable Supabase relation was independently confirmed absent after the connected lifecycle, and the owner-authorized project remains empty.
 
 ## Current work
 
-Issue #6 executes the controlled vulnerable, partially-fixed, fixed and reintroduced public targets through the selected public `v1` contract. The deployment displayed `v0.10.0` instead of selected `v0.9.0`; all four scans reached a terminal completed state but reported partial coverage, so all 40 case classifications and 10 lifecycle sequences remain inconclusive and the controlled verdict is blocked/non-clean. The report separately records five severity-normalization mismatches, absent grouping and score fields, complete presentation metadata for 26 returned mapped items, and sanitized reproduction evidence.
+Issue #8 executed all four immutable Supabase authorization states against the owner-authorized disposable laboratory project. All 16 anonymous and authenticated read/write assertions matched the `1.0.0` manifest: five true positives, eleven true negatives, no false results or inconclusive cases, with a passed/clean verdict. The lifecycle reset and an independent idempotent reset both confirmed removal of `public.rappor_lab_documents`; the versioned evidence contains no project URL, project reference, user identifier, row, email or credential.
 
 ## Constraints
 

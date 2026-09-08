@@ -1,0 +1,225 @@
+{
+  "$schema": "../../schemas/supabase-connected-report.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkVersion": "1.0.0",
+  "recordedAt": "2026-09-08T18:45:15Z",
+  "laboratory": {
+    "version": "0.0.0",
+    "sourceCommit": "00f02b4885b09101de39b327c55a57138ea3773e"
+  },
+  "target": {
+    "control": "controlled",
+    "layer": "connected",
+    "provider": "supabase",
+    "resource": "disposable-laboratory-project",
+    "relation": "public.rappor_lab_documents",
+    "data": "generated-dummy-only"
+  },
+  "execution": {
+    "interface": "data-api-and-postgresql",
+    "scope": "active-owner-authorized",
+    "authenticated": true,
+    "activeTesting": true,
+    "profile": "supabase-connected@1",
+    "rulesetDigest": "sha256:5c842b2d540156e27f35794c0a5f0b33d20411b62cf31a0f45435ef6ac6762a0",
+    "actors": [
+      "anon",
+      "authenticated"
+    ],
+    "operations": [
+      "read",
+      "write"
+    ]
+  },
+  "summary": {
+    "runStatus": "completed",
+    "verdict": "passed",
+    "clean": true,
+    "counts": {
+      "true-positive": 5,
+      "false-positive": 0,
+      "true-negative": 11,
+      "false-negative": 0,
+      "inconclusive": 0
+    }
+  },
+  "states": [
+    {
+      "state": "vulnerable",
+      "targetId": "supabase-authorization-vulnerable",
+      "targetRevision": "sha256:961767c99e8403ce42e7d77140562549a2a4a58030609b88ecfdc0eadfa6158c",
+      "runStatus": "completed",
+      "access": {
+        "anon": {
+          "read": true,
+          "write": true
+        },
+        "authenticated": {
+          "read": true,
+          "write": true
+        }
+      },
+      "cases": [
+        {
+          "caseId": "supabase-anon-read-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-anon-write-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-authenticated-read-denied-vulnerable",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-write-denied-vulnerable",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "state": "partially-fixed",
+      "targetId": "supabase-authorization-partially-fixed",
+      "targetRevision": "sha256:521141b7bbbb436795aa3582828bd20d9ff19f27dba56437bbee198c6f713b75",
+      "runStatus": "completed",
+      "access": {
+        "anon": {
+          "read": true,
+          "write": false
+        },
+        "authenticated": {
+          "read": true,
+          "write": true
+        }
+      },
+      "cases": [
+        {
+          "caseId": "supabase-anon-read-partially-fixed",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-anon-write-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-read-denied-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-write-denied-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "state": "fixed",
+      "targetId": "supabase-authorization-fixed",
+      "targetRevision": "sha256:8cb31922893093e3cd3fc50a7b15f9b5ba0fd39421fab990a532c9084eaf73ab",
+      "runStatus": "completed",
+      "access": {
+        "anon": {
+          "read": false,
+          "write": false
+        },
+        "authenticated": {
+          "read": true,
+          "write": true
+        }
+      },
+      "cases": [
+        {
+          "caseId": "supabase-anon-read-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-anon-write-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-read-denied-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-write-denied-fixed",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "state": "reintroduced",
+      "targetId": "supabase-authorization-reintroduced",
+      "targetRevision": "sha256:905ff2479d596f68f178e12e78f0e97e1f51caf1e0f79b1e2289b657c8c6be1a",
+      "runStatus": "completed",
+      "access": {
+        "anon": {
+          "read": true,
+          "write": true
+        },
+        "authenticated": {
+          "read": true,
+          "write": true
+        }
+      },
+      "cases": [
+        {
+          "caseId": "supabase-anon-read-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-anon-write-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-authenticated-read-denied-reintroduced",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-authenticated-write-denied-reintroduced",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "status": "completed",
+    "reset": true,
+    "relation": "public.rappor_lab_documents",
+    "relationAbsent": true,
+    "projectDisposition": "retained-empty-per-owner-authorization"
+  },
+  "sanitization": {
+    "retained": [
+      "state-revisions",
+      "boolean-access-results",
+      "case-classifications",
+      "aggregate-counts",
+      "reset-confirmation"
+    ],
+    "excluded": [
+      "project-url",
+      "project-reference",
+      "credentials",
+      "user-identifier",
+      "row-content",
+      "row-identifier",
+      "response-body"
+    ]
+  }
+}
