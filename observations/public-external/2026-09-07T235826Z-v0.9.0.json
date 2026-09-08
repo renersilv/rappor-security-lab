@@ -1,0 +1,114 @@
+{
+  "$schema": "../../schemas/public-external-baseline.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkVersion": "1.0.0",
+  "recordedAt": "2026-09-08T00:02:25.000Z",
+  "disposition": "informational",
+  "application": {
+    "baseUrl": "https://linux-ai2.taile60a95.ts.net:8443",
+    "publicFlow": "/",
+    "selectedVisibleVersion": "v0.9.0"
+  },
+  "execution": {
+    "interface": "public-browser-form",
+    "scope": "passive",
+    "authenticated": false,
+    "activeTesting": false,
+    "profile": "public-external-passive@1",
+    "rulesetDigest": "sha256:ebf5e3fc0f2cb18d60d6fd8b0ba8d4ed0d90c170c556ec2f646d45d7b8b0977d"
+  },
+  "sources": [
+    {
+      "id": "google-firing-range",
+      "operator": "Google Firing Range",
+      "purpose": "Public test bed for automated web application security scanners.",
+      "evidenceUrl": "https://github.com/google/firing-range/blob/4f991a6418b07a66cd63006f4a2bec27c84b72f4/README.md",
+      "evidenceRevision": "4f991a6418b07a66cd63006f4a2bec27c84b72f4"
+    },
+    {
+      "id": "badssl",
+      "operator": "badssl.com",
+      "purpose": "Public site for testing clients against deliberately bad TLS configurations.",
+      "evidenceUrl": "https://github.com/chromium/badssl.com/blob/bfc80f7c2bf0873e2fdc9ba79f38a5afd93570fb/README.md",
+      "evidenceRevision": "bfc80f7c2bf0873e2fdc9ba79f38a5afd93570fb"
+    }
+  ],
+  "observations": [
+    {
+      "id": "external-mixed-content-20260907",
+      "scenario": "mixed-content",
+      "operatorSourceId": "google-firing-range",
+      "url": "https://public-firing-range.appspot.com/mixedcontent/index.html",
+      "observedAt": "2026-09-07T23:58:26.521Z",
+      "visibleVersion": "v0.9.0",
+      "externalState": "available",
+      "status": "completed",
+      "summary": "4 issues observed; 0 with high or critical severity.",
+      "findingCount": 4,
+      "highOrCriticalCount": 0,
+      "findings": [
+        { "title": "Active HTTP content declared on an HTTPS page", "severity": "medium", "confidence": "high", "category": "browser-security" },
+        { "title": "CSP is missing from an HTML document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "HSTS is missing from an HTTPS document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "nosniff protection is missing", "severity": "low", "confidence": "moderate", "category": "browser-security" }
+      ],
+      "externalObservation": null
+    },
+    {
+      "id": "external-missing-hsts-20260908",
+      "scenario": "missing-hsts",
+      "operatorSourceId": "google-firing-range",
+      "url": "https://public-firing-range.appspot.com/stricttransportsecurity/hsts_missing",
+      "observedAt": "2026-09-08T00:00:14.218Z",
+      "visibleVersion": "v0.9.0",
+      "externalState": "available",
+      "status": "completed",
+      "summary": "3 issues observed; 0 with high or critical severity.",
+      "findingCount": 3,
+      "highOrCriticalCount": 0,
+      "findings": [
+        { "title": "CSP is missing from an HTML document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "HSTS is missing from an HTTPS document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "nosniff protection is missing", "severity": "low", "confidence": "moderate", "category": "browser-security" }
+      ],
+      "externalObservation": null
+    },
+    {
+      "id": "external-insecure-cookie-20260908",
+      "scenario": "insecure-cookie",
+      "operatorSourceId": "google-firing-range",
+      "url": "https://public-firing-range.appspot.com/leakedcookie/leakedcookie",
+      "observedAt": "2026-09-08T00:00:33.831Z",
+      "visibleVersion": "v0.9.0",
+      "externalState": "available",
+      "status": "completed",
+      "summary": "4 issues observed; 0 with high or critical severity.",
+      "findingCount": 4,
+      "highOrCriticalCount": 0,
+      "findings": [
+        { "title": "CSP is missing from an HTML document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "HSTS is missing from an HTTPS document", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "nosniff protection is missing", "severity": "low", "confidence": "moderate", "category": "browser-security" },
+        { "title": "Cookie is missing the Secure flag", "severity": "low", "confidence": "high", "category": "session-security" }
+      ],
+      "externalObservation": null
+    },
+    {
+      "id": "external-expired-certificate-20260908",
+      "scenario": "expired-certificate",
+      "operatorSourceId": "badssl",
+      "url": "https://expired.badssl.com/",
+      "observedAt": "2026-09-08T00:00:54.924Z",
+      "visibleVersion": "v0.9.0",
+      "externalState": "available",
+      "status": "partial",
+      "summary": "1 issue observed; 1 with high or critical severity.",
+      "findingCount": 1,
+      "highOrCriticalCount": 1,
+      "findings": [
+        { "title": "TLS certificate has expired", "severity": "high", "confidence": "high", "category": "transport-security" }
+      ],
+      "externalObservation": "The public flow reported that some resources could not be checked safely because the certificate is expired; the result is partial, not clean."
+    }
+  ]
+}

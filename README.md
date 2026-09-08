@@ -112,6 +112,26 @@ follow Supabase's current guidance for [API keys](https://supabase.com/docs/guid
 [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) and
 [project deletion](https://supabase.com/docs/guides/platform/delete-project).
 
+## External public observations
+
+`observations/public-external` contains dated, sanitized observations made through
+the selected Rappor Security public browser form. The bounded target set uses exact
+Google Firing Range and badssl.com test URLs with operator-purpose evidence pinned
+by commit. Raw evidence, response bodies, cookies and internal scan identifiers are
+excluded.
+
+These observations are exploratory and always informational. They are kept outside
+controlled benchmark manifests and cannot block a verdict or redefine controlled
+ground truth. Verify the checked-in record locally, without contacting any external
+service:
+
+```sh
+node src/verify-external-public-baseline.mjs
+```
+
+The allowed URLs, capture procedure and handling for changed or unavailable pages
+are documented in [`targets/external/public-passive/README.md`](targets/external/public-passive/README.md).
+
 ## Autonomous execution
 
 The reviewed operational contract, controls and user-service examples for João are

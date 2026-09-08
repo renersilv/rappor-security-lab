@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/compare.mjs && node --check src/verify-corpus.mjs && node --check src/verify-public-target.mjs && node --check src/generate-public-manifest.mjs && node --check src/verify-supabase-target.mjs && node --check src/generate-supabase-manifest.mjs && node --check src/run-supabase-authorization.mjs && bash -n ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh && shellcheck -x ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh && node src/verify-corpus.mjs && node src/verify-public-target.mjs && node src/verify-supabase-target.mjs && node --test --test-isolation=none",
+    "check": "node --check src/compare.mjs && node --check src/verify-corpus.mjs && node --check src/verify-public-target.mjs && node --check src/generate-public-manifest.mjs && node --check src/verify-supabase-target.mjs && node --check src/generate-supabase-manifest.mjs && node --check src/run-supabase-authorization.mjs && node --check src/verify-external-public-baseline.mjs && bash -n ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh && shellcheck -x ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh && node src/verify-corpus.mjs && node src/verify-public-target.mjs && node src/verify-supabase-target.mjs && node src/verify-external-public-baseline.mjs && node --test --test-isolation=none",
     "test": "node --test --test-isolation=none",
     "supabase:lifecycle": "node src/run-supabase-authorization.mjs --lifecycle",
     "supabase:reset": "node src/run-supabase-authorization.mjs --reset"

@@ -1,0 +1,18 @@
+{
+  "id": "public-external-passive",
+  "version": 1,
+  "disposition": "informational",
+  "execution": {
+    "interface": "public-browser-form",
+    "scope": "passive",
+    "authenticated": false,
+    "activeTesting": false,
+    "maxTargets": 4
+  },
+  "exactUrls": [
+    "https://public-firing-range.appspot.com/mixedcontent/index.html",
+    "https://public-firing-range.appspot.com/stricttransportsecurity/hsts_missing",
+    "https://public-firing-range.appspot.com/leakedcookie/leakedcookie",
+    "https://expired.badssl.com/"
+  ]
+}
