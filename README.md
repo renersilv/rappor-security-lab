@@ -62,12 +62,12 @@ service.
 
 ## Controlled public vibe-coding target
 
-`targets/public/vibe-coding` is a real Next.js source fixture configured for an
-eventual isolated Vercel deployment. It provides deterministic Next.js, Vercel,
-Lovable and network-disabled Supabase client signals. Its public response matrix
-covers security headers, cookie attributes, an inert password form, mixed content,
-synthetic elevated markers, and negative controls for Supabase publishable and anon
-values.
+`targets/public/vibe-coding` is a real Next.js source fixture with four states
+published through the owner-authorized, isolated laboratory Vercel account. It
+provides deterministic Next.js, Vercel, Lovable and network-disabled Supabase client
+signals. Its public response matrix covers security headers, cookie attributes, an
+inert password form, mixed content, synthetic elevated markers, and negative
+controls for Supabase publishable and anon values.
 
 The default state is `fixed`. The `RAPPOR_LAB_STATE` build and runtime value selects
 `vulnerable`, `partially-fixed`, `fixed` or `reintroduced`; each selection has a
@@ -80,9 +80,35 @@ node src/verify-public-target.mjs
 ```
 
 The target has no registration, write route, analytics or visitor persistence.
-Publication is not part of repository checks and requires an owner-authorized,
-disposable Vercel account and isolated laboratory domain. See the target README for
-the deployment safety boundary.
+Publication and deployment changes are not part of repository checks and require an
+owner-authorized, disposable Vercel account and isolated laboratory domain. See the
+target README for the deployment safety boundary.
+
+## Controlled public black-box comparison
+
+`src/run-public-black-box.mjs` verifies the selected public client contract and
+visible version, checks the exact state marker on each approved controlled URL,
+then submits the four targets sequentially through the unauthenticated passive
+public scan contract. It polls only same-origin status paths with ephemeral tokens
+and never persists those tokens, internal scan identifiers, raw response bodies,
+masked evidence or remediation text.
+
+The mapping contract is pinned in
+`scanner-profiles/rappor-public-black-box.json`. A live run must write both formats
+to a temporary location for sanitization review before a dated record is admitted:
+
+```sh
+npm run public:black-box -- \
+  --json /tmp/public-black-box.json \
+  --markdown /tmp/public-black-box.md
+```
+
+The dated record in `observations/public-controlled` compares detection,
+normalization, grouping, score, lifecycle and presentation separately. Coverage
+reported as partial or failed remains non-clean even when individual findings are
+present. `src/verify-public-black-box-report.mjs` checks the retained record against
+the manifest, mapping-profile digest and sanitization boundary without contacting
+the deployment.
 
 ## Disposable Supabase authorization target
 

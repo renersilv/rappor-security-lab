@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/public-black-box-report.schema.json",
+  "title": "Rappor Security controlled public black-box comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "benchmarkVersion",
+    "recordedAt",
+    "laboratory",
+    "application",
+    "execution",
+    "summary",
+    "dimensions",
+    "scans",
+    "lifecycle",
+    "discrepancies"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/public-black-box-report.schema.json" },
+    "schemaVersion": { "$ref": "#/$defs/semanticVersion" },
+    "benchmarkVersion": { "$ref": "#/$defs/semanticVersion" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "laboratory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "targetSourceCommit"],
+      "properties": {
+        "version": { "$ref": "#/$defs/semanticVersion" },
+        "targetSourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseUrl",
+        "publicFlow",
+        "selectedVisibleVersion",
+        "observedVisibleVersion",
+        "visibleVersionMatches",
+        "createPath",
+        "createMethod",
+        "contractVersion",
+        "responsibleUseTermsVersion",
+        "clientContractExposed"
+      ],
+      "properties": {
+        "baseUrl": { "type": "string", "format": "uri" },
+        "publicFlow": { "const": "/" },
+        "selectedVisibleVersion": { "$ref": "#/$defs/visibleVersion" },
+        "observedVisibleVersion": { "$ref": "#/$defs/visibleVersion" },
+        "visibleVersionMatches": { "type": "boolean" },
+        "createPath": { "const": "/api/public/v1/scans" },
+        "createMethod": { "const": "POST" },
+        "contractVersion": { "const": "v1" },
+        "responsibleUseTermsVersion": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}\\.v[0-9]+$" },
+        "clientContractExposed": { "const": true }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interface",
+        "scope",
+        "authenticated",
+        "activeTesting",
+        "groundTruthProfile",
+        "groundTruthRulesetDigest",
+        "mappingProfile",
+        "mappingProfileDigest"
+      ],
+      "properties": {
+        "interface": { "const": "public-http-contract" },
+        "scope": { "const": "passive" },
+        "authenticated": { "const": false },
+        "activeTesting": { "const": false },
+        "groundTruthProfile": { "type": "string", "minLength": 1 },
+        "groundTruthRulesetDigest": { "$ref": "#/$defs/digest" },
+        "mappingProfile": { "type": "string", "minLength": 1 },
+        "mappingProfileDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runStatus", "verdict", "clean", "counts", "discrepancyCount"],
+      "properties": {
+        "runStatus": { "$ref": "#/$defs/runStatus" },
+        "verdict": { "enum": ["passed", "blocked"] },
+        "clean": { "type": "boolean" },
+        "counts": { "$ref": "#/$defs/counts" },
+        "discrepancyCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detection", "normalization", "grouping", "score", "lifecycle", "presentation"],
+      "properties": {
+        "detection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "counts"],
+          "properties": {
+            "status": { "$ref": "#/$defs/dimensionStatus" },
+            "counts": { "$ref": "#/$defs/counts" }
+          }
+        },
+        "normalization": { "$ref": "#/$defs/evaluatedDimension" },
+        "grouping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "expected", "exposed"],
+          "properties": {
+            "status": { "$ref": "#/$defs/dimensionStatus" },
+            "expected": { "type": "integer", "minimum": 0 },
+            "exposed": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "exposed", "total"],
+          "properties": {
+            "status": { "$ref": "#/$defs/dimensionStatus" },
+            "exposed": { "type": "integer", "minimum": 0 },
+            "total": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "matched", "mismatches", "inconclusive"],
+          "properties": {
+            "status": { "$ref": "#/$defs/dimensionStatus" },
+            "matched": { "type": "integer", "minimum": 0 },
+            "mismatches": { "type": "integer", "minimum": 0 },
+            "inconclusive": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "presentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "available", "complete"],
+          "properties": {
+            "status": { "$ref": "#/$defs/dimensionStatus" },
+            "available": { "type": "integer", "minimum": 0 },
+            "complete": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "scans": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/scan" }
+    },
+    "lifecycle": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/lifecycle" }
+    },
+    "discrepancies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/discrepancy" }
+    }
+  },
+  "$defs": {
+    "semanticVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "visibleVersion": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "identifier": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "state": { "enum": ["vulnerable", "partially-fixed", "fixed", "reintroduced"] },
+    "runStatus": { "enum": ["completed", "partial", "failed"] },
+    "dimensionStatus": { "enum": ["passed", "mismatch", "inconclusive", "not-exposed"] },
+    "classification": { "enum": ["true-positive", "false-positive", "true-negative", "false-negative", "inconclusive"] },
+    "severity": { "enum": ["info", "low", "medium", "high", "critical", null] },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["true-positive", "false-positive", "true-negative", "false-negative", "inconclusive"],
+      "properties": {
+        "true-positive": { "type": "integer", "minimum": 0 },
+        "false-positive": { "type": "integer", "minimum": 0 },
+        "true-negative": { "type": "integer", "minimum": 0 },
+        "false-negative": { "type": "integer", "minimum": 0 },
+        "inconclusive": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evaluatedDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evaluated", "mismatches"],
+      "properties": {
+        "status": { "$ref": "#/$defs/dimensionStatus" },
+        "evaluated": { "type": "integer", "minimum": 0 },
+        "mismatches": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exposed", "value", "status"],
+      "properties": {
+        "exposed": { "type": "boolean" },
+        "value": { "type": ["number", "null"] },
+        "status": { "enum": ["observed", "not-exposed"] }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "complete", "itemCount", "sources"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "complete": { "type": "boolean" },
+        "itemCount": { "type": "integer", "minimum": 0 },
+        "sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "ruleFamily",
+        "channel",
+        "expectedPresence",
+        "observedPresence",
+        "classification",
+        "expectedSeverity",
+        "observedSeverities",
+        "normalization",
+        "expectedGroupingKey",
+        "observedGroupingKey",
+        "grouping",
+        "presentation"
+      ],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/identifier" },
+        "ruleFamily": { "$ref": "#/$defs/identifier" },
+        "channel": { "enum": ["finding", "signal"] },
+        "expectedPresence": { "type": "boolean" },
+        "observedPresence": { "type": "boolean" },
+        "classification": { "$ref": "#/$defs/classification" },
+        "expectedSeverity": { "$ref": "#/$defs/severity" },
+        "observedSeverities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["info", "low", "medium", "high", "critical"] }
+        },
+        "normalization": { "enum": ["matched", "mismatch", "not-observed", "not-applicable", "unexpected-observation"] },
+        "expectedGroupingKey": { "type": ["string", "null"] },
+        "observedGroupingKey": { "type": ["string", "null"] },
+        "grouping": { "enum": ["matched", "mismatch", "not-exposed", "not-applicable"] },
+        "presentation": { "$ref": "#/$defs/presentation" }
+      }
+    },
+    "unmappedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "identifier", "severity", "confidence", "category"],
+      "properties": {
+        "channel": { "enum": ["finding", "signal"] },
+        "identifier": { "$ref": "#/$defs/identifier" },
+        "severity": { "enum": ["info", "low", "medium", "high", "critical", null] },
+        "confidence": { "enum": ["low", "moderate", "high", null] },
+        "category": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "targetId",
+        "targetRevision",
+        "url",
+        "observedAt",
+        "productStatus",
+        "coverageStatus",
+        "runStatus",
+        "findingCount",
+        "signalCount",
+        "uniqueSignalCount",
+        "score",
+        "observations",
+        "unmappedProductItems"
+      ],
+      "properties": {
+        "state": { "$ref": "#/$defs/state" },
+        "targetId": { "$ref": "#/$defs/identifier" },
+        "targetRevision": { "$ref": "#/$defs/digest" },
+        "url": { "type": "string", "format": "uri" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "productStatus": { "enum": ["completed", "failed"] },
+        "coverageStatus": { "enum": ["complete", "partial", "failed", "unknown"] },
+        "runStatus": { "$ref": "#/$defs/runStatus" },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "signalCount": { "type": "integer", "minimum": 0 },
+        "uniqueSignalCount": { "type": "integer", "minimum": 0 },
+        "score": { "$ref": "#/$defs/score" },
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/observation" }
+        },
+        "unmappedProductItems": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/unmappedItem" }
+        }
+      }
+    },
+    "lifecycleState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "expectedPresence", "observedPresence", "classification"],
+      "properties": {
+        "state": { "$ref": "#/$defs/state" },
+        "expectedPresence": { "type": "boolean" },
+        "observedPresence": { "type": "boolean" },
+        "classification": { "$ref": "#/$defs/classification" }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ruleFamily", "status", "states"],
+      "properties": {
+        "ruleFamily": { "$ref": "#/$defs/identifier" },
+        "status": { "enum": ["matched", "mismatch", "inconclusive"] },
+        "states": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/lifecycleState" }
+        }
+      }
+    },
+    "discrepancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dimension",
+        "caseIds",
+        "states",
+        "expected",
+        "observed",
+        "reproductionSteps",
+        "sanitizedEvidence"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "dimension": { "enum": ["detection", "normalization", "grouping", "score", "lifecycle", "presentation"] },
+        "caseIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "states": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/state" }
+        },
+        "expected": { "type": "string", "minLength": 1 },
+        "observed": { "type": "string", "minLength": 1 },
+        "reproductionSteps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "sanitizedEvidence": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

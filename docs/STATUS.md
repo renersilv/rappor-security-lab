@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation, executable manifests, controlled static code corpus, public target sources and disposable Supabase authorization target sources created. A dated, sanitized external observation baseline exists for the selected staging public flow; it is informational and separate from controlled ground truth. No public laboratory deployment, Supabase project or controlled benchmark result exists yet.
+Repository foundation, executable manifests, controlled static code corpus, controlled public target sources and disposable Supabase authorization target sources created. Four public lifecycle states are deployed in an isolated laboratory Vercel account at the source commit selected by the owner. Dated, sanitized external and controlled public observations exist for the selected staging public flow. No disposable Supabase project or connected benchmark result exists yet.
 
 ## Current work
 
-Issue #5 records four exact Google Firing Range and badssl.com pages through the selected `v0.9.0` public flow. Three observations completed and the expired-certificate observation remained explicitly partial. Operator-purpose evidence, UTC timestamps and sanitized findings are versioned without making live third-party behavior a deterministic gate.
+Issue #6 executes the controlled vulnerable, partially-fixed, fixed and reintroduced public targets through the selected public `v1` contract. The deployment displayed `v0.10.0` instead of selected `v0.9.0`; all four scans reached a terminal completed state but reported partial coverage, so all 40 case classifications and 10 lifecycle sequences remain inconclusive and the controlled verdict is blocked/non-clean. The report separately records five severity-normalization mismatches, absent grouping and score fields, complete presentation metadata for 26 returned mapped items, and sanitized reproduction evidence.
 
 ## Constraints
 

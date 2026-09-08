@@ -1,0 +1,84 @@
+{
+  "id": "rappor-public-black-box",
+  "version": 1,
+  "application": {
+    "baseUrl": "https://linux-ai2.taile60a95.ts.net:8443",
+    "publicFlow": "/",
+    "selectedVisibleVersion": "v0.9.0",
+    "createPath": "/api/public/v1/scans",
+    "contractVersion": "v1",
+    "responsibleUseTermsVersion": "2026-08-20.v1"
+  },
+  "execution": {
+    "authenticated": false,
+    "activeTesting": false,
+    "maxTargets": 4,
+    "requestTimeoutMs": 30000,
+    "pollIntervalMs": 3000,
+    "maxPolls": 100
+  },
+  "targetSourceCommit": "71b2e58eba0c5c4f0a1facf4497ed6f494d4fc0b",
+  "targets": {
+    "vulnerable": "https://rappor-lab-vulnerable.vercel.app",
+    "partially-fixed": "https://rappor-lab-partially-fixed.vercel.app",
+    "fixed": "https://rappor-lab-fixed.vercel.app",
+    "reintroduced": "https://rappor-lab-reintroduced.vercel.app"
+  },
+  "mappings": [
+    {
+      "ruleFamily": "nextjs-technology",
+      "channel": "signal",
+      "identifierPatterns": ["^technology\\.framework\\.nextjs\\.v1$"]
+    },
+    {
+      "ruleFamily": "vercel-host-profile",
+      "channel": "signal",
+      "identifierPatterns": ["^technology\\.provider\\.vercel\\.v1$"]
+    },
+    {
+      "ruleFamily": "lovable-generator",
+      "channel": "signal",
+      "identifierPatterns": ["^technology\\.platform\\.lovable\\.v1$"]
+    },
+    {
+      "ruleFamily": "supabase-client",
+      "channel": "signal",
+      "identifierPatterns": ["^technology\\.client\\.supabase\\.v1$"]
+    },
+    {
+      "ruleFamily": "supabase-public-keys",
+      "channel": "finding",
+      "identifierPatterns": [
+        "^secret\\.supabase\\.(?:anon|publishable)(?:[.-].*)?$",
+        "^supabase\\.(?:anon|publishable)(?:[.-].*)?\\.(?:key|secret)(?:[.-].*)?$"
+      ]
+    },
+    {
+      "ruleFamily": "missing-content-security-policy",
+      "channel": "finding",
+      "identifierPatterns": ["^http\\.header\\.csp\\.missing\\.v1$"]
+    },
+    {
+      "ruleFamily": "insecure-cookie-attributes",
+      "channel": "finding",
+      "identifierPatterns": ["^cookie\\.(?:secure|httponly|samesite)\\.missing\\.v1$"]
+    },
+    {
+      "ruleFamily": "password-form-uses-get",
+      "channel": "finding",
+      "identifierPatterns": ["^html\\.form\\.sensitive-get\\.v1$"]
+    },
+    {
+      "ruleFamily": "mixed-content",
+      "channel": "finding",
+      "identifierPatterns": ["^html\\.mixed-content\\.(?:active|passive)\\.v1$"]
+    },
+    {
+      "ruleFamily": "synthetic-elevated-secret",
+      "channel": "finding",
+      "identifierPatterns": [
+        "^(?=.*(?:secret|credential))(?=.*(?:elevated|service-role|rappor-lab)).+$"
+      ]
+    }
+  ]
+}
