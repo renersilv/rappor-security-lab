@@ -5,7 +5,7 @@
       "id": "supabase-provider-configuration-vulnerable",
       "control": "controlled",
       "layer": "connected",
-      "revision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484"
+      "revision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba"
     },
     {
       "id": "vercel-project-configuration-vulnerable",
@@ -17,7 +17,7 @@
       "id": "supabase-provider-configuration-partially-fixed",
       "control": "controlled",
       "layer": "connected",
-      "revision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b"
+      "revision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645"
     },
     {
       "id": "vercel-project-configuration-partially-fixed",
@@ -29,7 +29,7 @@
       "id": "supabase-provider-configuration-fixed",
       "control": "controlled",
       "layer": "connected",
-      "revision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539"
+      "revision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8"
     },
     {
       "id": "vercel-project-configuration-fixed",
@@ -41,7 +41,7 @@
       "id": "supabase-provider-configuration-reintroduced",
       "control": "controlled",
       "layer": "connected",
-      "revision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82"
+      "revision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066"
     },
     {
       "id": "vercel-project-configuration-reintroduced",
@@ -54,7 +54,7 @@
     {
       "id": "supabase-0007-policy-exists-rls-disabled-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -71,7 +71,7 @@
     {
       "id": "supabase-0008-rls-enabled-no-policy-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -88,7 +88,7 @@
     {
       "id": "supabase-0010-security-definer-view-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -105,7 +105,7 @@
     {
       "id": "supabase-0013-rls-disabled-in-public-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -122,7 +122,7 @@
     {
       "id": "supabase-0023-sensitive-columns-exposed-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -139,7 +139,7 @@
     {
       "id": "supabase-0024-permissive-rls-policy-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -156,7 +156,7 @@
     {
       "id": "supabase-0025-public-bucket-allows-listing-vulnerable",
       "targetId": "supabase-provider-configuration-vulnerable",
-      "targetRevision": "sha256:9c4312884c2aa5930698afced0afbb0a11cf5efaca870d36b80af7824a6e3484",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
       "state": "vulnerable",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -190,7 +190,7 @@
     {
       "id": "supabase-0007-policy-exists-rls-disabled-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -207,7 +207,7 @@
     {
       "id": "supabase-0008-rls-enabled-no-policy-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -224,7 +224,7 @@
     {
       "id": "supabase-0010-security-definer-view-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -241,7 +241,7 @@
     {
       "id": "supabase-0013-rls-disabled-in-public-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -258,7 +258,7 @@
     {
       "id": "supabase-0023-sensitive-columns-exposed-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -275,7 +275,7 @@
     {
       "id": "supabase-0024-permissive-rls-policy-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -292,7 +292,7 @@
     {
       "id": "supabase-0025-public-bucket-allows-listing-partially-fixed",
       "targetId": "supabase-provider-configuration-partially-fixed",
-      "targetRevision": "sha256:d9011e3bc4ed58254e502e1571732cad1944ffa6a1d852454729a46936e5539b",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
       "state": "partially-fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -326,7 +326,7 @@
     {
       "id": "supabase-0007-policy-exists-rls-disabled-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -343,7 +343,7 @@
     {
       "id": "supabase-0008-rls-enabled-no-policy-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -360,7 +360,7 @@
     {
       "id": "supabase-0010-security-definer-view-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -377,7 +377,7 @@
     {
       "id": "supabase-0013-rls-disabled-in-public-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -394,7 +394,7 @@
     {
       "id": "supabase-0023-sensitive-columns-exposed-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -411,7 +411,7 @@
     {
       "id": "supabase-0024-permissive-rls-policy-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -428,7 +428,7 @@
     {
       "id": "supabase-0025-public-bucket-allows-listing-fixed",
       "targetId": "supabase-provider-configuration-fixed",
-      "targetRevision": "sha256:7a79a5b813208d687871d3dd50e52b1bd513a747ab4b43e6d5b42bab3a610539",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
       "state": "fixed",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -462,7 +462,7 @@
     {
       "id": "supabase-0007-policy-exists-rls-disabled-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -479,7 +479,7 @@
     {
       "id": "supabase-0008-rls-enabled-no-policy-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -496,7 +496,7 @@
     {
       "id": "supabase-0010-security-definer-view-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -513,7 +513,7 @@
     {
       "id": "supabase-0013-rls-disabled-in-public-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -530,7 +530,7 @@
     {
       "id": "supabase-0023-sensitive-columns-exposed-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -547,7 +547,7 @@
     {
       "id": "supabase-0024-permissive-rls-policy-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",
@@ -564,7 +564,7 @@
     {
       "id": "supabase-0025-public-bucket-allows-listing-reintroduced",
       "targetId": "supabase-provider-configuration-reintroduced",
-      "targetRevision": "sha256:8670174425b2fcb6fdf20ec3f6086ba8aaecce4dfdc2b91c8c4b81327adb6e82",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
       "state": "reintroduced",
       "scanner": "connected-scan",
       "capability": "provider-configuration",

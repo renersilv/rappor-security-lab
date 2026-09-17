@@ -61,8 +61,10 @@ export async function verifyProviderConfigurationTarget(repositoryRoot = REPOSIT
 
   const normalizedSchema = normalizeSql(schema);
   assert.match(normalizedSchema, /create view public\.rappor_lab_security_view with \(security_invoker = true\)/);
+  assert.match(normalizedSchema, /set local storage\.allow_delete_query = 'true';/);
   assert.match(normalizedSchema, /insert into storage\.buckets \(id, name, public\) values \('rappor-lab-public-listing', 'rappor laboratory empty bucket', false\);/);
   assert.match(normalizedSchema, /create table public\.rappor_lab_sensitive_profiles \([^;]*password text/);
+  assert.match(normalizeSql(reset), /set local storage\.allow_delete_query = 'true';/);
   assert.match(normalizeSql(reset), /delete from storage\.buckets where id = 'rappor-lab-public-listing';/);
 
   assert.deepEqual(Object.keys(SUPABASE_RULES), [

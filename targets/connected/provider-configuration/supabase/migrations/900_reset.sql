@@ -1,5 +1,7 @@
 begin;
 
+set local storage.allow_delete_query = 'true';
+
 drop view if exists public.rappor_lab_security_view;
 drop table if exists public.rappor_lab_rls_disabled cascade;
 drop table if exists public.rappor_lab_policy_without_rls cascade;
