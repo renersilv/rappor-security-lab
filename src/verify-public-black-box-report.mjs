@@ -8,8 +8,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIRECTORY, "..");
-const RECORD_PATH = "observations/public-controlled/2026-09-08T181522Z-v0.10.0.json";
-const REPORT_PATH = "observations/public-controlled/2026-09-08T181522Z-v0.10.0.md";
+const RECORD_PATH = "observations/public-controlled/2026-09-17T203752Z-v0.34.0.json";
+const REPORT_PATH = "observations/public-controlled/2026-09-17T203752Z-v0.34.0.md";
 const MANIFEST_PATH = "manifests/public-vibe-coding.json";
 const PROFILE_PATH = "scanner-profiles/rappor-public-black-box.json";
 const STATES = ["vulnerable", "partially-fixed", "fixed", "reintroduced"];
@@ -79,12 +79,12 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
   assert.deepEqual(profile.application, {
     baseUrl: "https://linux-ai2.taile60a95.ts.net:8443",
     publicFlow: "/",
-    selectedVisibleVersion: "v0.9.0",
     createPath: "/api/public/v1/scans",
     contractVersion: "v1",
     responsibleUseTermsVersion: "2026-08-20.v1",
   });
-  assert.equal(profile.targetSourceCommit, "71b2e58eba0c5c4f0a1facf4497ed6f494d4fc0b");
+  assert.equal(profile.version, 2);
+  assert.equal(profile.targetSourceCommit, "0f9aa5ecc224ac8aeb662745ddc0adde61095f09");
   assert.deepEqual(profile.targets, {
     vulnerable: "https://rappor-lab-vulnerable.vercel.app",
     "partially-fixed": "https://rappor-lab-partially-fixed.vercel.app",
@@ -108,9 +108,9 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
   assert.deepEqual(report.application, {
     baseUrl: profile.application.baseUrl,
     publicFlow: profile.application.publicFlow,
-    selectedVisibleVersion: "v0.9.0",
-    observedVisibleVersion: "v0.10.0",
-    visibleVersionMatches: false,
+    selectedVisibleVersion: "v0.34.0",
+    observedVisibleVersion: "v0.34.0",
+    visibleVersionMatches: true,
     createPath: "/api/public/v1/scans",
     createMethod: "POST",
     contractVersion: "v1",
@@ -122,7 +122,7 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
     scope: "passive",
     authenticated: false,
     activeTesting: false,
-    groundTruthProfile: "public-passive@2",
+    groundTruthProfile: "public-passive@3",
     groundTruthRulesetDigest: manifest.cases[0].rulesetDigest,
     mappingProfile: `${profile.id}@${profile.version}`,
     mappingProfileDigest: digest(profileContent),
@@ -150,11 +150,11 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
     assertUtc(scan.observedAt, `${scan.state}.observedAt`);
     assert.ok(Date.parse(scan.observedAt) <= Date.parse(report.recordedAt));
     assert.equal(scan.productStatus, "completed");
-    assert.equal(scan.coverageStatus, "partial");
-    assert.equal(scan.runStatus, "partial");
+    assert.equal(scan.coverageStatus, "complete");
+    assert.equal(scan.runStatus, "completed");
     assert.equal(scan.findingCount, expectedFindingCounts.get(scan.state));
-    assert.equal(scan.signalCount, 10);
-    assert.equal(scan.uniqueSignalCount, 4);
+    assert.equal(scan.signalCount, 4);
+    assert.equal(scan.uniqueSignalCount, 3);
     assert.deepEqual(scan.score, { exposed: false, value: null, status: "not-exposed" });
     assert.equal(scan.observations.length, 10);
     for (const observation of scan.observations) {
@@ -165,7 +165,10 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
       assert.equal(observation.expectedPresence, expected.expectedPresence);
       assert.equal(observation.expectedSeverity, expected.expectedSeverity);
       assert.equal(observation.expectedGroupingKey, expected.groupingKey);
-      assert.equal(observation.classification, "inconclusive");
+      const expectedClassification = observation.expectedPresence
+        ? (observation.observedPresence ? "true-positive" : "false-negative")
+        : (observation.observedPresence ? "false-positive" : "true-negative");
+      assert.equal(observation.classification, expectedClassification);
       assert.equal(observedCaseIds.has(observation.caseId), false, `${observation.caseId} is duplicated`);
       observedCaseIds.add(observation.caseId);
     }
@@ -178,45 +181,50 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
 
   const calculatedCounts = countsFor(report.scans);
   assert.deepEqual(report.summary, {
-    runStatus: "partial",
+    runStatus: "completed",
     verdict: "blocked",
     clean: false,
     counts: calculatedCounts,
     discrepancyCount: report.discrepancies.length,
   });
   assert.deepEqual(calculatedCounts, {
-    "true-positive": 0,
+    "true-positive": 22,
     "false-positive": 0,
-    "true-negative": 0,
-    "false-negative": 0,
-    inconclusive: 40,
+    "true-negative": 11,
+    "false-negative": 7,
+    inconclusive: 0,
   });
   assert.deepEqual(report.dimensions, {
-    detection: { status: "inconclusive", counts: calculatedCounts },
-    normalization: { status: "mismatch", evaluated: 26, mismatches: 5 },
-    grouping: { status: "not-exposed", expected: 26, exposed: 0 },
+    detection: { status: "mismatch", counts: calculatedCounts },
+    normalization: { status: "mismatch", evaluated: 22, mismatches: 5 },
+    grouping: { status: "not-exposed", expected: 22, exposed: 0 },
     score: { status: "not-exposed", exposed: 0, total: 4 },
-    lifecycle: { status: "inconclusive", matched: 0, mismatches: 0, inconclusive: 10 },
-    presentation: { status: "passed", available: 26, complete: 26 },
+    lifecycle: { status: "mismatch", matched: 8, mismatches: 2, inconclusive: 0 },
+    presentation: { status: "passed", available: 22, complete: 22 },
   });
   assert.equal(report.lifecycle.length, 10);
-  assert.ok(report.lifecycle.every((item) => item.status === "inconclusive"));
+  assert.equal(report.lifecycle.filter((item) => item.status === "matched").length, 8);
+  assert.equal(report.lifecycle.filter((item) => item.status === "mismatch").length, 2);
+  assert.equal(report.lifecycle.filter((item) => item.status === "inconclusive").length, 0);
   assert.ok(report.lifecycle.every((item) => item.states.map((state) => state.state).join(",") === STATES.join(",")));
 
   const discrepancyIds = new Set(report.discrepancies.map((item) => item.id));
   assert.equal(discrepancyIds.size, report.discrepancies.length);
   for (const id of [
-    "deployment-visible-version",
-    "coverage-vulnerable",
-    "coverage-partially-fixed",
-    "coverage-fixed",
-    "coverage-reintroduced",
+    "classification-public-nextjs-vulnerable",
+    "classification-public-secret-vulnerable",
+    "classification-public-nextjs-partially-fixed",
+    "classification-public-secret-partially-fixed",
+    "classification-public-nextjs-fixed",
+    "classification-public-nextjs-reintroduced",
+    "classification-public-secret-reintroduced",
     "lifecycle-not-proven",
     "grouping-not-exposed",
     "score-not-exposed",
   ]) {
     assert.equal(discrepancyIds.has(id), true, `missing discrepancy ${id}`);
   }
+  assert.equal([...discrepancyIds].some((id) => id.startsWith("coverage-") || id === "deployment-visible-version"), false);
   assert.equal(report.discrepancies.filter((item) => item.dimension === "normalization").length, 5);
   for (const discrepancy of report.discrepancies) {
     assert.ok(discrepancy.reproductionSteps.length >= 3);
@@ -231,9 +239,9 @@ export async function verifyPublicBlackBoxReport(repositoryRoot = REPOSITORY_ROO
   for (const pattern of FORBIDDEN_MATERIAL) {
     assert.doesNotMatch(serialized, pattern, `report contains forbidden sensitive or internal material: ${pattern}`);
   }
-  assert.match(markdown, /Selected visible version: `v0\.9\.0`/);
-  assert.match(markdown, /Observed visible version: `v0\.10\.0`/);
-  assert.match(markdown, /Overall status: \*\*partial\*\*/);
+  assert.match(markdown, /Selected visible version: `v0\.34\.0`/);
+  assert.match(markdown, /Observed visible version: `v0\.34\.0`/);
+  assert.match(markdown, /Overall status: \*\*completed\*\*/);
   assert.match(markdown, /Verdict: \*\*blocked\*\*/);
   for (const state of STATES) assert.match(markdown, new RegExp(`\\| ${state.replace("-", "\\-")} \\|`));
   assert.match(markdown, /Raw response bodies.*were discarded/);

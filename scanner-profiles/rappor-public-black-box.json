@@ -1,10 +1,9 @@
 {
   "id": "rappor-public-black-box",
-  "version": 1,
+  "version": 2,
   "application": {
     "baseUrl": "https://linux-ai2.taile60a95.ts.net:8443",
     "publicFlow": "/",
-    "selectedVisibleVersion": "v0.9.0",
     "createPath": "/api/public/v1/scans",
     "contractVersion": "v1",
     "responsibleUseTermsVersion": "2026-08-20.v1"
@@ -17,7 +16,7 @@
     "pollIntervalMs": 3000,
     "maxPolls": 100
   },
-  "targetSourceCommit": "71b2e58eba0c5c4f0a1facf4497ed6f494d4fc0b",
+  "targetSourceCommit": "0f9aa5ecc224ac8aeb662745ddc0adde61095f09",
   "targets": {
     "vulnerable": "https://rappor-lab-vulnerable.vercel.app",
     "partially-fixed": "https://rappor-lab-partially-fixed.vercel.app",

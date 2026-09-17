@@ -62,18 +62,19 @@ service.
 
 ## Controlled public vibe-coding target
 
-`targets/public/vibe-coding` is a real Next.js source fixture with four states
-published through the owner-authorized, isolated laboratory Vercel account. It
-provides deterministic Next.js, Vercel, Lovable and network-disabled Supabase client
-signals. Its public response matrix covers security headers, cookie attributes, an
-inert password form, mixed content, synthetic elevated markers, and negative
-controls for Supabase publishable and anon values.
+`targets/public/vibe-coding` is a generated static fixture with four states
+published through the owner-authorized, isolated laboratory Vercel account. Vercel
+is the real host; Next.js, Lovable and the network-disabled Supabase client are
+explicit controlled signals. Each page exposes exactly one public JavaScript
+resource, below the six-resource scanner budget. Its response matrix covers
+security headers, cookie attributes, an inert password form, mixed content,
+synthetic elevated markers, and negative controls for Supabase publishable and anon
+values.
 
-The default state is `fixed`. The `RAPPOR_LAB_STATE` build and runtime value selects
-`vulnerable`, `partially-fixed`, `fixed` or `reintroduced`; each selection has a
-content digest pinned in `manifests/public-vibe-coding.json`. The local verifier
-starts only an ephemeral loopback server and performs independent HTTP and DOM
-assertions:
+`build.mjs` generates `vulnerable`, `partially-fixed`, `fixed` or `reintroduced`
+into separate deployment directories; each selection has a content digest pinned
+in `manifests/public-vibe-coding.json`. The local verifier starts only an ephemeral
+loopback server and performs independent HTTP, DOM and resource-budget assertions:
 
 ```sh
 node src/verify-public-target.mjs
@@ -99,6 +100,7 @@ to a temporary location for sanitization review before a dated record is admitte
 
 ```sh
 npm run public:black-box -- \
+  --expected-version vMAJOR.MINOR.PATCH \
   --json /tmp/public-black-box.json \
   --markdown /tmp/public-black-box.md
 ```

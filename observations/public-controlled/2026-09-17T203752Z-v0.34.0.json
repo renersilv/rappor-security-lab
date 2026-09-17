@@ -1,0 +1,1686 @@
+{
+  "$schema": "../../schemas/public-black-box-report.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkVersion": "2.0.0",
+  "recordedAt": "2026-09-17T20:38:03.695Z",
+  "laboratory": {
+    "version": "0.0.0",
+    "targetSourceCommit": "0f9aa5ecc224ac8aeb662745ddc0adde61095f09"
+  },
+  "application": {
+    "baseUrl": "https://linux-ai2.taile60a95.ts.net:8443",
+    "publicFlow": "/",
+    "selectedVisibleVersion": "v0.34.0",
+    "observedVisibleVersion": "v0.34.0",
+    "visibleVersionMatches": true,
+    "createPath": "/api/public/v1/scans",
+    "createMethod": "POST",
+    "contractVersion": "v1",
+    "responsibleUseTermsVersion": "2026-08-20.v1",
+    "clientContractExposed": true
+  },
+  "execution": {
+    "interface": "public-http-contract",
+    "scope": "passive",
+    "authenticated": false,
+    "activeTesting": false,
+    "groundTruthProfile": "public-passive@3",
+    "groundTruthRulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24",
+    "mappingProfile": "rappor-public-black-box@2",
+    "mappingProfileDigest": "sha256:9c4aec6a8bad6d0367a56e5f61365cac725d33841fd63c59ebdb0da5fd312592"
+  },
+  "summary": {
+    "runStatus": "completed",
+    "verdict": "blocked",
+    "clean": false,
+    "counts": {
+      "true-positive": 22,
+      "false-positive": 0,
+      "true-negative": 11,
+      "false-negative": 7,
+      "inconclusive": 0
+    },
+    "discrepancyCount": 15
+  },
+  "dimensions": {
+    "detection": {
+      "status": "mismatch",
+      "counts": {
+        "true-positive": 22,
+        "false-positive": 0,
+        "true-negative": 11,
+        "false-negative": 7,
+        "inconclusive": 0
+      }
+    },
+    "normalization": {
+      "status": "mismatch",
+      "evaluated": 22,
+      "mismatches": 5
+    },
+    "grouping": {
+      "status": "not-exposed",
+      "expected": 22,
+      "exposed": 0
+    },
+    "score": {
+      "status": "not-exposed",
+      "exposed": 0,
+      "total": 4
+    },
+    "lifecycle": {
+      "status": "mismatch",
+      "matched": 8,
+      "mismatches": 2,
+      "inconclusive": 0
+    },
+    "presentation": {
+      "status": "passed",
+      "available": 22,
+      "complete": 22
+    }
+  },
+  "scans": [
+    {
+      "state": "vulnerable",
+      "targetId": "public-vibe-coding-vulnerable",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
+      "url": "https://rappor-lab-vulnerable.vercel.app",
+      "observedAt": "2026-09-17T20:38:03.046Z",
+      "productStatus": "completed",
+      "coverageStatus": "complete",
+      "runStatus": "completed",
+      "findingCount": 5,
+      "signalCount": 4,
+      "uniqueSignalCount": 3,
+      "score": {
+        "exposed": false,
+        "value": null,
+        "status": "not-exposed"
+      },
+      "observations": [
+        {
+          "caseId": "public-nextjs-vulnerable",
+          "ruleFamily": "nextjs-technology",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "info",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "technology-nextjs",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-vercel-vulnerable",
+          "ruleFamily": "vercel-host-profile",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "hosting-vercel",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 2,
+            "sources": [
+              "document",
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-lovable-vulnerable",
+          "ruleFamily": "lovable-generator",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-lovable",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "document"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-client-vulnerable",
+          "ruleFamily": "supabase-client",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-supabase",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-public-keys-vulnerable",
+          "ruleFamily": "supabase-public-keys",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-header-vulnerable",
+          "ruleFamily": "missing-content-security-policy",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "low",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "security-header",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-cookie-vulnerable",
+          "ruleFamily": "insecure-cookie-attributes",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "mismatch",
+          "expectedGroupingKey": "cookie-attributes",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-form-vulnerable",
+          "ruleFamily": "password-form-uses-get",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "medium"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "form-transport",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-mixed-content-vulnerable",
+          "ruleFamily": "mixed-content",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "mismatch",
+          "expectedGroupingKey": "mixed-content",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-secret-vulnerable",
+          "ruleFamily": "synthetic-elevated-secret",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "high",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "synthetic-secret-marker",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        }
+      ],
+      "unmappedProductItems": [
+        {
+          "channel": "finding",
+          "identifier": "http.header.nosniff.missing.v1",
+          "severity": "low",
+          "confidence": "moderate",
+          "category": "browser-security"
+        }
+      ]
+    },
+    {
+      "state": "partially-fixed",
+      "targetId": "public-vibe-coding-partially-fixed",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
+      "url": "https://rappor-lab-partially-fixed.vercel.app",
+      "observedAt": "2026-09-17T20:38:03.068Z",
+      "productStatus": "completed",
+      "coverageStatus": "complete",
+      "runStatus": "completed",
+      "findingCount": 2,
+      "signalCount": 4,
+      "uniqueSignalCount": 3,
+      "score": {
+        "exposed": false,
+        "value": null,
+        "status": "not-exposed"
+      },
+      "observations": [
+        {
+          "caseId": "public-nextjs-partially-fixed",
+          "ruleFamily": "nextjs-technology",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "info",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "technology-nextjs",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-vercel-partially-fixed",
+          "ruleFamily": "vercel-host-profile",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "hosting-vercel",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 2,
+            "sources": [
+              "document",
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-lovable-partially-fixed",
+          "ruleFamily": "lovable-generator",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-lovable",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "document"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-client-partially-fixed",
+          "ruleFamily": "supabase-client",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-supabase",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-public-keys-partially-fixed",
+          "ruleFamily": "supabase-public-keys",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-header-partially-fixed",
+          "ruleFamily": "missing-content-security-policy",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-cookie-partially-fixed",
+          "ruleFamily": "insecure-cookie-attributes",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-form-partially-fixed",
+          "ruleFamily": "password-form-uses-get",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "medium"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "form-transport",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-mixed-content-partially-fixed",
+          "ruleFamily": "mixed-content",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "mismatch",
+          "expectedGroupingKey": "mixed-content",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-secret-partially-fixed",
+          "ruleFamily": "synthetic-elevated-secret",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "high",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "synthetic-secret-marker",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        }
+      ],
+      "unmappedProductItems": []
+    },
+    {
+      "state": "fixed",
+      "targetId": "public-vibe-coding-fixed",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
+      "url": "https://rappor-lab-fixed.vercel.app",
+      "observedAt": "2026-09-17T20:38:03.341Z",
+      "productStatus": "completed",
+      "coverageStatus": "complete",
+      "runStatus": "completed",
+      "findingCount": 0,
+      "signalCount": 4,
+      "uniqueSignalCount": 3,
+      "score": {
+        "exposed": false,
+        "value": null,
+        "status": "not-exposed"
+      },
+      "observations": [
+        {
+          "caseId": "public-nextjs-fixed",
+          "ruleFamily": "nextjs-technology",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "info",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "technology-nextjs",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-vercel-fixed",
+          "ruleFamily": "vercel-host-profile",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "hosting-vercel",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 2,
+            "sources": [
+              "document",
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-lovable-fixed",
+          "ruleFamily": "lovable-generator",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-lovable",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "document"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-client-fixed",
+          "ruleFamily": "supabase-client",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-supabase",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-public-keys-fixed",
+          "ruleFamily": "supabase-public-keys",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-header-fixed",
+          "ruleFamily": "missing-content-security-policy",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-cookie-fixed",
+          "ruleFamily": "insecure-cookie-attributes",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-form-fixed",
+          "ruleFamily": "password-form-uses-get",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-mixed-content-fixed",
+          "ruleFamily": "mixed-content",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-secret-fixed",
+          "ruleFamily": "synthetic-elevated-secret",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        }
+      ],
+      "unmappedProductItems": []
+    },
+    {
+      "state": "reintroduced",
+      "targetId": "public-vibe-coding-reintroduced",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
+      "url": "https://rappor-lab-reintroduced.vercel.app",
+      "observedAt": "2026-09-17T20:38:03.693Z",
+      "productStatus": "completed",
+      "coverageStatus": "complete",
+      "runStatus": "completed",
+      "findingCount": 5,
+      "signalCount": 4,
+      "uniqueSignalCount": 3,
+      "score": {
+        "exposed": false,
+        "value": null,
+        "status": "not-exposed"
+      },
+      "observations": [
+        {
+          "caseId": "public-nextjs-reintroduced",
+          "ruleFamily": "nextjs-technology",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "info",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "technology-nextjs",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-vercel-reintroduced",
+          "ruleFamily": "vercel-host-profile",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "hosting-vercel",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 2,
+            "sources": [
+              "document",
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-lovable-reintroduced",
+          "ruleFamily": "lovable-generator",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-lovable",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "document"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-client-reintroduced",
+          "ruleFamily": "supabase-client",
+          "channel": "signal",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "info",
+          "observedSeverities": [
+            "info"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "technology-supabase",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "script"
+            ]
+          }
+        },
+        {
+          "caseId": "public-supabase-public-keys-reintroduced",
+          "ruleFamily": "supabase-public-keys",
+          "channel": "finding",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative",
+          "expectedSeverity": null,
+          "observedSeverities": [],
+          "normalization": "not-applicable",
+          "expectedGroupingKey": null,
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        },
+        {
+          "caseId": "public-header-reintroduced",
+          "ruleFamily": "missing-content-security-policy",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "low",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "security-header",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-cookie-reintroduced",
+          "ruleFamily": "insecure-cookie-attributes",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "mismatch",
+          "expectedGroupingKey": "cookie-attributes",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-form-reintroduced",
+          "ruleFamily": "password-form-uses-get",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "medium"
+          ],
+          "normalization": "matched",
+          "expectedGroupingKey": "form-transport",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-mixed-content-reintroduced",
+          "ruleFamily": "mixed-content",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive",
+          "expectedSeverity": "medium",
+          "observedSeverities": [
+            "low"
+          ],
+          "normalization": "mismatch",
+          "expectedGroupingKey": "mixed-content",
+          "observedGroupingKey": null,
+          "grouping": "not-exposed",
+          "presentation": {
+            "available": true,
+            "complete": true,
+            "itemCount": 1,
+            "sources": [
+              "RapporCatalog"
+            ]
+          }
+        },
+        {
+          "caseId": "public-secret-reintroduced",
+          "ruleFamily": "synthetic-elevated-secret",
+          "channel": "finding",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative",
+          "expectedSeverity": "high",
+          "observedSeverities": [],
+          "normalization": "not-observed",
+          "expectedGroupingKey": "synthetic-secret-marker",
+          "observedGroupingKey": null,
+          "grouping": "not-applicable",
+          "presentation": {
+            "available": false,
+            "complete": false,
+            "itemCount": 0,
+            "sources": []
+          }
+        }
+      ],
+      "unmappedProductItems": [
+        {
+          "channel": "finding",
+          "identifier": "http.header.nosniff.missing.v1",
+          "severity": "low",
+          "confidence": "moderate",
+          "category": "browser-security"
+        }
+      ]
+    }
+  ],
+  "lifecycle": [
+    {
+      "ruleFamily": "nextjs-technology",
+      "status": "mismatch",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "vercel-host-profile",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "lovable-generator",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "supabase-client",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "supabase-public-keys",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "missing-content-security-policy",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "insecure-cookie-attributes",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "password-form-uses-get",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "mixed-content",
+      "status": "matched",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "ruleFamily": "synthetic-elevated-secret",
+      "status": "mismatch",
+      "states": [
+        {
+          "state": "vulnerable",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        },
+        {
+          "state": "partially-fixed",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        },
+        {
+          "state": "fixed",
+          "expectedPresence": false,
+          "observedPresence": false,
+          "classification": "true-negative"
+        },
+        {
+          "state": "reintroduced",
+          "expectedPresence": true,
+          "observedPresence": false,
+          "classification": "false-negative"
+        }
+      ]
+    }
+  ],
+  "discrepancies": [
+    {
+      "id": "severity-public-cookie-vulnerable",
+      "dimension": "normalization",
+      "caseIds": [
+        "public-cookie-vulnerable"
+      ],
+      "states": [
+        "vulnerable"
+      ],
+      "expected": "Normalized severity medium.",
+      "observed": "Normalized public result severity low.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The rule identifier and normalized severity were retained; title, remediation and evidence text were discarded."
+    },
+    {
+      "id": "severity-public-mixed-content-vulnerable",
+      "dimension": "normalization",
+      "caseIds": [
+        "public-mixed-content-vulnerable"
+      ],
+      "states": [
+        "vulnerable"
+      ],
+      "expected": "Normalized severity medium.",
+      "observed": "Normalized public result severity low.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The rule identifier and normalized severity were retained; title, remediation and evidence text were discarded."
+    },
+    {
+      "id": "severity-public-mixed-content-partially-fixed",
+      "dimension": "normalization",
+      "caseIds": [
+        "public-mixed-content-partially-fixed"
+      ],
+      "states": [
+        "partially-fixed"
+      ],
+      "expected": "Normalized severity medium.",
+      "observed": "Normalized public result severity low.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The rule identifier and normalized severity were retained; title, remediation and evidence text were discarded."
+    },
+    {
+      "id": "severity-public-cookie-reintroduced",
+      "dimension": "normalization",
+      "caseIds": [
+        "public-cookie-reintroduced"
+      ],
+      "states": [
+        "reintroduced"
+      ],
+      "expected": "Normalized severity medium.",
+      "observed": "Normalized public result severity low.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The rule identifier and normalized severity were retained; title, remediation and evidence text were discarded."
+    },
+    {
+      "id": "severity-public-mixed-content-reintroduced",
+      "dimension": "normalization",
+      "caseIds": [
+        "public-mixed-content-reintroduced"
+      ],
+      "states": [
+        "reintroduced"
+      ],
+      "expected": "Normalized severity medium.",
+      "observed": "Normalized public result severity low.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The rule identifier and normalized severity were retained; title, remediation and evidence text were discarded."
+    },
+    {
+      "id": "classification-public-nextjs-vulnerable",
+      "dimension": "detection",
+      "caseIds": [
+        "public-nextjs-vulnerable"
+      ],
+      "states": [
+        "vulnerable"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-secret-vulnerable",
+      "dimension": "detection",
+      "caseIds": [
+        "public-secret-vulnerable"
+      ],
+      "states": [
+        "vulnerable"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-nextjs-partially-fixed",
+      "dimension": "detection",
+      "caseIds": [
+        "public-nextjs-partially-fixed"
+      ],
+      "states": [
+        "partially-fixed"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-secret-partially-fixed",
+      "dimension": "detection",
+      "caseIds": [
+        "public-secret-partially-fixed"
+      ],
+      "states": [
+        "partially-fixed"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-nextjs-fixed",
+      "dimension": "detection",
+      "caseIds": [
+        "public-nextjs-fixed"
+      ],
+      "states": [
+        "fixed"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-nextjs-reintroduced",
+      "dimension": "detection",
+      "caseIds": [
+        "public-nextjs-reintroduced"
+      ],
+      "states": [
+        "reintroduced"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "classification-public-secret-reintroduced",
+      "dimension": "detection",
+      "caseIds": [
+        "public-secret-reintroduced"
+      ],
+      "states": [
+        "reintroduced"
+      ],
+      "expected": "Presence expected: true.",
+      "observed": "Presence observed: false; classification: false-negative.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "Only the mapped rule or signal identifier was used; response evidence was discarded."
+    },
+    {
+      "id": "lifecycle-not-proven",
+      "dimension": "lifecycle",
+      "caseIds": [
+        "public-nextjs-vulnerable",
+        "public-secret-vulnerable",
+        "public-nextjs-partially-fixed",
+        "public-secret-partially-fixed",
+        "public-nextjs-fixed",
+        "public-secret-fixed",
+        "public-nextjs-reintroduced",
+        "public-secret-reintroduced"
+      ],
+      "states": [
+        "vulnerable",
+        "partially-fixed",
+        "fixed",
+        "reintroduced"
+      ],
+      "expected": "Vulnerable, partially-fixed, fixed and reintroduced states must all have conclusive comparable coverage.",
+      "observed": "2 rule-family lifecycle sequence(s) are not proven by conclusive coverage.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "The report retains only expected and observed booleans plus classifications for each pinned state."
+    },
+    {
+      "id": "grouping-not-exposed",
+      "dimension": "grouping",
+      "caseIds": [
+        "public-vercel-vulnerable",
+        "public-lovable-vulnerable",
+        "public-supabase-client-vulnerable",
+        "public-header-vulnerable",
+        "public-cookie-vulnerable",
+        "public-form-vulnerable",
+        "public-mixed-content-vulnerable",
+        "public-vercel-partially-fixed",
+        "public-lovable-partially-fixed",
+        "public-supabase-client-partially-fixed",
+        "public-form-partially-fixed",
+        "public-mixed-content-partially-fixed",
+        "public-vercel-fixed",
+        "public-lovable-fixed",
+        "public-supabase-client-fixed",
+        "public-vercel-reintroduced",
+        "public-lovable-reintroduced",
+        "public-supabase-client-reintroduced",
+        "public-header-reintroduced",
+        "public-cookie-reintroduced",
+        "public-form-reintroduced",
+        "public-mixed-content-reintroduced"
+      ],
+      "states": [
+        "vulnerable",
+        "partially-fixed",
+        "fixed",
+        "reintroduced"
+      ],
+      "expected": "The manifest declares stable grouping keys for detected cases.",
+      "observed": "The selected public v1 response exposes no grouping key.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "No product grouping identifier was inferred or retained."
+    },
+    {
+      "id": "score-not-exposed",
+      "dimension": "score",
+      "caseIds": [],
+      "states": [
+        "vulnerable",
+        "partially-fixed",
+        "fixed",
+        "reintroduced"
+      ],
+      "expected": "Score behavior must be directly observable to support black-box comparison.",
+      "observed": "The selected public v1 response exposes no score field.",
+      "reproductionSteps": [
+        "Use the selected public POST contract with the exact controlled target URL and accepted responsible-use terms version.",
+        "Poll only the returned same-origin status path with its ephemeral token until a terminal status.",
+        "Discard the token and compare sanitized rule and signal identifiers with the pinned manifest and mapping profile."
+      ],
+      "sanitizedEvidence": "No score was inferred from severity counts."
+    }
+  ]
+}

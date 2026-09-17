@@ -241,11 +241,11 @@ test("requires an explicitly selected semantic deployment version", async () => 
 
 test("checked-in controlled report is complete, reproducible and sanitized", async () => {
   assert.deepEqual(await verifyPublicBlackBoxReport(), {
-    recordPath: "observations/public-controlled/2026-09-08T181522Z-v0.10.0.json",
-    status: "partial",
+    recordPath: "observations/public-controlled/2026-09-17T203752Z-v0.34.0.json",
+    status: "completed",
     verdict: "blocked",
     scans: 4,
     cases: 40,
-    discrepancies: 13,
+    discrepancies: 15,
   });
 });
