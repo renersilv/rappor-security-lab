@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/provider-configuration-report.schema.json",
+  "title": "Rappor Security controlled provider configuration observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "benchmarkVersion",
+    "recordedAt",
+    "laboratory",
+    "provider",
+    "execution",
+    "summary",
+    "states",
+    "cleanup",
+    "sanitization"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/provider-configuration-report.schema.json" },
+    "schemaVersion": { "const": "1.0.0" },
+    "benchmarkVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "laboratory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sourceCommit"],
+      "properties": {
+        "version": { "const": "0.0.0" },
+        "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "provider": { "enum": ["supabase", "vercel"] },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "interface", "rawProviderResponseRetained"],
+      "properties": {
+        "scope": { "const": "active-owner-authorized" },
+        "interface": { "enum": ["postgresql-catalog-and-data-api", "vercel-rest-api-v9"] },
+        "rawProviderResponseRetained": { "const": false }
+      }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "states": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/state" }
+    },
+    "cleanup": { "type": "object" },
+    "sanitization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retained", "excluded"],
+      "properties": {
+        "retained": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } },
+        "excluded": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["true-positive", "false-positive", "true-negative", "false-negative", "inconclusive"],
+      "properties": {
+        "true-positive": { "type": "integer", "minimum": 0 },
+        "false-positive": { "type": "integer", "minimum": 0 },
+        "true-negative": { "type": "integer", "minimum": 0 },
+        "false-negative": { "type": "integer", "minimum": 0 },
+        "inconclusive": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runStatus", "verdict", "clean", "counts"],
+      "properties": {
+        "runStatus": { "const": "completed" },
+        "verdict": { "const": "passed" },
+        "clean": { "const": true },
+        "counts": { "$ref": "#/$defs/counts" }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "present", "classification"],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/identifier" },
+        "present": { "type": "boolean" },
+        "classification": { "enum": ["true-positive", "true-negative"] }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "targetRevision", "cases"],
+      "properties": {
+        "state": { "enum": ["vulnerable", "partially-fixed", "fixed", "reintroduced"] },
+        "targetRevision": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "authorizationChecks": { "const": 4 },
+        "cases": { "type": "array", "minItems": 1, "maxItems": 7, "items": { "$ref": "#/$defs/case" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "vercel-project-configuration",
+  "version": 1,
+  "interface": "vercel-rest-api-v9",
+  "cliVersion": "59.20.0",
+  "scope": "rappor-security-tests",
+  "setting": "gitForkProtection",
+  "safeValue": true,
+  "ruleFamily": "vercel.git-fork-protection.disabled.v1",
+  "excludedData": [
+    "account-identifier",
+    "project-identifier",
+    "token",
+    "environment-variables",
+    "logs",
+    "source-code",
+    "visitor-data",
+    "raw-response"
+  ]
+}

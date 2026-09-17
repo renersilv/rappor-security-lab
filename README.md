@@ -148,6 +148,22 @@ confirmation. Verify that record locally, without credentials or network access:
 node src/verify-supabase-connected-report.mjs
 ```
 
+## Controlled provider configuration ground truth
+
+`targets/connected/provider-configuration` extends the connected laboratory with
+independent, real provider states for the seven current Supabase Security Advisor
+families and Vercel Git Fork Protection. Supabase uses empty synthetic PostgreSQL
+objects plus bounded catalog assertions; Vercel uses only the four existing
+controlled projects and the official project API. Both lifecycles start and end
+safe, run cleanup in `finally`, and fail closed when a provider response or
+post-condition changes.
+
+`manifests/provider-configuration.json` pins positive, negative and reintroduced
+cases without retaining a provider resource identifier. Live observations keep
+only logical case identifiers, boolean post-conditions, immutable fixture
+revisions, classifications and cleanup confirmation. See the target README for
+the protected runtime configuration and commands.
+
 ## External public observations
 
 `observations/public-external` contains dated, sanitized observations made through

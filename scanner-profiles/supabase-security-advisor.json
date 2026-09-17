@@ -1,0 +1,30 @@
+{
+  "id": "supabase-security-advisor",
+  "version": "2026.08.0",
+  "source": {
+    "repository": "supabase/splinter",
+    "commit": "415d658e8d49777ab2b1018f3c0ef5332c97f0f2"
+  },
+  "interface": "postgresql-catalog-ground-truth",
+  "providerObservationDeferred": true,
+  "severityMapping": {
+    "error": "high",
+    "warn": "medium",
+    "info": "info"
+  },
+  "rules": [
+    "0007_policy_exists_rls_disabled",
+    "0008_rls_enabled_no_policy",
+    "0010_security_definer_view",
+    "0013_rls_disabled_in_public",
+    "0023_sensitive_columns_exposed",
+    "0024_rls_policy_always_true",
+    "0025_public_bucket_allows_listing"
+  ],
+  "excludedData": [
+    "rows",
+    "auth-users",
+    "credentials",
+    "provider-response"
+  ]
+}
