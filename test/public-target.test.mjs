@@ -10,6 +10,7 @@ import {
   EXPECTED_OBSERVATIONS,
   verifyPublicTarget,
 } from "../src/verify-public-target.mjs";
+import { PUBLIC_SCRIPT_LIMIT, STATES, renderDocument } from "../targets/public/vibe-coding/lib/states.mjs";
 
 const manifestUrl = new URL("../manifests/public-vibe-coding.json", import.meta.url);
 
@@ -25,6 +26,8 @@ test("public target HTTP and DOM assertions match every lifecycle state", async 
       inertForm: true,
       mutationRejected: true,
       publicResourceAvailable: true,
+      publicScriptBudget: 6,
+      publicScriptCount: 1,
       rootAvailable: true,
     });
   }
@@ -75,18 +78,22 @@ test("manifest pins every condition, state, assertion type and scanner profile",
   }
 });
 
-test("target source defaults safe and cannot submit or persist visitor data", async () => {
+test("target source is static, bounded and cannot submit or persist visitor data", async () => {
   const states = await readFile(new URL("../targets/public/vibe-coding/lib/states.mjs", import.meta.url), "utf8");
-  const proxy = await readFile(new URL("../targets/public/vibe-coding/proxy.js", import.meta.url), "utf8");
-  const client = await readFile(new URL("../targets/public/vibe-coding/app/lab-client.jsx", import.meta.url), "utf8");
-  const page = await readFile(new URL("../targets/public/vibe-coding/app/page.jsx", import.meta.url), "utf8");
+  const build = await readFile(new URL("../targets/public/vibe-coding/build.mjs", import.meta.url), "utf8");
+  const packageConfiguration = JSON.parse(await readFile(new URL("../targets/public/vibe-coding/package.json", import.meta.url), "utf8"));
 
-  assert.match(states, /RAPPOR_LAB_STATE \?\? "fixed"/);
-  assert.match(proxy, /!\[.*"GET".*"HEAD".*\]\.includes\(request\.method\)/s);
-  assert.doesNotMatch(proxy, /request\.(?:arrayBuffer|blob|formData|json|text)\(/);
-  assert.match(client, /persistSession: false/);
-  assert.match(client, /global: \{ fetch: blockedFetch \}/);
-  assert.match(page, /<input[^>]+disabled/s);
-  assert.doesNotMatch(page, /<input[^>]+name=/s);
-  assert.match(page, /<button type="button" disabled>/);
+  assert.equal(PUBLIC_SCRIPT_LIMIT, 6);
+  assert.deepEqual(packageConfiguration.dependencies, undefined);
+  assert.match(states, /https:\/\/rappor-lab\.invalid/);
+  assert.doesNotMatch(states, /\bfetch\s*\(/);
+  assert.match(build, /!\["GET", "HEAD"\]\.includes\(request\.method\)/);
+  assert.doesNotMatch(build, /request\.(?:arrayBuffer|blob|formData|json|text)\(/);
+  for (const state of Object.values(STATES)) {
+    const document = renderDocument(state);
+    assert.equal([...document.matchAll(/<script\b[^>]*\bsrc=/gi)].length, 1);
+    assert.match(document, /<input[^>]+disabled/s);
+    assert.doesNotMatch(document, /<input[^>]+name=/s);
+    assert.match(document, /<button type="button" disabled>/);
+  }
 });

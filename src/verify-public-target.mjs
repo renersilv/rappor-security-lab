@@ -3,19 +3,23 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   STATES,
+  PUBLIC_SCRIPT_LIMIT,
   SUPABASE_ANON_KEY,
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_URL,
-  cookieOptions,
+  renderDocument,
   renderPublicResource,
   responseHeaders,
+  serializeCookie,
 } from "../targets/public/vibe-coding/lib/states.mjs";
+import { buildPublicTarget } from "../targets/public/vibe-coding/build.mjs";
 
 export const EXPECTED_OBSERVATIONS = {
   vulnerable: {
@@ -82,53 +86,14 @@ export const CASE_DEFINITIONS = {
 };
 
 const TARGET_FILES = [
+  "README.md",
+  "build.mjs",
   "package.json",
-  "package-lock.json",
-  "next.config.mjs",
-  "vercel.json",
-  "proxy.js",
-  "app/globals.css",
-  "app/lab-client.jsx",
-  "app/lab-resource.js/route.js",
-  "app/layout.jsx",
-  "app/page.jsx",
   "lib/states.mjs",
 ];
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIRECTORY, "..");
 const ELEVATED_MARKER = /RAPPOR_LAB_SYNTHETIC_SECRET_DO_NOT_USE_[A-Z0-9]{16}/;
-
-function escapeAttribute(value) {
-  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
-}
-
-function renderDocument(state) {
-  return `<!doctype html>
-<html lang="en">
-  <head><meta name="generator" content="Lovable"><title>Controlled public security target</title></head>
-  <body>
-    <main data-framework="Next.js" data-generator="Lovable" data-host-profile="Vercel" data-lab-state="${state.id}">
-      <form action="/not-accepted" method="${state.formMethod}" data-lab-inert="true">
-        <input id="lab-password" type="password" autocomplete="off" disabled>
-        <button type="button" disabled>Submission disabled</button>
-      </form>
-      <img alt="" data-lab-mixed-content="true" src="${escapeAttribute(state.mixedContentUrl)}">
-      <output data-supabase-client="configured">Supabase client configured without network or persistence</output>
-      <script src="/lab-resource.js"></script>
-    </main>
-  </body>
-</html>`;
-}
-
-function serializeCookie(state) {
-  const options = cookieOptions(state);
-  const attributes = ["rappor_lab_notice=synthetic"];
-  if (options.path) attributes.push(`Path=${options.path}`);
-  if (options.httpOnly) attributes.push("HttpOnly");
-  if (options.secure) attributes.push("Secure");
-  if (options.sameSite) attributes.push(`SameSite=${options.sameSite[0].toUpperCase()}${options.sameSite.slice(1)}`);
-  return attributes.join("; ");
-}
 
 function createFixtureServer(state) {
   return createServer((request, response) => {
@@ -185,6 +150,11 @@ function attribute(element, name) {
   return match?.[1] ?? match?.[2] ?? null;
 }
 
+function publicScriptUrls(document) {
+  return [...document.matchAll(/<script\b[^>]*\bsrc=(?:"([^"]+)"|'([^']+)')[^>]*>/gi)]
+    .map((match) => match[1] ?? match[2]);
+}
+
 export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_ROOT) {
   const state = STATES[stateName];
   if (!state) throw new Error(`unknown public target state: ${stateName}`);
@@ -198,6 +168,17 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
     digest.update("\0");
   }
   digest.update(`selected-state\0${stateName}\0`);
+
+  const generatedDirectory = await mkdtemp(join(tmpdir(), `rappor-public-${stateName}-`));
+  await buildPublicTarget(stateName, generatedDirectory);
+  const [generatedServer, generatedResource, generatedConfiguration] = await Promise.all([
+    readFile(resolve(generatedDirectory, "api", "target.mjs"), "utf8"),
+    readFile(resolve(generatedDirectory, "public", "lab-resource.js"), "utf8"),
+    readFile(resolve(generatedDirectory, "vercel.json"), "utf8"),
+  ]);
+  assert.ok(generatedServer.includes(JSON.stringify(renderDocument(state))), `${stateName} generated server must embed the controlled document`);
+  assert.equal(generatedResource, renderPublicResource(state));
+  assert.equal(JSON.parse(generatedConfiguration).rewrites.length, 2);
 
   const server = createFixtureServer(state);
   await listen(server);
@@ -220,6 +201,7 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
     const image = tag(document, "img", "data-lab-mixed-content");
     const supabaseOutput = tag(document, "output", "data-supabase-client");
     const publicScript = tag(document, "script", "src");
+    const scriptUrls = publicScriptUrls(document);
     const cookie = rootResponse.headers.get("set-cookie") ?? "";
     const publicKeyValues = [SUPABASE_PUBLISHABLE_KEY, SUPABASE_ANON_KEY];
 
@@ -231,6 +213,9 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
     assert.match(password, /\bdisabled\b/i);
     assert.doesNotMatch(password, /\bname=/i);
     assert.ok(publicKeyValues.every((value) => resource.includes(value)), `${stateName} must expose both public-key controls`);
+    assert.equal(scriptUrls.length, 1, `${stateName} must expose exactly one public JavaScript resource`);
+    assert.ok(scriptUrls.length <= PUBLIC_SCRIPT_LIMIT, `${stateName} exceeds the public JavaScript resource budget`);
+    assert.deepEqual(scriptUrls, ["/lab-resource.js"]);
 
     const observations = {
       nextjs:
@@ -265,11 +250,14 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
         inertForm: true,
         mutationRejected: true,
         publicResourceAvailable: true,
+        publicScriptBudget: PUBLIC_SCRIPT_LIMIT,
+        publicScriptCount: scriptUrls.length,
         rootAvailable: true,
       },
     };
   } finally {
     await close(server);
+    await rm(generatedDirectory, { force: true, recursive: true });
   }
 }
 

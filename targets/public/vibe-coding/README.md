@@ -1,19 +1,22 @@
 # Controlled vibe-coding public target
 
-This is a non-production Next.js fixture for passive public scanning. It exposes
+This is a non-production static fixture for passive public scanning. It exposes
 deterministic Next.js, Vercel, Lovable and Supabase client signals together with
-controlled HTTP and DOM conditions. The default state is `fixed`.
+controlled HTTP and DOM conditions. Vercel is the real hosting provider; the
+other technology signals are explicit synthetic markers. The generated page has
+one public JavaScript resource and must never exceed the six-resource scanner
+budget.
 
-Select exactly one lifecycle state at build and runtime with
-`RAPPOR_LAB_STATE`: `vulnerable`, `partially-fixed`, `fixed` or `reintroduced`.
-The benchmark manifest pins the digest of the complete target source plus that
-selection. A deployment revision must preserve the same value at build and
-runtime.
+Generate exactly one lifecycle state with `node build.mjs --state <state>
+--output <directory>`, where `<state>` is `vulnerable`, `partially-fixed`,
+`fixed` or `reintroduced`. Each generated directory contains one bounded Vercel
+Function for GET/HEAD responses and one public JavaScript fixture. The benchmark
+manifest pins the digest of the complete generator source plus that selection.
 
 The Supabase URL, publishable key and anon key are explicit non-functional
-laboratory values. The client blocks all network operations and disables auth
-persistence. Elevated-looking values use only the documented Rappor synthetic
-marker family. The form has no named or enabled control, and the proxy rejects
+laboratory values. No Supabase client library or network operation is present.
+Elevated-looking values use only the documented Rappor synthetic marker family.
+The form has no named or enabled control, and the generated function rejects
 every method other than GET and HEAD without reading a body.
 
 Do not deploy this source until the owner supplies an authorized disposable
