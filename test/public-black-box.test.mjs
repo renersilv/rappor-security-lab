@@ -148,13 +148,15 @@ function createMockFetch({ partialState, failedState } = {}) {
 test("executes the selected public contract and separates comparison dimensions", async () => {
   const { fetchImpl, requests } = createMockFetch();
   const report = await runPublicBlackBox({
+    expectedVisibleVersion: "v0.10.0",
     fetchImpl,
     now: () => new Date("2026-09-08T19:00:00.000Z"),
     sleep: async () => {},
   });
 
   assert.equal(report.application.observedVisibleVersion, "v0.10.0");
-  assert.equal(report.application.visibleVersionMatches, false);
+  assert.equal(report.application.selectedVisibleVersion, "v0.10.0");
+  assert.equal(report.application.visibleVersionMatches, true);
   assert.equal(report.application.clientContractExposed, true);
   assert.equal(report.summary.runStatus, "completed");
   assert.equal(report.summary.verdict, "blocked");
@@ -192,6 +194,7 @@ test("executes the selected public contract and separates comparison dimensions"
 test("partial coverage makes the controlled result non-clean and inconclusive", async () => {
   const { fetchImpl } = createMockFetch({ partialState: "vulnerable" });
   const report = await runPublicBlackBox({
+    expectedVisibleVersion: "v0.10.0",
     fetchImpl,
     now: () => new Date("2026-09-08T19:00:00.000Z"),
     sleep: async () => {},
@@ -210,6 +213,7 @@ test("partial coverage makes the controlled result non-clean and inconclusive", 
 test("failed scans remain bounded, non-clean and sanitized", async () => {
   const { fetchImpl } = createMockFetch({ failedState: "fixed" });
   const report = await runPublicBlackBox({
+    expectedVisibleVersion: "v0.10.0",
     fetchImpl,
     now: () => new Date("2026-09-08T19:00:00.000Z"),
     sleep: async () => {},
@@ -221,6 +225,18 @@ test("failed scans remain bounded, non-clean and sanitized", async () => {
   assert.equal(failed.runStatus, "failed");
   assert.equal(failed.observations.every((item) => item.classification === "inconclusive"), true);
   assert.equal(JSON.stringify(report).includes("must-not-retain-failure-reason"), false);
+});
+
+test("requires an explicitly selected semantic deployment version", async () => {
+  const { fetchImpl } = createMockFetch();
+  await assert.rejects(
+    runPublicBlackBox({ fetchImpl, expectedVisibleVersion: "0.10.0" }),
+    /vMAJOR\.MINOR\.PATCH/,
+  );
+  await assert.rejects(
+    runPublicBlackBox({ fetchImpl }),
+    /vMAJOR\.MINOR\.PATCH/,
+  );
 });
 
 test("checked-in controlled report is complete, reproducible and sanitized", async () => {

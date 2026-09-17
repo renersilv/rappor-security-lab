@@ -1,6 +1,6 @@
 {
   "id": "public-passive",
-  "version": 2,
+  "version": 3,
   "execution": {
     "methods": ["GET", "HEAD"],
     "activeTesting": false,

@@ -4,8 +4,8 @@ This is a non-production static fixture for passive public scanning. It exposes
 deterministic Next.js, Vercel, Lovable and Supabase client signals together with
 controlled HTTP and DOM conditions. Vercel is the real hosting provider; the
 other technology signals are explicit synthetic markers. The generated page has
-one public JavaScript resource and must never exceed the six-resource scanner
-budget.
+one public JavaScript resource under a deterministic `_next` path and must never
+exceed the six-resource scanner budget.
 
 Generate exactly one lifecycle state with `node build.mjs --state <state>
 --output <directory>`, where `<state>` is `vulnerable`, `partially-fixed`,

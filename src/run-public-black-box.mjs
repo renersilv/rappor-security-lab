@@ -34,6 +34,7 @@ const CONFIDENCES = new Map([
   ["certain", "high"],
   ["high", "high"],
 ]);
+const SEMANTIC_VERSION = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 
 function assertObject(value, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -104,7 +105,10 @@ function scriptUrls(document, baseUrl) {
   return urls.slice(0, 20);
 }
 
-export async function probePublicContract(profile, fetchImpl = fetch) {
+export async function probePublicContract(profile, expectedVisibleVersion, fetchImpl = fetch) {
+  if (!SEMANTIC_VERSION.test(expectedVisibleVersion ?? "")) {
+    throw new Error("expected visible version must use vMAJOR.MINOR.PATCH");
+  }
   const baseUrl = new URL(profile.application.publicFlow, profile.application.baseUrl).href;
   const root = await fetchImpl(baseUrl, {
     headers: { Accept: "text/html" },
@@ -144,9 +148,9 @@ export async function probePublicContract(profile, fetchImpl = fetch) {
   }
 
   return {
-    selectedVisibleVersion: profile.application.selectedVisibleVersion,
+    selectedVisibleVersion: expectedVisibleVersion,
     observedVisibleVersion: versions[0],
-    visibleVersionMatches: versions[0] === profile.application.selectedVisibleVersion,
+    visibleVersionMatches: versions[0] === expectedVisibleVersion,
     createMethod: "POST",
     createPath: profile.application.createPath,
     contractVersion: profile.application.contractVersion,
@@ -615,6 +619,7 @@ export function toBlackBoxMarkdown(report) {
 
 export async function runPublicBlackBox({
   repositoryRoot = REPOSITORY_ROOT,
+  expectedVisibleVersion,
   fetchImpl = fetch,
   now = () => new Date(),
   sleep = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)),
@@ -636,7 +641,7 @@ export async function runPublicBlackBox({
   }
   const targetMap = new Map(manifest.targets.map((target) => [target.id, target]));
   const mappings = compileMappings(profile);
-  const contract = await probePublicContract(profile, fetchImpl);
+  const contract = await probePublicContract(profile, expectedVisibleVersion, fetchImpl);
   progress?.({ phase: "contract", observedVisibleVersion: contract.observedVisibleVersion });
 
   const targets = [];
@@ -727,14 +732,23 @@ export async function runPublicBlackBox({
 
 function parseArguments(arguments_) {
   const options = {};
+  const names = new Map([
+    ["--expected-version", "expectedVersion"],
+    ["--json", "json"],
+    ["--markdown", "markdown"],
+  ]);
   for (let index = 0; index < arguments_.length; index += 2) {
-    if (!["--json", "--markdown"].includes(arguments_[index]) || !arguments_[index + 1]) {
-      throw new Error("usage: run-public-black-box.mjs --json report.json --markdown report.md");
+    const name = names.get(arguments_[index]);
+    if (!name || !arguments_[index + 1]) {
+      throw new Error("usage: run-public-black-box.mjs --expected-version vMAJOR.MINOR.PATCH --json report.json --markdown report.md");
     }
-    options[arguments_[index].slice(2)] = arguments_[index + 1];
+    options[name] = arguments_[index + 1];
   }
-  if (!options.json || !options.markdown) {
-    throw new Error("both --json and --markdown outputs are required");
+  if (!options.expectedVersion || !options.json || !options.markdown) {
+    throw new Error("expected version and both report outputs are required");
+  }
+  if (!SEMANTIC_VERSION.test(options.expectedVersion)) {
+    throw new Error("expected visible version must use vMAJOR.MINOR.PATCH");
   }
   return options;
 }
@@ -742,6 +756,7 @@ function parseArguments(arguments_) {
 async function main() {
   const outputs = parseArguments(process.argv.slice(2));
   const report = await runPublicBlackBox({
+    expectedVisibleVersion: outputs.expectedVersion,
     progress: (event) => process.stderr.write(`${JSON.stringify(event)}\n`),
   });
   await Promise.all([

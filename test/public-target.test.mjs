@@ -72,7 +72,7 @@ test("manifest pins every condition, state, assertion type and scanner profile",
       assert.equal(benchmarkCase.targetRevision, target.revision);
       assert.equal(benchmarkCase.expectedPresence, EXPECTED_OBSERVATIONS[state][key]);
       assert.equal(benchmarkCase.fixedCaseId, `public-${definition.id}-fixed`);
-      assert.equal(benchmarkCase.scannerProfile, "public-passive@2");
+      assert.equal(benchmarkCase.scannerProfile, "public-passive@3");
       assert.equal(benchmarkCase.rulesetDigest, rulesetDigest);
     }
   }

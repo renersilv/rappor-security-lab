@@ -1,36 +1,36 @@
 {
-  "benchmarkVersion": "1.0.0",
+  "benchmarkVersion": "2.0.0",
   "targets": [
     {
       "id": "public-vibe-coding-vulnerable",
       "control": "controlled",
       "layer": "public",
-      "revision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1"
+      "revision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365"
     },
     {
       "id": "public-vibe-coding-partially-fixed",
       "control": "controlled",
       "layer": "public",
-      "revision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def"
+      "revision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0"
     },
     {
       "id": "public-vibe-coding-fixed",
       "control": "controlled",
       "layer": "public",
-      "revision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902"
+      "revision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab"
     },
     {
       "id": "public-vibe-coding-reintroduced",
       "control": "controlled",
       "layer": "public",
-      "revision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6"
+      "revision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8"
     }
   ],
   "cases": [
     {
       "id": "public-nextjs-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -41,13 +41,13 @@
       "safeEvidence": "The controlled response exposes matching Next.js HTTP and DOM signals.",
       "fixedCaseId": "public-nextjs-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Next.js HTTP and DOM markers.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-vercel-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "hosting-identification",
@@ -58,13 +58,13 @@
       "safeEvidence": "The controlled response declares the Vercel host profile in HTTP and DOM metadata.",
       "fixedCaseId": "public-vercel-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Vercel profile markers without deployment access.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-lovable-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -75,13 +75,13 @@
       "safeEvidence": "The controlled DOM contains the declared Lovable generator marker.",
       "fixedCaseId": "public-lovable-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and a deterministic generator meta element.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-client-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -91,14 +91,14 @@
       "groupingKey": "technology-supabase",
       "safeEvidence": "The DOM and public resource declare a network-disabled Supabase client.",
       "fixedCaseId": "public-supabase-client-fixed",
-      "functionalAssertion": "The Supabase fixture disables persistence and network access while its public resource returns HTTP 200.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The Supabase fixture disables persistence and network access while its single public script returns HTTP 200.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-public-keys-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "public-secret-classification",
@@ -109,13 +109,13 @@
       "safeEvidence": "Explicitly synthetic Supabase publishable and anon values remain public non-secret configuration.",
       "fixedCaseId": "public-supabase-public-keys-fixed",
       "functionalAssertion": "The public resource exposes only non-functional publishable and anon values and performs no Supabase request.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-header-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "public-header-analysis",
@@ -126,13 +126,13 @@
       "safeEvidence": "The controlled root response omits Content-Security-Policy.",
       "fixedCaseId": "public-header-fixed",
       "functionalAssertion": "GET / returns HTTP 200 independently of the security-header state.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-cookie-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "public-cookie-analysis",
@@ -143,13 +143,13 @@
       "safeEvidence": "The synthetic response cookie omits Secure, HttpOnly and SameSite.",
       "fixedCaseId": "public-cookie-fixed",
       "functionalAssertion": "The cookie contains only a fixed synthetic value and stores no visitor data.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-form-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "public-form-analysis",
@@ -160,13 +160,13 @@
       "safeEvidence": "The inert password-form fixture declares the GET method.",
       "fixedCaseId": "public-form-fixed",
       "functionalAssertion": "All form controls are inert and every mutation method returns HTTP 405 without reading a body.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-mixed-content-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "public-resource-analysis",
@@ -177,13 +177,13 @@
       "safeEvidence": "The controlled DOM references an HTTP resource below the reserved invalid domain.",
       "fixedCaseId": "public-mixed-content-fixed",
       "functionalAssertion": "GET / remains functional and the mixed-content hostname cannot resolve externally.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-secret-vulnerable",
       "targetId": "public-vibe-coding-vulnerable",
-      "targetRevision": "sha256:27349a558429daa88a5b9871e77144c72a2991651cf8608e7abf0bd735f51ff1",
+      "targetRevision": "sha256:800a5c5a263865593afba9196ee2ecdb050f6b4196e8979287b9e71908427365",
       "state": "vulnerable",
       "scanner": "public-scan",
       "capability": "synthetic-secret-detection",
@@ -193,14 +193,14 @@
       "groupingKey": "synthetic-secret-marker",
       "safeEvidence": "The public resource contains a documented non-functional Rappor elevated marker.",
       "fixedCaseId": "public-secret-fixed",
-      "functionalAssertion": "GET /lab-resource.js returns deterministic public JavaScript without a functioning credential.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The single public script returns deterministic JavaScript without a functioning credential.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-nextjs-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -211,13 +211,13 @@
       "safeEvidence": "The controlled response exposes matching Next.js HTTP and DOM signals.",
       "fixedCaseId": "public-nextjs-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Next.js HTTP and DOM markers.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-vercel-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "hosting-identification",
@@ -228,13 +228,13 @@
       "safeEvidence": "The controlled response declares the Vercel host profile in HTTP and DOM metadata.",
       "fixedCaseId": "public-vercel-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Vercel profile markers without deployment access.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-lovable-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -245,13 +245,13 @@
       "safeEvidence": "The controlled DOM contains the declared Lovable generator marker.",
       "fixedCaseId": "public-lovable-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and a deterministic generator meta element.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-client-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -261,14 +261,14 @@
       "groupingKey": "technology-supabase",
       "safeEvidence": "The DOM and public resource declare a network-disabled Supabase client.",
       "fixedCaseId": "public-supabase-client-fixed",
-      "functionalAssertion": "The Supabase fixture disables persistence and network access while its public resource returns HTTP 200.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The Supabase fixture disables persistence and network access while its single public script returns HTTP 200.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-public-keys-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "public-secret-classification",
@@ -279,13 +279,13 @@
       "safeEvidence": "Explicitly synthetic Supabase publishable and anon values remain public non-secret configuration.",
       "fixedCaseId": "public-supabase-public-keys-fixed",
       "functionalAssertion": "The public resource exposes only non-functional publishable and anon values and performs no Supabase request.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-header-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "public-header-analysis",
@@ -296,13 +296,13 @@
       "safeEvidence": "The controlled root response includes the pinned Content-Security-Policy.",
       "fixedCaseId": "public-header-fixed",
       "functionalAssertion": "GET / returns HTTP 200 independently of the security-header state.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-cookie-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "public-cookie-analysis",
@@ -313,13 +313,13 @@
       "safeEvidence": "The synthetic response cookie includes Secure, HttpOnly and SameSite=Strict.",
       "fixedCaseId": "public-cookie-fixed",
       "functionalAssertion": "The cookie contains only a fixed synthetic value and stores no visitor data.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-form-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "public-form-analysis",
@@ -330,13 +330,13 @@
       "safeEvidence": "The inert password-form fixture declares the GET method.",
       "fixedCaseId": "public-form-fixed",
       "functionalAssertion": "All form controls are inert and every mutation method returns HTTP 405 without reading a body.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-mixed-content-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "public-resource-analysis",
@@ -347,13 +347,13 @@
       "safeEvidence": "The controlled DOM references an HTTP resource below the reserved invalid domain.",
       "fixedCaseId": "public-mixed-content-fixed",
       "functionalAssertion": "GET / remains functional and the mixed-content hostname cannot resolve externally.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-secret-partially-fixed",
       "targetId": "public-vibe-coding-partially-fixed",
-      "targetRevision": "sha256:eebc2095df200cdc77eea516c1c0307a3fa7346c63efa88cb86f12f570540def",
+      "targetRevision": "sha256:5faed2fc792cf426f2652b6ddc21cb6b7648b0ee0ff5471b0e84debd2e7277e0",
       "state": "partially-fixed",
       "scanner": "public-scan",
       "capability": "synthetic-secret-detection",
@@ -363,14 +363,14 @@
       "groupingKey": "synthetic-secret-marker",
       "safeEvidence": "The public resource contains a documented non-functional Rappor elevated marker.",
       "fixedCaseId": "public-secret-fixed",
-      "functionalAssertion": "GET /lab-resource.js returns deterministic public JavaScript without a functioning credential.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The single public script returns deterministic JavaScript without a functioning credential.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-nextjs-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -381,13 +381,13 @@
       "safeEvidence": "The controlled response exposes matching Next.js HTTP and DOM signals.",
       "fixedCaseId": "public-nextjs-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Next.js HTTP and DOM markers.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-vercel-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "hosting-identification",
@@ -398,13 +398,13 @@
       "safeEvidence": "The controlled response declares the Vercel host profile in HTTP and DOM metadata.",
       "fixedCaseId": "public-vercel-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Vercel profile markers without deployment access.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-lovable-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -415,13 +415,13 @@
       "safeEvidence": "The controlled DOM contains the declared Lovable generator marker.",
       "fixedCaseId": "public-lovable-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and a deterministic generator meta element.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-client-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -431,14 +431,14 @@
       "groupingKey": "technology-supabase",
       "safeEvidence": "The DOM and public resource declare a network-disabled Supabase client.",
       "fixedCaseId": "public-supabase-client-fixed",
-      "functionalAssertion": "The Supabase fixture disables persistence and network access while its public resource returns HTTP 200.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The Supabase fixture disables persistence and network access while its single public script returns HTTP 200.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-public-keys-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "public-secret-classification",
@@ -449,13 +449,13 @@
       "safeEvidence": "Explicitly synthetic Supabase publishable and anon values remain public non-secret configuration.",
       "fixedCaseId": "public-supabase-public-keys-fixed",
       "functionalAssertion": "The public resource exposes only non-functional publishable and anon values and performs no Supabase request.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-header-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "public-header-analysis",
@@ -466,13 +466,13 @@
       "safeEvidence": "The controlled root response includes the pinned Content-Security-Policy.",
       "fixedCaseId": "public-header-fixed",
       "functionalAssertion": "GET / returns HTTP 200 independently of the security-header state.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-cookie-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "public-cookie-analysis",
@@ -483,13 +483,13 @@
       "safeEvidence": "The synthetic response cookie includes Secure, HttpOnly and SameSite=Strict.",
       "fixedCaseId": "public-cookie-fixed",
       "functionalAssertion": "The cookie contains only a fixed synthetic value and stores no visitor data.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-form-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "public-form-analysis",
@@ -500,13 +500,13 @@
       "safeEvidence": "The inert password-form fixture declares POST and has no enabled or named controls.",
       "fixedCaseId": "public-form-fixed",
       "functionalAssertion": "All form controls are inert and every mutation method returns HTTP 405 without reading a body.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-mixed-content-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "public-resource-analysis",
@@ -517,13 +517,13 @@
       "safeEvidence": "The controlled DOM uses an inline data resource instead of an HTTP resource.",
       "fixedCaseId": "public-mixed-content-fixed",
       "functionalAssertion": "GET / remains functional and the mixed-content hostname cannot resolve externally.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-secret-fixed",
       "targetId": "public-vibe-coding-fixed",
-      "targetRevision": "sha256:d4bf93ce511e44dfa4246b09b606bd6f2c8a7a1e454050b5db7310773370c902",
+      "targetRevision": "sha256:34724c3ab5fea7d136a45bc66e486d4806e639efaa7f5d432479778dc83af9ab",
       "state": "fixed",
       "scanner": "public-scan",
       "capability": "synthetic-secret-detection",
@@ -533,14 +533,14 @@
       "groupingKey": null,
       "safeEvidence": "The public resource contains the no-secret control marker only.",
       "fixedCaseId": "public-secret-fixed",
-      "functionalAssertion": "GET /lab-resource.js returns deterministic public JavaScript without a functioning credential.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The single public script returns deterministic JavaScript without a functioning credential.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-nextjs-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -551,13 +551,13 @@
       "safeEvidence": "The controlled response exposes matching Next.js HTTP and DOM signals.",
       "fixedCaseId": "public-nextjs-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Next.js HTTP and DOM markers.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-vercel-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "hosting-identification",
@@ -568,13 +568,13 @@
       "safeEvidence": "The controlled response declares the Vercel host profile in HTTP and DOM metadata.",
       "fixedCaseId": "public-vercel-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and matching Vercel profile markers without deployment access.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-lovable-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -585,13 +585,13 @@
       "safeEvidence": "The controlled DOM contains the declared Lovable generator marker.",
       "fixedCaseId": "public-lovable-fixed",
       "functionalAssertion": "GET / returns HTTP 200 and a deterministic generator meta element.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-client-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "technology-identification",
@@ -601,14 +601,14 @@
       "groupingKey": "technology-supabase",
       "safeEvidence": "The DOM and public resource declare a network-disabled Supabase client.",
       "fixedCaseId": "public-supabase-client-fixed",
-      "functionalAssertion": "The Supabase fixture disables persistence and network access while its public resource returns HTTP 200.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The Supabase fixture disables persistence and network access while its single public script returns HTTP 200.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-supabase-public-keys-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "public-secret-classification",
@@ -619,13 +619,13 @@
       "safeEvidence": "Explicitly synthetic Supabase publishable and anon values remain public non-secret configuration.",
       "fixedCaseId": "public-supabase-public-keys-fixed",
       "functionalAssertion": "The public resource exposes only non-functional publishable and anon values and performs no Supabase request.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-header-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "public-header-analysis",
@@ -636,13 +636,13 @@
       "safeEvidence": "The controlled root response omits Content-Security-Policy.",
       "fixedCaseId": "public-header-fixed",
       "functionalAssertion": "GET / returns HTTP 200 independently of the security-header state.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-cookie-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "public-cookie-analysis",
@@ -653,13 +653,13 @@
       "safeEvidence": "The synthetic response cookie omits Secure, HttpOnly and SameSite.",
       "fixedCaseId": "public-cookie-fixed",
       "functionalAssertion": "The cookie contains only a fixed synthetic value and stores no visitor data.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-form-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "public-form-analysis",
@@ -670,13 +670,13 @@
       "safeEvidence": "The inert password-form fixture declares the GET method.",
       "fixedCaseId": "public-form-fixed",
       "functionalAssertion": "All form controls are inert and every mutation method returns HTTP 405 without reading a body.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-mixed-content-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "public-resource-analysis",
@@ -687,13 +687,13 @@
       "safeEvidence": "The controlled DOM references an HTTP resource below the reserved invalid domain.",
       "fixedCaseId": "public-mixed-content-fixed",
       "functionalAssertion": "GET / remains functional and the mixed-content hostname cannot resolve externally.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     },
     {
       "id": "public-secret-reintroduced",
       "targetId": "public-vibe-coding-reintroduced",
-      "targetRevision": "sha256:e8d71517be2956a603db29e99efb7138822e1841ea6a802e5955f13c3ac077b6",
+      "targetRevision": "sha256:669fbf3c1dc8a84eb1b4c8863015969f802aeb0ad1355bceb1c9873526fe98c8",
       "state": "reintroduced",
       "scanner": "public-scan",
       "capability": "synthetic-secret-detection",
@@ -703,9 +703,9 @@
       "groupingKey": "synthetic-secret-marker",
       "safeEvidence": "The public resource contains a documented non-functional Rappor elevated marker.",
       "fixedCaseId": "public-secret-fixed",
-      "functionalAssertion": "GET /lab-resource.js returns deterministic public JavaScript without a functioning credential.",
-      "scannerProfile": "public-passive@2",
-      "rulesetDigest": "sha256:087c14f83650574244f7fc698a2c7c7633ca020b5b06a4a2b943867f2cd93e5f"
+      "functionalAssertion": "The single public script returns deterministic JavaScript without a functioning credential.",
+      "scannerProfile": "public-passive@3",
+      "rulesetDigest": "sha256:3bc3f542f456190db2bc8d11cc3b458019ac0ed44340d7a092c97878accfcb24"
     }
   ],
   "exampleRun": {

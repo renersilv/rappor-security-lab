@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
+  PUBLIC_SCRIPT_PATH,
   STATES,
   getState,
   renderDocument,
@@ -42,7 +43,7 @@ function vercelConfiguration(state) {
     $schema: "https://openapi.vercel.sh/vercel.json",
     headers: [
       {
-        source: "/lab-resource.js",
+        source: PUBLIC_SCRIPT_PATH,
         headers: Object.entries(responseHeaders(state)).map(([key, value]) => ({ key, value })),
       },
     ],
@@ -59,11 +60,11 @@ export async function buildPublicTarget(stateName, outputDirectory) {
   await rm(absoluteOutput, { force: true, recursive: true });
   await Promise.all([
     mkdir(resolve(absoluteOutput, "api"), { recursive: true }),
-    mkdir(resolve(absoluteOutput, "public"), { recursive: true }),
+    mkdir(resolve(absoluteOutput, "public", "_next", "static", "chunks"), { recursive: true }),
   ]);
   await Promise.all([
     writeFile(resolve(absoluteOutput, "api", "target.mjs"), serverModule(state), "utf8"),
-    writeFile(resolve(absoluteOutput, "public", "lab-resource.js"), renderPublicResource(state), "utf8"),
+    writeFile(resolve(absoluteOutput, "public", PUBLIC_SCRIPT_PATH.slice(1)), renderPublicResource(state), "utf8"),
     writeFile(resolve(absoluteOutput, "vercel.json"), `${JSON.stringify(vercelConfiguration(state), null, 2)}\n`, "utf8"),
   ]);
   return { outputDirectory: absoluteOutput, state: state.id };

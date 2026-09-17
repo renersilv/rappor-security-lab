@@ -2,6 +2,7 @@ export const SUPABASE_URL = "https://rappor-lab.invalid";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_RAPPOR_LAB_NON_FUNCTIONAL_PUBLIC_KEY";
 export const SUPABASE_ANON_KEY = "RAPPOR_LAB_SYNTHETIC_SUPABASE_ANON_NON_FUNCTIONAL";
 export const PUBLIC_SCRIPT_LIMIT = 6;
+export const PUBLIC_SCRIPT_PATH = "/_next/static/chunks/rappor-lab.js";
 
 export const STATES = {
   vulnerable: {
@@ -97,7 +98,7 @@ export function renderDocument(state) {
       </form>
       <img alt="" data-lab-mixed-content="true" height="1" loading="lazy" src="${mixedContentUrl}" width="1">
       <output data-supabase-client="configured">Supabase client configured without network or persistence</output>
-      <script src="/lab-resource.js"></script>
+      <script src="${PUBLIC_SCRIPT_PATH}"></script>
     </main>
   </body>
 </html>`;

@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   STATES,
   PUBLIC_SCRIPT_LIMIT,
+  PUBLIC_SCRIPT_PATH,
   SUPABASE_ANON_KEY,
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_URL,
@@ -102,7 +103,7 @@ function createFixtureServer(state) {
       response.end();
       return;
     }
-    if (request.url === "/lab-resource.js") {
+    if (request.url === PUBLIC_SCRIPT_PATH) {
       response.writeHead(200, {
         ...responseHeaders(state),
         "content-type": "application/javascript; charset=utf-8",
@@ -173,7 +174,7 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
   await buildPublicTarget(stateName, generatedDirectory);
   const [generatedServer, generatedResource, generatedConfiguration] = await Promise.all([
     readFile(resolve(generatedDirectory, "api", "target.mjs"), "utf8"),
-    readFile(resolve(generatedDirectory, "public", "lab-resource.js"), "utf8"),
+    readFile(resolve(generatedDirectory, "public", PUBLIC_SCRIPT_PATH.slice(1)), "utf8"),
     readFile(resolve(generatedDirectory, "vercel.json"), "utf8"),
   ]);
   assert.ok(generatedServer.includes(JSON.stringify(renderDocument(state))), `${stateName} generated server must embed the controlled document`);
@@ -187,7 +188,7 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
   try {
     const rootResponse = await fetch(`${baseUrl}/`);
     const document = await rootResponse.text();
-    const resourceResponse = await fetch(`${baseUrl}/lab-resource.js`);
+    const resourceResponse = await fetch(`${baseUrl}${PUBLIC_SCRIPT_PATH}`);
     const resource = await resourceResponse.text();
     const rejectedMutation = await fetch(`${baseUrl}/not-accepted`, {
       method: "POST",
@@ -215,7 +216,7 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
     assert.ok(publicKeyValues.every((value) => resource.includes(value)), `${stateName} must expose both public-key controls`);
     assert.equal(scriptUrls.length, 1, `${stateName} must expose exactly one public JavaScript resource`);
     assert.ok(scriptUrls.length <= PUBLIC_SCRIPT_LIMIT, `${stateName} exceeds the public JavaScript resource budget`);
-    assert.deepEqual(scriptUrls, ["/lab-resource.js"]);
+    assert.deepEqual(scriptUrls, [PUBLIC_SCRIPT_PATH]);
 
     const observations = {
       nextjs:
@@ -229,7 +230,7 @@ export async function inspectPublicState(stateName, repositoryRoot = REPOSITORY_
         attribute(generator, "content") === "Lovable",
       supabaseClient:
         attribute(supabaseOutput, "data-supabase-client") === "configured" &&
-        attribute(publicScript, "src") === "/lab-resource.js" &&
+        attribute(publicScript, "src") === PUBLIC_SCRIPT_PATH &&
         resource.includes(SUPABASE_URL),
       supabasePublicKeys: publicKeyValues.some((value) => ELEVATED_MARKER.test(value)),
       header: !rootResponse.headers.has("content-security-policy"),

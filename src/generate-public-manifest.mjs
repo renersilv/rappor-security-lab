@@ -46,7 +46,7 @@ export const CASE_METADATA = {
     groupingKey: "technology-supabase",
     positiveEvidence: "The DOM and public resource declare a network-disabled Supabase client.",
     negativeEvidence: "The DOM and public resource do not declare a Supabase client.",
-    functionalAssertion: "The Supabase fixture disables persistence and network access while its public resource returns HTTP 200.",
+    functionalAssertion: "The Supabase fixture disables persistence and network access while its single public script returns HTTP 200.",
   },
   supabasePublicKeys: {
     capability: "public-secret-classification",
@@ -100,7 +100,7 @@ export const CASE_METADATA = {
     groupingKey: "synthetic-secret-marker",
     positiveEvidence: "The public resource contains a documented non-functional Rappor elevated marker.",
     negativeEvidence: "The public resource contains the no-secret control marker only.",
-    functionalAssertion: "GET /lab-resource.js returns deterministic public JavaScript without a functioning credential.",
+    functionalAssertion: "The single public script returns deterministic JavaScript without a functioning credential.",
   },
 };
 
@@ -144,7 +144,7 @@ export async function buildPublicManifest(repositoryRoot = REPOSITORY_ROOT) {
         safeEvidence: expectedPresence ? metadata.positiveEvidence : metadata.negativeEvidence,
         fixedCaseId: `public-${definition.id}-fixed`,
         functionalAssertion: metadata.functionalAssertion,
-        scannerProfile: "public-passive@2",
+        scannerProfile: "public-passive@3",
         rulesetDigest,
       });
       observations.push({ caseId: id, present: expectedPresence });
@@ -152,7 +152,7 @@ export async function buildPublicManifest(repositoryRoot = REPOSITORY_ROOT) {
   }
 
   return {
-    benchmarkVersion: "1.0.0",
+    benchmarkVersion: "2.0.0",
     targets,
     cases,
     exampleRun: { status: "completed", observations },
