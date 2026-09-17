@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -122,10 +122,25 @@ export async function verifyProviderConfigurationReport(report, markdown = "", r
 
 async function main() {
   const [jsonPath, markdownPath] = process.argv.slice(2);
-  if (!jsonPath) throw new Error("usage: verify-provider-configuration-report.mjs REPORT.json [REPORT.md]");
-  const report = JSON.parse(await readFile(resolve(process.cwd(), jsonPath), "utf8"));
-  const markdown = markdownPath ? await readFile(resolve(process.cwd(), markdownPath), "utf8") : "";
-  process.stdout.write(`${JSON.stringify(await verifyProviderConfigurationReport(report, markdown), null, 2)}\n`);
+  if (jsonPath) {
+    const report = JSON.parse(await readFile(resolve(process.cwd(), jsonPath), "utf8"));
+    const markdown = markdownPath ? await readFile(resolve(process.cwd(), markdownPath), "utf8") : "";
+    process.stdout.write(`${JSON.stringify(await verifyProviderConfigurationReport(report, markdown), null, 2)}\n`);
+    return;
+  }
+  const directory = resolve(process.cwd(), "observations", "provider-configuration");
+  const files = (await readdir(directory)).filter((name) => name.endsWith(".json")).sort();
+  if (files.length === 0) throw new Error("no provider configuration observations were found");
+  const results = [];
+  for (const name of files) {
+    const base = name.slice(0, -5);
+    const [record, markdown] = await Promise.all([
+      readFile(resolve(directory, name), "utf8"),
+      readFile(resolve(directory, `${base}.md`), "utf8"),
+    ]);
+    results.push(await verifyProviderConfigurationReport(JSON.parse(record), markdown));
+  }
+  process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

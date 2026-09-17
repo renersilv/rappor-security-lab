@@ -1,0 +1,98 @@
+{
+  "$schema": "../../schemas/provider-configuration-report.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkVersion": "3.0.0",
+  "recordedAt": "2026-09-17T21:10:57.427Z",
+  "laboratory": {
+    "version": "0.0.0",
+    "sourceCommit": "3e22ed4a1e9926ab597d883a361125772f2a661c"
+  },
+  "provider": "vercel",
+  "execution": {
+    "scope": "active-owner-authorized",
+    "interface": "vercel-rest-api-v9",
+    "rawProviderResponseRetained": false
+  },
+  "summary": {
+    "runStatus": "completed",
+    "verdict": "passed",
+    "clean": true,
+    "counts": {
+      "true-positive": 2,
+      "false-positive": 0,
+      "true-negative": 2,
+      "false-negative": 0,
+      "inconclusive": 0
+    }
+  },
+  "states": [
+    {
+      "state": "vulnerable",
+      "targetRevision": "sha256:23bece9f88f31ca98b7e371ccfb22b366819b8fbd62aa1284cb46d2e063dfa91",
+      "cases": [
+        {
+          "caseId": "vercel-git-fork-protection-disabled-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        }
+      ]
+    },
+    {
+      "state": "partially-fixed",
+      "targetRevision": "sha256:6fc1bce7e813591b5442bc9bbd2741fcebf50414cc3fd705007eec755f573778",
+      "cases": [
+        {
+          "caseId": "vercel-git-fork-protection-disabled-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "state": "fixed",
+      "targetRevision": "sha256:bb5b37436db602d80bf2e47dfacd61ca154622c90b8fdff4432cfaeef79e5557",
+      "cases": [
+        {
+          "caseId": "vercel-git-fork-protection-disabled-fixed",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ]
+    },
+    {
+      "state": "reintroduced",
+      "targetRevision": "sha256:5fd0a3b370abecbb40059c3a313444b14857c9f9c52619f3777636271cdfe313",
+      "cases": [
+        {
+          "caseId": "vercel-git-fork-protection-disabled-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "gitForkProtection": true,
+    "projectsRestored": 4,
+    "verified": true
+  },
+  "sanitization": {
+    "retained": [
+      "logical-case-ids",
+      "boolean-post-conditions",
+      "state-revisions",
+      "classifications",
+      "cleanup-confirmation"
+    ],
+    "excluded": [
+      "credentials",
+      "provider-resource-ids",
+      "project-references",
+      "users",
+      "rows",
+      "logs",
+      "source-code",
+      "raw-responses"
+    ]
+  }
+}

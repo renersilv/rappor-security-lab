@@ -98,6 +98,26 @@ test("Supabase cleanup still runs when an intermediate catalog assertion fails",
   assert.equal(cleaned, true);
 });
 
+test("Supabase reports both the primary failure and a cleanup failure", async () => {
+  await assert.rejects(
+    runSupabaseConfigurationLifecycle({
+      environment,
+      applyState: async () => {},
+      readConfiguration: async () => Object.fromEntries(Object.keys(SUPABASE_STATES.vulnerable.findings).map((key) => [key, false])),
+      checkAuthorization: async () => ({ status: "completed", observations: Array.from({ length: 4 }, () => ({})) }),
+      cleanup: async () => {
+        throw new Error("sensitive provider detail");
+      },
+    }),
+    (error) => {
+      assert.match(error.message, /catalog post-condition did not match ground truth/);
+      assert.match(error.message, /safe cleanup also failed/);
+      assert.doesNotMatch(error.message, /sensitive provider detail/);
+      return true;
+    },
+  );
+});
+
 function memoryVercelAdapter(events, failState) {
   const values = new Map(Object.values(VERCEL_STATES).map((state) => [state.project, true]));
   return {
@@ -140,6 +160,36 @@ test("Vercel lifecycle restores safe values after a mid-cycle failure", async ()
   const cleanupTail = events.slice(-8);
   assert.equal(cleanupTail.filter((event) => event[0] === "update" && event[2] === true).length, 4);
   assert.equal(cleanupTail.filter((event) => event[0] === "read").length, 4);
+});
+
+test("Vercel attempts every cleanup and preserves the primary failure class", async () => {
+  const projects = Object.values(VERCEL_STATES).map((state) => state.project);
+  const cleanupAttempts = [];
+  let primaryFailed = false;
+  const adapter = {
+    read: async () => ({ gitForkProtection: true }),
+    update: async (project, value) => {
+      if (!primaryFailed && project === VERCEL_STATES.vulnerable.project && value === false) {
+        primaryFailed = true;
+        throw new Error("primary bounded failure");
+      }
+      if (primaryFailed && value === true) {
+        cleanupAttempts.push(project);
+        if (project === VERCEL_STATES.fixed.project) throw new Error("provider detail");
+      }
+      return { gitForkProtection: value };
+    },
+  };
+  await assert.rejects(
+    runVercelConfigurationLifecycle({ adapter }),
+    (error) => {
+      assert.match(error.message, /primary bounded failure/);
+      assert.match(error.message, /safe cleanup also failed/);
+      assert.doesNotMatch(error.message, /provider detail/);
+      return true;
+    },
+  );
+  assert.deepEqual(cleanupAttempts, projects);
 });
 
 test("official Vercel adapter discards response identifiers and sends a typed boolean", async () => {

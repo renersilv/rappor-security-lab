@@ -164,6 +164,14 @@ only logical case identifiers, boolean post-conditions, immutable fixture
 revisions, classifications and cleanup confirmation. See the target README for
 the protected runtime configuration and commands.
 
+The dated records in `observations/provider-configuration` contain the real
+Supabase and Vercel ground-truth lifecycles. Validate both locally without provider
+credentials or network access:
+
+```sh
+node src/verify-provider-configuration-report.mjs
+```
+
 ## External public observations
 
 `observations/public-external` contains dated, sanitized observations made through

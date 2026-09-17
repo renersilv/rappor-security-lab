@@ -170,20 +170,35 @@ export async function readSupabaseConfiguration(environment = process.env, runne
 }
 
 export async function cleanupSupabaseConfiguration(environment = process.env, runner = execFile) {
-  await psql([
-    "--no-psqlrc",
-    "--set=ON_ERROR_STOP=on",
-    "--quiet",
-    "--file", targetFile(CONFIGURATION_TARGET, "supabase/migrations/900_reset.sql"),
-    "--file", targetFile(AUTHORIZATION_TARGET, "migrations/900_reset.sql"),
-  ], environment, runner);
-  const cleanup = await querySupabaseBooleans(
-    CLEANUP_QUERY,
-    ["authorizationRelationAbsent", "configurationObjectsAbsent", "bucketAbsent", "bucketPolicyAbsent"],
-    "the Supabase cleanup post-condition",
-    environment,
-    runner,
-  );
+  const failures = [];
+  for (const file of [
+    targetFile(CONFIGURATION_TARGET, "supabase/migrations/900_reset.sql"),
+    targetFile(AUTHORIZATION_TARGET, "migrations/900_reset.sql"),
+  ]) {
+    try {
+      await psql([
+        "--no-psqlrc",
+        "--set=ON_ERROR_STOP=on",
+        "--quiet",
+        "--file", file,
+      ], environment, runner);
+    } catch {
+      failures.push(true);
+    }
+  }
+  let cleanup;
+  try {
+    cleanup = await querySupabaseBooleans(
+      CLEANUP_QUERY,
+      ["authorizationRelationAbsent", "configurationObjectsAbsent", "bucketAbsent", "bucketPolicyAbsent"],
+      "the Supabase cleanup post-condition",
+      environment,
+      runner,
+    );
+  } catch {
+    throw new Error("the Supabase safe cleanup could not be verified");
+  }
+  if (failures.length > 0) throw new Error("one or more Supabase cleanup operations failed");
   if (!Object.values(cleanup).every(Boolean)) throw new Error("the Supabase cleanup post-condition was not satisfied");
   return cleanup;
 }
@@ -207,6 +222,7 @@ export async function runSupabaseConfigurationLifecycle({
   const clean = cleanup ?? (() => cleanupSupabaseConfiguration(environment));
   const states = [];
   let cleanupResult;
+  let primaryFailure;
   try {
     for (const stateName of STATE_ORDER) {
       await apply(stateName);
@@ -221,9 +237,18 @@ export async function runSupabaseConfigurationLifecycle({
       }
       states.push({ state: stateName, findings, authorizationChecks: 4 });
     }
-  } finally {
-    cleanupResult = await clean();
+  } catch (error) {
+    primaryFailure = error;
   }
+  try {
+    cleanupResult = await clean();
+  } catch {
+    if (primaryFailure) {
+      throw new Error(`${primaryFailure.message}; the Supabase safe cleanup also failed`);
+    }
+    throw new Error("the Supabase safe cleanup failed");
+  }
+  if (primaryFailure) throw primaryFailure;
   return {
     provider: "supabase",
     status: "completed",
@@ -294,6 +319,7 @@ export async function runVercelConfigurationLifecycle({ adapter = createVercelAd
   const projects = [...new Set(Object.values(VERCEL_STATES).map((state) => state.project))];
   const states = [];
   let cleanupResult;
+  let primaryFailure;
   try {
     for (const project of projects) {
       const initial = await adapter.read(project);
@@ -307,21 +333,27 @@ export async function runVercelConfigurationLifecycle({ adapter = createVercelAd
       const gitForkProtection = await setAndVerifyVercel(adapter, state.project, state.gitForkProtection);
       states.push({ state: stateName, gitForkProtection });
     }
-  } finally {
-    const restored = [];
-    for (const project of projects) {
-      try {
-        restored.push(await setAndVerifyVercel(adapter, project, true));
-      } catch {
-        throw new Error("the Vercel safe cleanup did not restore every controlled project");
-      }
-    }
-    cleanupResult = {
-      gitForkProtection: true,
-      projectsRestored: restored.filter(Boolean).length,
-      verified: restored.length === projects.length && restored.every(Boolean),
-    };
+  } catch (error) {
+    primaryFailure = error;
   }
+  const restored = [];
+  for (const project of projects) {
+    try {
+      restored.push(await setAndVerifyVercel(adapter, project, true));
+    } catch {
+      restored.push(false);
+    }
+  }
+  cleanupResult = {
+    gitForkProtection: true,
+    projectsRestored: restored.filter(Boolean).length,
+    verified: restored.length === projects.length && restored.every(Boolean),
+  };
+  if (!cleanupResult.verified) {
+    if (primaryFailure) throw new Error(`${primaryFailure.message}; the Vercel safe cleanup also failed`);
+    throw new Error("the Vercel safe cleanup did not restore every controlled project");
+  }
+  if (primaryFailure) throw primaryFailure;
   return {
     provider: "vercel",
     status: "completed",
@@ -447,7 +479,18 @@ async function main() {
   const markdown = providerReportToMarkdown(report);
   if (options.json) await writeFile(resolve(process.cwd(), options.json), json, "utf8");
   if (options.markdown) await writeFile(resolve(process.cwd(), options.markdown), markdown, "utf8");
-  if (!options.json && !options.markdown) process.stdout.write(json);
+  if (!options.json && !options.markdown) {
+    process.stdout.write(json);
+  } else {
+    process.stdout.write(`${JSON.stringify({
+      provider: report.provider,
+      status: report.summary.runStatus,
+      states: report.states.length,
+      cases: report.states.reduce((total, state) => total + state.cases.length, 0),
+      cleanupVerified: true,
+      outputs: { json: Boolean(options.json), markdown: Boolean(options.markdown) },
+    })}\n`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

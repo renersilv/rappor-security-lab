@@ -2,11 +2,11 @@
 
 ## Current state
 
-Repository foundation, executable manifests, controlled static code corpus, controlled public target sources and disposable Supabase authorization target sources created. Four public lifecycle states are deployed in an isolated laboratory Vercel account from an immutable source revision; each exposes one public JavaScript resource below the six-resource scanner budget. Dated, sanitized external, controlled public and connected Supabase observations now exist. The disposable Supabase relation was independently confirmed absent after the connected lifecycle, and the owner-authorized project remains empty.
+Repository foundation, executable manifests, controlled static code corpus, controlled public target sources and disposable connected provider targets created. Four public lifecycle states are deployed in an isolated laboratory Vercel account from an immutable source revision; each exposes one public JavaScript resource below the six-resource scanner budget. Dated, sanitized external, controlled public, Supabase authorization and provider-configuration observations now exist. The disposable Supabase relations, configuration objects and empty bucket were independently confirmed absent after the connected lifecycle. All four controlled Vercel projects were independently confirmed with Git Fork Protection enabled after their lifecycle.
 
 ## Current work
 
-Issue #14 executed all four controlled public lifecycle states against Rappor Security HML `v0.34.0`. All scans completed with complete coverage and no inconclusive case. The independent ground truth produced 22 true positives, 11 true negatives, no false positives and 7 false negatives; normalization, grouping, score and two lifecycle families remain explicit product discrepancies. The selected and observed visible versions both equal `v0.34.0`, and the dated report retains no ephemeral token, status URL, internal identifier, raw evidence, credential or response body.
+Issue #15 established real, independent provider states without calling Rappor Security. The Supabase lifecycle proved seven current Security Advisor families across vulnerable, partially fixed, fixed and reintroduced states, while retaining only 28 boolean case results and four authorization-check counts per state. The Vercel lifecycle proved Git Fork Protection disabled, enabled and reintroduced across the four existing controlled projects. Both reports are clean, contain no provider resource identifier or raw response, and confirm safe cleanup. Issue #14 remains the latest black-box product comparison against HML `v0.34.0`, with its 15 explicit discrepancies unchanged.
 
 ## Constraints
 

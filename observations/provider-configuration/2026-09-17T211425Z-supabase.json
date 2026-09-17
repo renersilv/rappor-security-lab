@@ -1,0 +1,223 @@
+{
+  "$schema": "../../schemas/provider-configuration-report.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkVersion": "3.0.0",
+  "recordedAt": "2026-09-17T21:15:21.708Z",
+  "laboratory": {
+    "version": "0.0.0",
+    "sourceCommit": "704fabf8ea265417ff1c65a027fef6f185f4d670"
+  },
+  "provider": "supabase",
+  "execution": {
+    "scope": "active-owner-authorized",
+    "interface": "postgresql-catalog-and-data-api",
+    "rawProviderResponseRetained": false
+  },
+  "summary": {
+    "runStatus": "completed",
+    "verdict": "passed",
+    "clean": true,
+    "counts": {
+      "true-positive": 18,
+      "false-positive": 0,
+      "true-negative": 10,
+      "false-negative": 0,
+      "inconclusive": 0
+    }
+  },
+  "states": [
+    {
+      "state": "vulnerable",
+      "targetRevision": "sha256:f7b0b34ccf9c13802d714f97b2d4755b6e8c95913f79ef0af3314452cc85bdba",
+      "cases": [
+        {
+          "caseId": "supabase-0007-policy-exists-rls-disabled-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0008-rls-enabled-no-policy-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0010-security-definer-view-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0013-rls-disabled-in-public-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0023-sensitive-columns-exposed-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0024-permissive-rls-policy-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0025-public-bucket-allows-listing-vulnerable",
+          "present": true,
+          "classification": "true-positive"
+        }
+      ],
+      "authorizationChecks": 4
+    },
+    {
+      "state": "partially-fixed",
+      "targetRevision": "sha256:a69010c87622fe95f657508e96f9aaf8a3cfcaf4cd74d0358babe956a10f0645",
+      "cases": [
+        {
+          "caseId": "supabase-0007-policy-exists-rls-disabled-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0008-rls-enabled-no-policy-partially-fixed",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0010-security-definer-view-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0013-rls-disabled-in-public-partially-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0023-sensitive-columns-exposed-partially-fixed",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0024-permissive-rls-policy-partially-fixed",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0025-public-bucket-allows-listing-partially-fixed",
+          "present": true,
+          "classification": "true-positive"
+        }
+      ],
+      "authorizationChecks": 4
+    },
+    {
+      "state": "fixed",
+      "targetRevision": "sha256:5fd7c567a227c926fea90f22ccd9daa80e96a070e8431dd19da9f7eeb2569bb8",
+      "cases": [
+        {
+          "caseId": "supabase-0007-policy-exists-rls-disabled-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0008-rls-enabled-no-policy-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0010-security-definer-view-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0013-rls-disabled-in-public-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0023-sensitive-columns-exposed-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0024-permissive-rls-policy-fixed",
+          "present": false,
+          "classification": "true-negative"
+        },
+        {
+          "caseId": "supabase-0025-public-bucket-allows-listing-fixed",
+          "present": false,
+          "classification": "true-negative"
+        }
+      ],
+      "authorizationChecks": 4
+    },
+    {
+      "state": "reintroduced",
+      "targetRevision": "sha256:966298c00d38a3dee013750f54b7b219d7d570685011c91a856d6a172786d066",
+      "cases": [
+        {
+          "caseId": "supabase-0007-policy-exists-rls-disabled-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0008-rls-enabled-no-policy-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0010-security-definer-view-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0013-rls-disabled-in-public-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0023-sensitive-columns-exposed-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0024-permissive-rls-policy-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        },
+        {
+          "caseId": "supabase-0025-public-bucket-allows-listing-reintroduced",
+          "present": true,
+          "classification": "true-positive"
+        }
+      ],
+      "authorizationChecks": 4
+    }
+  ],
+  "cleanup": {
+    "authorizationRelationAbsent": true,
+    "configurationObjectsAbsent": true,
+    "bucketAbsent": true,
+    "bucketPolicyAbsent": true
+  },
+  "sanitization": {
+    "retained": [
+      "logical-case-ids",
+      "boolean-post-conditions",
+      "state-revisions",
+      "classifications",
+      "cleanup-confirmation"
+    ],
+    "excluded": [
+      "credentials",
+      "provider-resource-ids",
+      "project-references",
+      "users",
+      "rows",
+      "logs",
+      "source-code",
+      "raw-responses"
+    ]
+  }
+}
