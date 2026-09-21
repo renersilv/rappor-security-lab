@@ -83,6 +83,16 @@ create view public.rappor_lab_security_view
 with (security_invoker = true)
 as select 'RAPPOR_LAB_DUMMY'::text as marker;
 
+grant select on
+  public.rappor_lab_rls_disabled,
+  public.rappor_lab_policy_without_rls,
+  public.rappor_lab_sensitive_profiles,
+  public.rappor_lab_no_policy,
+  public.rappor_lab_security_view
+to anon, authenticated;
+
+grant update on public.rappor_lab_permissive_policy to authenticated;
+
 insert into storage.buckets (id, name, public)
 values ('rappor-lab-public-listing', 'Rappor laboratory empty bucket', false);
 

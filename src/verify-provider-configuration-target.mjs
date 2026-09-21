@@ -64,6 +64,8 @@ export async function verifyProviderConfigurationTarget(repositoryRoot = REPOSIT
   assert.match(normalizedSchema, /set local storage\.allow_delete_query = 'true';/);
   assert.match(normalizedSchema, /insert into storage\.buckets \(id, name, public\) values \('rappor-lab-public-listing', 'rappor laboratory empty bucket', false\);/);
   assert.match(normalizedSchema, /create table public\.rappor_lab_sensitive_profiles \([^;]*password text/);
+  assert.match(normalizedSchema, /grant select on public\.rappor_lab_rls_disabled, public\.rappor_lab_policy_without_rls, public\.rappor_lab_sensitive_profiles, public\.rappor_lab_no_policy, public\.rappor_lab_security_view to anon, authenticated;/);
+  assert.match(normalizedSchema, /grant update on public\.rappor_lab_permissive_policy to authenticated;/);
   assert.match(normalizeSql(reset), /set local storage\.allow_delete_query = 'true';/);
   assert.match(normalizeSql(reset), /delete from storage\.buckets where id = 'rappor-lab-public-listing';/);
 

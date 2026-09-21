@@ -6,7 +6,7 @@ Repository foundation, executable manifests, controlled static code corpus, cont
 
 ## Current work
 
-Issue #15 established real, independent provider states without calling Rappor Security. The Supabase lifecycle proved seven current Security Advisor families across vulnerable, partially fixed, fixed and reintroduced states, while retaining only 28 boolean case results and four authorization-check counts per state. The Vercel lifecycle proved Git Fork Protection disabled, enabled and reintroduced across the four existing controlled projects. Both reports are clean, contain no provider resource identifier or raw response, and confirm safe cleanup. Issue #14 remains the latest black-box product comparison against HML `v0.34.0`, with its 15 explicit discrepancies unchanged.
+Issue #12 resumed the black-box Supabase validation after real authorization became available. The controlled Supabase baseline now grants only the client-role operations needed to make its empty synthetic objects genuinely API-reachable; restrictive RLS keeps the baseline safe, while vulnerable states change the intended control. This corrects a laboratory false premise where catalog conditions existed but the hosted Advisor could legitimately ignore unreachable objects. Issue #15 remains the independent four-state provider ground truth and Issue #14 remains the latest public comparison against HML `v0.34.0`.
 
 ## Constraints
 

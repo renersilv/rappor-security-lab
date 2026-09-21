@@ -13,6 +13,12 @@ empty synthetic object and proven by bounded PostgreSQL catalog predicates. The
 existing authorization checks also run in every state with the disposable dummy
 user; no row body or user identifier is retained.
 
+The safe baseline grants only the client-role operations required to make the
+declared empty objects genuinely reachable through the Data API. Restrictive RLS
+policies keep that baseline inaccessible. Each vulnerable state then changes the
+specific RLS, view, policy or bucket control under test instead of relying on an
+unreachable catalog object that the hosted Advisor would correctly ignore.
+
 The schema migration starts from the safe configuration. The vulnerable,
 partially fixed, fixed and reintroduced migrations change only declared
 laboratory objects. The Storage fixture creates an empty synthetic bucket and
