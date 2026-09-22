@@ -230,8 +230,8 @@ test_codex_session_and_parameters() (
   [[ $(cat "$TEST_SANDBOX/codex.log") == *'model_reasoning_effort="xhigh"'* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") == *"--approve-for-me --json -"* ]]
   [[ $(cat "$TEST_SANDBOX/codex.log") != *"--sandbox"* ]]
-  [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec resume -m gpt-5.6-sol"* ]]
-  [[ $(tail -n 1 "$TEST_SANDBOX/codex.log") == *"--approve-for-me --json 11111111-1111-1111-1111-111111111111 -"* ]]
+  [[ $(cat "$TEST_SANDBOX/codex.log") == *"exec --approve-for-me resume -m gpt-5.6-sol"* ]]
+  [[ $(tail -n 1 "$TEST_SANDBOX/codex.log") == *"--json 11111111-1111-1111-1111-111111111111 -"* ]]
   assert_equal $'--signal=TERM --kill-after=30s 3h\n--signal=TERM --kill-after=30s 3h' \
     "$(cat "$TEST_SANDBOX/timeout.log")" "timeout is applied per new and resumed execution"
 )
@@ -252,7 +252,7 @@ test_reboot_recovers_surviving_jsonl() (
   TIMEOUT_BIN=mock_timeout
   CODEX_BIN=mock_codex
   run_codex 7 "$worktree" "$branch"
-  [[ $(cat "$TEST_SANDBOX/recovered.log") == *"exec resume -m gpt-5.6-sol"* ]]
+  [[ $(cat "$TEST_SANDBOX/recovered.log") == *"exec --approve-for-me resume -m gpt-5.6-sol"* ]]
   [[ $(cat "$TEST_SANDBOX/recovered.log") == *"22222222-2222-2222-2222-222222222222"* ]]
 )
 

@@ -580,8 +580,9 @@ run_codex() {
       cd -- "$worktree"
       JOAO_ISSUE_NUMBER=$issue JOAO_BATCH_BRANCH=$branch \
         "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$ISSUE_TIMEOUT" \
-        "$CODEX_BIN" exec resume -m "$MODEL" -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-        --approve-for-me --json "$session" - < "$prompt" > "$events" 2> "$errors"
+        "$CODEX_BIN" exec --approve-for-me resume -m "$MODEL" \
+        -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
+        --json "$session" - < "$prompt" > "$events" 2> "$errors"
     ) || exit_code=$?
   else
     JOAO_ISSUE_NUMBER=$issue JOAO_BATCH_BRANCH=$branch \
