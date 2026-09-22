@@ -320,15 +320,23 @@ test_equivalent_undelivered_results_suspend_after_three_attempts() (
   new_sandbox
   prepare_resumable_issue 18
   OP_STATE=doing
-  RUN_COUNT=0
-  ATTENTION_COUNT=0
+  printf '0\n' > "$TEST_SANDBOX/run-count"
+  printf '0\n' > "$TEST_SANDBOX/attention-count"
   issue_operational_state() { printf '%s' "$OP_STATE"; }
   list_open_with_label() { [[ $1 != doing ]] || printf '18\n'; }
-  run_codex() { RUN_COUNT=$((RUN_COUNT + 1)); }
-  notify_issue_retry_attention() { ATTENTION_COUNT=$((ATTENTION_COUNT + 1)); }
+  run_codex() {
+    local count
+    count=$(<"$TEST_SANDBOX/run-count")
+    printf '%s\n' "$((count + 1))" > "$TEST_SANDBOX/run-count"
+  }
+  notify_issue_retry_attention() {
+    local count
+    count=$(<"$TEST_SANDBOX/attention-count")
+    printf '%s\n' "$((count + 1))" > "$TEST_SANDBOX/attention-count"
+  }
   for expected_attempt in 1 2 3; do
     set +e
-    execute_issues >/dev/null 2>&1
+    (set -e; execute_issues) >/dev/null 2>&1
     result=$?
     set -e
     assert_equal 70 "$result" "undelivered execution is an operational failure"
@@ -336,11 +344,11 @@ test_equivalent_undelivered_results_suspend_after_three_attempts() (
     assert_equal "$expected_attempt" "$ISSUE_RETRY_ATTEMPTS" "equivalent failure count is bounded"
   done
   assert_equal true "$ISSUE_RETRY_SUSPENDED" "third equivalent failure suspends execution"
-  assert_equal 3 "$RUN_COUNT" "Codex ran only for the three bounded attempts"
-  assert_equal 1 "$ATTENTION_COUNT" "suspension emits one owner attention"
+  assert_equal 3 "$(<"$TEST_SANDBOX/run-count")" "Codex ran only for the three bounded attempts"
+  assert_equal 1 "$(<"$TEST_SANDBOX/attention-count")" "suspension emits one owner attention"
   execute_issues >/dev/null
-  assert_equal 3 "$RUN_COUNT" "suspended retry gate prevents a fourth Codex call"
-  assert_equal 2 "$ATTENTION_COUNT" "gate retries the same idempotent owner attention"
+  assert_equal 3 "$(<"$TEST_SANDBOX/run-count")" "suspended retry gate prevents a fourth Codex call"
+  assert_equal 2 "$(<"$TEST_SANDBOX/attention-count")" "gate retries the same idempotent owner attention"
   assert_equal doing "$OP_STATE" "operational failure preserves the doing state"
   assert_equal 18 "$(read_state current_issue)" "operational failure preserves Issue ownership"
   assert_equal 1 "$(read_state next)" "operational failure preserves the batch cursor"

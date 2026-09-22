@@ -802,7 +802,7 @@ execute_issues() {
       wait_for_doing_state || suspend "doing remained after Issue #$issue blocking"
       accept_blocked "$issue" "$worktree" "$branch" "$next"
     elif [[ $operational == doing ]]; then
-      fail "Issue #$issue returned without delivery and remains doing"
+      log "Issue #$issue returned without delivery and remains doing" >&2
       record_issue_failure "$issue" "$branch" delivery_invalid doing
       return 70
     else
