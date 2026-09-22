@@ -281,6 +281,131 @@ test_timeout_preserves_jsonl_and_session() (
   [[ -s $(state_file codex-events.jsonl) ]]
 )
 
+test_codex_diagnostics_survive_until_verified_delivery() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  branch=joao/batch-20260907T000000Z-7-7
+  worktree="$JOAO_STATE_ROOT/worktrees/${branch//\//-}"
+  mkdir -p "$worktree"
+  printf '0\n' > "$TEST_SANDBOX/codex-count"
+  mock_timeout() { shift 3; "$@"; }
+  mock_codex() {
+    local count
+    count=$(<"$TEST_SANDBOX/codex-count")
+    count=$((count + 1))
+    printf '%s\n' "$count" > "$TEST_SANDBOX/codex-count"
+    cat >/dev/null
+    printf '{"type":"thread.started","thread_id":"44444444-4444-4444-4444-444444444444","attempt":%s}\n' "$count"
+    printf 'private diagnostic attempt %s\n' "$count" >&2
+  }
+  TIMEOUT_BIN=mock_timeout
+  CODEX_BIN=mock_codex
+  run_codex 7 "$worktree" "$branch"
+  [[ -s $(state_file codex-events.jsonl) ]]
+  [[ -s $(state_file codex-errors.log) ]]
+  [[ -s $(state_file issue-prompt.md) ]]
+  run_codex 7 "$worktree" "$branch"
+  diagnostics="$JOAO_STATE_ROOT/diagnostics/issue-7"
+  grep -Fq '"attempt":1' "$diagnostics/attempt-1.events.jsonl"
+  grep -Fq 'private diagnostic attempt 1' "$diagnostics/attempt-1.errors.log"
+  grep -Fq 'Current Issue: #7' "$diagnostics/attempt-1.prompt.md"
+  grep -Fq '"attempt":2' "$(state_file codex-events.jsonl)"
+  clear_item_state 7
+  [[ ! -e $diagnostics ]]
+  [[ ! -e $(state_file codex-events.jsonl) ]]
+)
+
+test_equivalent_undelivered_results_suspend_after_three_attempts() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 18
+  OP_STATE=doing
+  RUN_COUNT=0
+  ATTENTION_COUNT=0
+  issue_operational_state() { printf '%s' "$OP_STATE"; }
+  list_open_with_label() { [[ $1 != doing ]] || printf '18\n'; }
+  run_codex() { RUN_COUNT=$((RUN_COUNT + 1)); }
+  notify_issue_retry_attention() { ATTENTION_COUNT=$((ATTENTION_COUNT + 1)); }
+  for expected_attempt in 1 2 3; do
+    set +e
+    execute_issues >/dev/null 2>&1
+    result=$?
+    set -e
+    assert_equal 70 "$result" "undelivered execution is an operational failure"
+    read_issue_retry
+    assert_equal "$expected_attempt" "$ISSUE_RETRY_ATTEMPTS" "equivalent failure count is bounded"
+  done
+  assert_equal true "$ISSUE_RETRY_SUSPENDED" "third equivalent failure suspends execution"
+  assert_equal 3 "$RUN_COUNT" "Codex ran only for the three bounded attempts"
+  assert_equal 1 "$ATTENTION_COUNT" "suspension emits one owner attention"
+  execute_issues >/dev/null
+  assert_equal 3 "$RUN_COUNT" "suspended retry gate prevents a fourth Codex call"
+  assert_equal 2 "$ATTENTION_COUNT" "gate retries the same idempotent owner attention"
+  assert_equal doing "$OP_STATE" "operational failure preserves the doing state"
+  assert_equal 18 "$(read_state current_issue)" "operational failure preserves Issue ownership"
+  assert_equal 1 "$(read_state next)" "operational failure preserves the batch cursor"
+)
+
+test_changed_failure_fingerprint_restarts_the_counter() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 18
+  notify_issue_retry_attention() { return 0; }
+  record_issue_failure 18 "$(read_state branch)" delivery_invalid doing
+  record_issue_failure 18 "$(read_state branch)" delivery_invalid doing
+  read_issue_retry
+  assert_equal 2 "$ISSUE_RETRY_ATTEMPTS" "equivalent failures increment the counter"
+  record_issue_failure 18 "$(read_state branch)" codex_exit exit_9
+  read_issue_retry
+  assert_equal 1 "$ISSUE_RETRY_ATTEMPTS" "a different failure restarts the counter"
+  assert_equal codex_exit "$ISSUE_RETRY_ERROR_CLASS" "retry records only the closed failure class"
+)
+
+test_verified_delivery_clears_retry_and_private_diagnostics() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 18
+  notify_issue_retry_attention() { return 0; }
+  record_issue_failure 18 "$(read_state branch)" delivery_invalid doing
+  diagnostics="$JOAO_STATE_ROOT/diagnostics/issue-18"
+  mkdir -p "$diagnostics"
+  printf 'preserved\n' > "$diagnostics/attempt-1.errors.log"
+  chmod 700 "$JOAO_STATE_ROOT/diagnostics" "$diagnostics"
+  chmod 600 "$diagnostics/attempt-1.errors.log"
+  printf 'current\n' > "$(state_file codex-errors.log)"
+  chmod 600 "$(state_file codex-errors.log)"
+  issue_operational_state() { printf 'validating'; }
+  list_open_with_label() { return 0; }
+  verify_delivery() { return 0; }
+  execute_issues
+  [[ ! -e $(state_file issue-retry) ]]
+  [[ ! -e $diagnostics ]]
+  [[ ! -e $(state_file codex-errors.log) ]]
+  assert_equal integration "$(read_state phase)" "only verified delivery removes diagnostics"
+)
+
+test_issue_retry_attention_is_sanitized() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  ISSUE_RETRY_ISSUE=18
+  ISSUE_RETRY_FINGERPRINT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  : > "$TEST_SANDBOX/comment"
+  retry_gh() {
+    if [[ $1 == api ]]; then
+      return 0
+    fi
+    printf '%s\n' "$*" > "$TEST_SANDBOX/comment"
+  }
+  GH_BIN=retry_gh
+  notify_issue_retry_attention
+  grep -Fq '@renersilv' "$TEST_SANDBOX/comment"
+  grep -Fq 'Issue #18' "$TEST_SANDBOX/comment"
+  if grep -Eq 'aaaaaaaa|44444444|/tmp/|session|token|secret' "$TEST_SANDBOX/comment"; then
+    printf 'not ok - retry attention exposed private diagnostic detail\n' >&2
+    return 1
+  fi
+)
+
 test_validating_crash_recovery_skips_codex() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -712,6 +837,39 @@ test_control_status_and_resume() (
   assert_equal "--user start --no-block joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "resume starts the service in the background"
 )
 
+test_control_reports_and_releases_only_suspended_issue_retry() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  printf '18\n' > "$(state_file batch)"
+  write_state branch joao/batch-20260907T000000Z-18-18
+  write_state phase issues
+  write_state current_issue 18
+  write_state session 55555555-5555-5555-5555-555555555555
+  ISSUE_RETRY_VERSION=1
+  ISSUE_RETRY_ISSUE=18
+  ISSUE_RETRY_BRANCH=joao/batch-20260907T000000Z-18-18
+  ISSUE_RETRY_ERROR_CLASS=delivery_invalid
+  ISSUE_RETRY_FINGERPRINT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  ISSUE_RETRY_ATTEMPTS=3
+  ISSUE_RETRY_SUSPENDED=true
+  write_issue_retry
+  mock_systemctl="$TEST_SANDBOX/systemctl"
+  printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" > "%s/systemctl.log"\n' \
+    "$TEST_SANDBOX" > "$mock_systemctl"
+  chmod +x "$mock_systemctl"
+  status_output=$(JOAO_STATE_ROOT="$JOAO_STATE_ROOT" "$CONTROL" status)
+  grep -Fxq 'issue_retry=suspended' <<< "$status_output"
+  grep -Fxq 'retry_attempts=3' <<< "$status_output"
+  grep -Fxq 'retry_error_class=delivery_invalid' <<< "$status_output"
+  [[ $status_output != *"bbbbbbbb"* ]]
+  [[ $status_output != *"55555555"* ]]
+  JOAO_STATE_ROOT="$JOAO_STATE_ROOT" JOAO_SYSTEMCTL_BIN="$mock_systemctl" "$CONTROL" resume >/dev/null
+  [[ ! -e $(state_file issue-retry) ]]
+  [[ -f $(state_file batch) ]]
+  [[ -f $(state_file session) ]]
+  assert_equal "--user start --no-block joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "retry resume starts only the preserved executor"
+)
+
 test_fixed_batch_and_delivery
 test_owner_or_explicit_approval
 test_session_resume
@@ -722,6 +880,11 @@ test_timeout_preserves_resume
 test_codex_session_and_parameters
 test_reboot_recovers_surviving_jsonl
 test_timeout_preserves_jsonl_and_session
+test_codex_diagnostics_survive_until_verified_delivery
+test_equivalent_undelivered_results_suspend_after_three_attempts
+test_changed_failure_fingerprint_restarts_the_counter
+test_verified_delivery_clears_retry_and_private_diagnostics
+test_issue_retry_attention_is_sanitized
 test_validating_crash_recovery_skips_codex
 test_issue_boundary_recovery_is_idempotent
 test_recorded_cursor_after_cleanup_skips_validation
@@ -740,4 +903,5 @@ test_returned_delivery_is_not_finalized
 test_service_uses_closed_path_and_preflight
 test_runner_uses_private_temporary_directory
 test_control_status_and_resume
+test_control_reports_and_releases_only_suspended_issue_retry
 printf 'ok - joao runner scenarios\n'

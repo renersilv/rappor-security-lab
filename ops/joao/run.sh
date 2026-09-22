@@ -11,6 +11,7 @@ GIT_IDENTITY_EMAIL=codex@openai.com
 MODEL=gpt-5.6-sol
 REASONING_EFFORT=xhigh
 ISSUE_TIMEOUT=3h
+ISSUE_RETRY_MAX_ATTEMPTS=3
 STATE_SETTLE_ATTEMPTS=${JOAO_STATE_SETTLE_ATTEMPTS:-6}
 STATE_SETTLE_DELAY_SECONDS=${JOAO_STATE_SETTLE_DELAY_SECONDS:-2}
 STATE_ROOT=${JOAO_STATE_ROOT:-${XDG_STATE_HOME:-$HOME/.local/state}/rappor-security-lab/joao}
@@ -64,6 +65,196 @@ clear_state_file() {
   local path
   path=$(state_file "$1")
   [[ ! -e $path ]] || rm -f -- "$path"
+}
+
+validate_issue_retry_error_class() {
+  [[ $1 =~ ^(codex_exit|delivery_invalid)$ ]]
+}
+
+read_issue_retry() {
+  local path key value
+  local version_count=0 issue_count=0 branch_count=0 class_count=0
+  local fingerprint_count=0 attempts_count=0 suspended_count=0
+  path=$(state_file issue-retry)
+  [[ -f $path && ! -L $path && -O $path && $(stat -c '%a' "$path") == 600 ]] || {
+    fail "Issue retry marker is not a regular private file"
+    return 1
+  }
+  ISSUE_RETRY_VERSION=
+  ISSUE_RETRY_ISSUE=
+  ISSUE_RETRY_BRANCH=
+  ISSUE_RETRY_ERROR_CLASS=
+  ISSUE_RETRY_FINGERPRINT=
+  ISSUE_RETRY_ATTEMPTS=
+  ISSUE_RETRY_SUSPENDED=
+  while IFS='=' read -r key value || [[ -n ${key}${value} ]]; do
+    case $key in
+      version) ISSUE_RETRY_VERSION=$value; version_count=$((version_count + 1)) ;;
+      issue) ISSUE_RETRY_ISSUE=$value; issue_count=$((issue_count + 1)) ;;
+      branch) ISSUE_RETRY_BRANCH=$value; branch_count=$((branch_count + 1)) ;;
+      error_class) ISSUE_RETRY_ERROR_CLASS=$value; class_count=$((class_count + 1)) ;;
+      fingerprint) ISSUE_RETRY_FINGERPRINT=$value; fingerprint_count=$((fingerprint_count + 1)) ;;
+      attempts) ISSUE_RETRY_ATTEMPTS=$value; attempts_count=$((attempts_count + 1)) ;;
+      suspended) ISSUE_RETRY_SUSPENDED=$value; suspended_count=$((suspended_count + 1)) ;;
+      *) fail "Issue retry marker has an unexpected field"; return 1 ;;
+    esac
+  done < "$path"
+  [[ $version_count == 1 && $issue_count == 1 && $branch_count == 1 && $class_count == 1 &&
+    $fingerprint_count == 1 && $attempts_count == 1 && $suspended_count == 1 &&
+    $ISSUE_RETRY_VERSION == 1 ]] || { fail "Issue retry marker is invalid"; return 1; }
+  safe_issue "$ISSUE_RETRY_ISSUE" || { fail "Issue retry marker has an invalid Issue"; return 1; }
+  safe_branch "$ISSUE_RETRY_BRANCH" || { fail "Issue retry marker has an invalid branch"; return 1; }
+  validate_issue_retry_error_class "$ISSUE_RETRY_ERROR_CLASS" || {
+    fail "Issue retry marker has an invalid error class"
+    return 1
+  }
+  [[ $ISSUE_RETRY_FINGERPRINT =~ ^[a-f0-9]{64}$ &&
+    $ISSUE_RETRY_ATTEMPTS =~ ^[1-3]$ &&
+    $ISSUE_RETRY_SUSPENDED =~ ^(true|false)$ ]] || {
+    fail "Issue retry marker values are invalid"
+    return 1
+  }
+  if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
+    [[ $ISSUE_RETRY_ATTEMPTS == "$ISSUE_RETRY_MAX_ATTEMPTS" ]] || {
+      fail "Suspended Issue retry marker has an invalid attempt count"
+      return 1
+    }
+  else
+    (( ISSUE_RETRY_ATTEMPTS < ISSUE_RETRY_MAX_ATTEMPTS )) || {
+      fail "Scheduled Issue retry marker has an invalid attempt count"
+      return 1
+    }
+  fi
+}
+
+write_issue_retry() {
+  local temporary
+  temporary=$(state_file .issue-retry.tmp)
+  {
+    printf 'version=1\n'
+    printf 'issue=%s\n' "$ISSUE_RETRY_ISSUE"
+    printf 'branch=%s\n' "$ISSUE_RETRY_BRANCH"
+    printf 'error_class=%s\n' "$ISSUE_RETRY_ERROR_CLASS"
+    printf 'fingerprint=%s\n' "$ISSUE_RETRY_FINGERPRINT"
+    printf 'attempts=%s\n' "$ISSUE_RETRY_ATTEMPTS"
+    printf 'suspended=%s\n' "$ISSUE_RETRY_SUSPENDED"
+  } > "$temporary"
+  chmod 600 "$temporary"
+  mv -f -- "$temporary" "$(state_file issue-retry)"
+}
+
+notify_issue_retry_attention() {
+  local attention_hash attention_id marker body existing
+  attention_hash=$(printf 'v1:joao-issue-attention:%s' "$ISSUE_RETRY_FINGERPRINT" | sha256sum)
+  attention_id=${attention_hash%% *}
+  marker="<!-- joao-issue-attention:${attention_id} -->"
+  existing=$($GH_BIN api --paginate \
+    "repos/$REPOSITORY_SLUG/issues/$ISSUE_RETRY_ISSUE/comments" \
+    --jq ".[] | select(.body | contains(\"$marker\")) | .id") || return 1
+  [[ -z $existing ]] || return 0
+  body=$(printf '%s\n\n%s\n\n%s\n\n%s\n' \
+    '**Atenção: o João interrompeu novas tentativas automáticas.**' \
+    "A Issue #$ISSUE_RETRY_ISSUE permaneceu em andamento após três falhas operacionais equivalentes. A branch, o worktree, a sessão e os diagnósticos privados foram preservados; nenhum item novo da fila foi iniciado." \
+    '**Preciso de você:** @renersilv, solicite uma revisão assistida do executor e use ops/joao/control.sh status. Depois da correção, ops/joao/control.sh resume libera somente esta retomada.' \
+    "$marker")
+  $GH_BIN issue comment "$ISSUE_RETRY_ISSUE" --repo "$REPOSITORY_SLUG" --body "$body" >/dev/null
+}
+
+record_issue_failure() {
+  local issue=$1 branch=$2 error_class=$3 fingerprint_detail=$4 base_sha fingerprint_input calculated
+  local previous_attempts=0
+  safe_issue "$issue" || return 1
+  safe_branch "$branch" || return 1
+  validate_issue_retry_error_class "$error_class" || return 1
+  [[ $fingerprint_detail =~ ^[a-z0-9_-]+$ ]] || return 1
+  base_sha=$(read_state base_sha)
+  [[ $base_sha =~ ^[a-f0-9]{40}$ ]] || return 1
+  fingerprint_input=$(printf 'v1:%s:%s:%s:%s:%s' \
+    "$base_sha" "$branch" "$issue" "$error_class" "$fingerprint_detail")
+  calculated=$(printf '%s' "$fingerprint_input" | sha256sum)
+  calculated=${calculated%% *}
+  if [[ -e $(state_file issue-retry) ]]; then
+    read_issue_retry || return 1
+    [[ $ISSUE_RETRY_ISSUE == "$issue" && $ISSUE_RETRY_BRANCH == "$branch" ]] || {
+      fail "Issue retry marker belongs to another recoverable item"
+      return 1
+    }
+    if [[ $ISSUE_RETRY_FINGERPRINT == "$calculated" ]]; then
+      previous_attempts=$ISSUE_RETRY_ATTEMPTS
+    fi
+  fi
+  ISSUE_RETRY_VERSION=1
+  ISSUE_RETRY_ISSUE=$issue
+  ISSUE_RETRY_BRANCH=$branch
+  ISSUE_RETRY_ERROR_CLASS=$error_class
+  ISSUE_RETRY_FINGERPRINT=$calculated
+  ISSUE_RETRY_ATTEMPTS=$((previous_attempts + 1))
+  if (( ISSUE_RETRY_ATTEMPTS >= ISSUE_RETRY_MAX_ATTEMPTS )); then
+    ISSUE_RETRY_ATTEMPTS=$ISSUE_RETRY_MAX_ATTEMPTS
+    ISSUE_RETRY_SUSPENDED=true
+  else
+    ISSUE_RETRY_SUSPENDED=false
+  fi
+  write_issue_retry
+  if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
+    notify_issue_retry_attention || log "owner attention could not be published; the next activation will retry it"
+    log "Issue #$issue automatic execution suspended after equivalent failures"
+  else
+    log "Issue #$issue retry $ISSUE_RETRY_ATTEMPTS/$ISSUE_RETRY_MAX_ATTEMPTS scheduled"
+  fi
+}
+
+check_issue_retry_gate() {
+  local issue=$1 branch=$2
+  [[ -e $(state_file issue-retry) ]] || return 0
+  read_issue_retry || return 1
+  [[ $ISSUE_RETRY_ISSUE == "$issue" && $ISSUE_RETRY_BRANCH == "$branch" ]] || {
+    fail "Issue retry marker does not match the recoverable item"
+    return 1
+  }
+  if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
+    notify_issue_retry_attention || log "owner attention could not be published; a later activation will retry it"
+    log "Issue #$issue retry is suspended; use ops/joao/control.sh status or resume"
+    return 75
+  fi
+}
+
+clear_issue_retry() {
+  clear_state_file issue-retry
+}
+
+archive_current_diagnostics() {
+  local issue=$1 directory attempt=1 name source target
+  safe_issue "$issue" || return 1
+  directory="$STATE_ROOT/diagnostics/issue-$issue"
+  if [[ ! -e $(state_file codex-events.jsonl) && ! -e $(state_file codex-errors.log) &&
+    ! -e $(state_file issue-prompt.md) ]]; then
+    return 0
+  fi
+  mkdir -p -- "$directory"
+  chmod 700 "$STATE_ROOT/diagnostics" "$directory"
+  while [[ -e $directory/attempt-$attempt.events.jsonl ||
+    -e $directory/attempt-$attempt.errors.log || -e $directory/attempt-$attempt.prompt.md ]]; do
+    attempt=$((attempt + 1))
+  done
+  for name in codex-events.jsonl codex-errors.log issue-prompt.md; do
+    source=$(state_file "$name")
+    [[ -e $source ]] || continue
+    case $name in
+      codex-events.jsonl) target="$directory/attempt-$attempt.events.jsonl" ;;
+      codex-errors.log) target="$directory/attempt-$attempt.errors.log" ;;
+      issue-prompt.md) target="$directory/attempt-$attempt.prompt.md" ;;
+    esac
+    mv -- "$source" "$target"
+    chmod 600 "$target"
+  done
+}
+
+clear_issue_diagnostics() {
+  local issue=$1 directory
+  safe_issue "$issue" || return 1
+  directory="$STATE_ROOT/diagnostics/issue-$issue"
+  [[ ! -e $directory ]] || rm -rf -- "$directory"
 }
 
 safe_branch() {
@@ -136,7 +327,7 @@ fetch_batch_branch() {
 
 preflight() {
   local root branch
-  for command_name in "$GH_BIN" "$GIT_BIN" "$CODEX_BIN" "$TIMEOUT_BIN" "$NODE_BIN" "$NPM_BIN" flock; do
+  for command_name in "$GH_BIN" "$GIT_BIN" "$CODEX_BIN" "$TIMEOUT_BIN" "$NODE_BIN" "$NPM_BIN" flock sha256sum; do
     require_command "$command_name"
   done
   [[ $STATE_SETTLE_ATTEMPTS =~ ^[1-9][0-9]*$ ]] || fail "state settle attempts must be a positive integer"
@@ -374,6 +565,7 @@ run_codex() {
   events=$(state_file codex-events.jsonl)
   errors=$(state_file codex-errors.log)
   prompt=$(state_file issue-prompt.md)
+  archive_current_diagnostics "$issue"
   {
     sed -n '1,$p' "$PROMPT_FILE"
     printf '\nCurrent Issue: #%s\nBatch branch: %s\n' "$issue" "$branch"
@@ -408,9 +600,6 @@ run_codex() {
     return 124
   fi
   (( exit_code == 0 )) || return "$exit_code"
-  clear_state_file issue-prompt.md
-  clear_state_file codex-events.jsonl
-  clear_state_file codex-errors.log
 }
 
 verify_delivery() {
@@ -459,17 +648,21 @@ recorded_outcome() {
 }
 
 clear_item_state() {
-  local name
+  local issue=${1:-} name
   for name in session current_issue issue_base_sha issue-prompt.md codex-events.jsonl codex-errors.log; do
     clear_state_file "$name"
   done
+  clear_issue_retry
+  if [[ -n $issue ]]; then
+    clear_issue_diagnostics "$issue"
+  fi
 }
 
 reconcile_stale_item() {
   local cursor_issue=$1 next=$2 saved_issue saved_line outcome name
   saved_issue=$(read_state current_issue)
   if [[ -z $saved_issue ]]; then
-    for name in session issue_base_sha issue-prompt.md codex-events.jsonl codex-errors.log; do
+    for name in session issue_base_sha issue-retry issue-prompt.md codex-events.jsonl codex-errors.log; do
       if [[ -e $(state_file "$name") ]]; then
         suspend "orphaned item state has no owning Issue"
         return 1
@@ -489,13 +682,13 @@ reconcile_stale_item() {
     suspend "stale previous Issue has no recorded outcome"
     return 1
   }
-  clear_item_state
+  clear_item_state "$saved_issue"
 }
 
 advance_issue() {
   local issue=$1 outcome=$2 next=$3
   append_unique_state "$outcome" "$issue"
-  clear_item_state
+  clear_item_state "$issue"
   write_state next "$((next + 1))"
 }
 
@@ -518,7 +711,7 @@ accept_blocked() {
 }
 
 execute_issues() {
-  local branch worktree next total issue doing_count operational outcome
+  local branch worktree next total issue doing_count operational outcome retry_status run_status
   branch=$(read_state branch)
   worktree=$(read_state worktree)
   safe_branch "$branch" || suspend "saved branch is invalid"
@@ -536,7 +729,7 @@ execute_issues() {
       if [[ -n $(read_state current_issue) ]]; then
         reconcile_stale_item "$issue" "$next" || return 1
       else
-        clear_item_state
+        clear_item_state "$issue"
       fi
       next=$((next + 1))
       write_state next "$next"
@@ -548,12 +741,22 @@ execute_issues() {
       write_state issue_base_sha "$($GIT_BIN -C "$worktree" rev-parse HEAD)"
     fi
     operational=$(issue_operational_state "$issue") || suspend "Issue #$issue state is invalid"
+    retry_status=0
+    check_issue_retry_gate "$issue" "$branch" || retry_status=$?
+    if (( retry_status == 75 )); then
+      return 0
+    elif (( retry_status != 0 )); then
+      return "$retry_status"
+    fi
     mapfile -t doing_issues < <(list_open_with_label doing)
     doing_count=${#doing_issues[@]}
 
     if [[ $operational == validating ]]; then
       (( doing_count == 0 )) || suspend "another Issue is in doing during delivery recovery"
-      verify_delivery "$issue" "$worktree" "$branch"
+      if ! verify_delivery "$issue" "$worktree" "$branch"; then
+        record_issue_failure "$issue" "$branch" delivery_invalid validating
+        return 70
+      fi
       advance_issue "$issue" delivered "$next"
       next=$((next + 1))
       continue
@@ -579,18 +782,29 @@ execute_issues() {
       suspend "Issue #$issue cannot be executed from state $operational"
     fi
 
-    run_codex "$issue" "$worktree" "$branch" || return $?
+    run_status=0
+    run_codex "$issue" "$worktree" "$branch" || run_status=$?
+    if (( run_status == 124 )); then
+      return 124
+    elif (( run_status != 0 )); then
+      record_issue_failure "$issue" "$branch" codex_exit "exit_$run_status"
+      return 70
+    fi
     operational=$(issue_operational_state "$issue") || suspend "Issue #$issue delivery state is invalid"
     if [[ $operational == validating ]]; then
       wait_for_doing_state || suspend "doing remained after Issue #$issue delivery"
-      verify_delivery "$issue" "$worktree" "$branch"
+      if ! verify_delivery "$issue" "$worktree" "$branch"; then
+        record_issue_failure "$issue" "$branch" delivery_invalid validating
+        return 70
+      fi
       advance_issue "$issue" delivered "$next"
     elif [[ $operational == blocked ]]; then
       wait_for_doing_state || suspend "doing remained after Issue #$issue blocking"
       accept_blocked "$issue" "$worktree" "$branch" "$next"
     elif [[ $operational == doing ]]; then
       fail "Issue #$issue returned without delivery and remains doing"
-      return 1
+      record_issue_failure "$issue" "$branch" delivery_invalid doing
+      return 70
     else
       suspend "Issue #$issue ended in unexpected state $operational"
     fi
@@ -631,11 +845,12 @@ require_delivered_states() {
 clear_batch_state() {
   local name
   for name in batch batch.pending delivered not_delivered branch worktree base_sha next phase current_issue \
-    issue_base_sha session suspended delivered_head integrated_head resolver_remote_head \
+    issue_base_sha session suspended issue-retry delivered_head integrated_head resolver_remote_head \
     issue-prompt.md codex-events.jsonl codex-errors.log integration-prompt.md \
     integration-events.jsonl integration-errors.log; do
     clear_state_file "$name"
   done
+  [[ ! -e $STATE_ROOT/diagnostics ]] || rm -rf -- "$STATE_ROOT/diagnostics"
 }
 
 remove_batch_branch() {

@@ -32,6 +32,12 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
 - Keep at most one open Issue in `doing`.
 - New Issues created after a batch starts wait for the next batch.
 - A technical failure that João can investigate remains `doing`.
+- Operational execution failures are kept in private state. Two equivalent
+  failures are retried by later timer activations; the third suspends new Codex
+  calls while preserving the `doing` Issue, batch, session, branch, worktree and
+  private diagnostics. Only that suspension creates one sanitized owner notice.
+  `ops/joao/control.sh status` exposes the closed failure class and attempt count,
+  and `resume` releases only the suspended retry gate after assisted correction.
 - Use `blocked` only for a real owner decision, authorization, credential supplied through a secure channel or owner-controlled external change.
 - Deliver an implemented Issue open with `validating`. It moves to `done` only after the batch branch is integrated and its laboratory validation passes. The owner closes accepted work.
 
@@ -73,4 +79,3 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
 - Never weaken a safety control merely to make an expected result pass.
 - Use coherent commits in the format `type(scope): description`.
 - Preserve pre-existing work and never discard another worktree or batch.
-
