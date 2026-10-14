@@ -192,8 +192,165 @@ node src/verify-external-public-baseline.mjs
 The allowed URLs, capture procedure and handling for changed or unavailable pages
 are documented in [`targets/external/public-passive/README.md`](targets/external/public-passive/README.md).
 
+## Persistent Windows agent laboratory
+
+`ops/windows-agent-lab` integrates the isolated `joao-windows-x64` libvirt session VM with an unattended live gate that exercises the official application UI. The runner checks host and guest capacity plus the preserved overlay's authorized 55 GiB absolute and 2 GiB per-run growth limits before and during disk-consuming phases. The runner is intended to verify the protected official MSIX and provenance, clean package installation, idempotency, application and runtime upgrade, restart recovery, heartbeat transitions, rotation, credential revocation and five recoverable failures. A complete accepted observation still requires real evidence for these steps and Semgrep, Gitleaks and Trivy analyses for the pinned public repository and a synthetic local folder. The local-folder run follows the explicit host Codex → HML MCP → restricted SSH → official Windows app path.
+
+The live command requires external mode-`0600` SSH, HML credential and MSIX files, plus the existing host ChatGPT login and HML MCP OAuth. The one-shot AI attempt is serialized, consumes a private persistent marker before launch and has a 600-second total termination bound. Raw setup output, source, credentials, OAuth state, operation values and computer identifiers never enter reports. A successful run preserves the current controlled VM and retains only the dated sanitized observation:
+
+```sh
+npm run windows:agent -- --json /tmp/windows-agent.json --markdown /tmp/windows-agent.md
+node src/verify-windows-agent-report.mjs /tmp/windows-agent.json /tmp/windows-agent.md
+```
+
+The VM boot unit, safety boundary, exact restore behavior and runtime variables are documented in [`targets/connected/windows-agent/README.md`](targets/connected/windows-agent/README.md).
+
 ## Autonomous execution
 
 The reviewed operational contract, controls and user-service examples for João are
 documented in [`ops/joao/README.md`](ops/joao/README.md). Installation is an
 explicit owner action; repository checks do not install or start the units.
+
+### Windows preparation before a real AI attempt
+
+Installing the MSIX does not prove that its runtime was updated. After each package
+installation, and when resuming a saved package-upgrade checkpoint, run the official
+application setup through its public connect URI and visible controls. The UI adapter
+allows only download, preparation, start and one public readiness refresh. A persistent
+failure after that refresh stops the preparation; it never repeats a failed update.
+It never clicks connection replacement, revocation, OS installation, license acceptance
+or arbitrary controls. An unexpected step is a diagnosis to investigate, not permission
+to edit private product state.
+
+Before consuming an AI marker, independently require the same active online computer,
+the published protocol and `source.current-workspace.v1`. `localFolderCompatible` is
+not a first-use prerequisite: it depends on already registered workspaces. Product
+release numbers and image revisions are not capability checks. Scanner provenance
+remains exact and is validated by real executions.
+
+If the VM has no desktop session, João can use its existing private laboratory login
+and loopback console to open one in the existing VM. No new VM, permanent automatic
+login or copied user credential is needed. Recheck capacity and the shared locks.
+The UI probe reports only fixed action names and booleans, never raw window text.
+Use `prepareOfficialWindowsRuntime` independently for preparation without an AI call.
+Technical setup failures remain under investigation; missing current official artifacts
+must be reported to Raimundo with a reproduction, rather than pretending the old MSIX
+is current. Keep prior attempt receipts. Preparation never rearms an exhausted AI quota.
+
+With the protected runtime variables loaded, the bounded preparation-only command is:
+
+```sh
+npm run windows:agent -- --prepare-runtime
+```
+
+It validates the current protected candidate, stages it for Windows Authenticode
+verification, removes the staged copy, and checks capacity, Docker runtime, public
+delivery protocol and the single preserved computer before exercising the official
+setup UI. It does not create an observation, invoke Codex or read or change the
+one-shot marker.
+
+Before the one-shot marker is consumed, `runAiAnalysis` now prepares the existing
+Edge session through visible login controls using the private laboratory account.
+It accepts only the exact HTTPS origin and a single matching page. Password inputs
+are never logged, and both temporary credential copies are removed even if login
+fails. Ambiguous pages and a rejected login stop preparation without retrying the
+password. The existing MCP OAuth connection must also be ready before inference.
+
+The interactive continuation stages a short-lived scope for the exact preserved
+computer and `C:\RapporLab\corpus`. The UI adapter confirms only the public origin,
+the browser operation matching the command and Computer processing, and the native
+read-only folder consent matching that computer and folder. Other dialogs fail
+closed. No native consent or browser session is fabricated. The scope is removed
+after the attempt.
+
+The single owner-authorized attempt completed on 2026-10-14 through host Codex →
+HML MCP → restricted SSH → the official Windows client. Semgrep 1.172.0, Gitleaks
+8.30.1 and Trivy 0.74.0 completed in 198 seconds and produced 70 open findings with
+a security score of 19.958358398579. Trivy used the explicitly reported
+`approved-offline-stale` database state; this observation does not portray its
+database as fresh. The result proves the public Windows continuation route, not
+native Windows AI, remediation or score improvement.
+
+The original attempt record did not confirm its first automatic cleanup. A separate
+hashed verification record proves the later assisted finalization: the disposable
+product was archived, the empty read-only source restored, the UI scope and corpus
+removed, the temporary MCP connection removed, its OAuth grant revoked and the VM
+shut down. Reports retain both facts instead of rewriting the original result.
+Subsequent lifecycle reconciliation reads only those pinned private receipts and
+never rearms the marker or launches another inference.
+
+The bounded AI launcher uses the installed Codex [App Server protocol](https://learn.chatgpt.com/docs/app-server)
+with the existing account login, an ephemeral thread, `on-request`, `auto_review`
+and `workspace-write` with restricted network, verified before sending a turn.
+The installed CLI parser probe remains an inert compatibility check, not the live
+transport. Reviewer notifications are captured as closed categories; a timeout is
+not reported as an approval refusal. A human approval request or review denial
+stops the attempt. The observer never grants an approval itself. No authentication
+is copied to the VM and no API key is introduced. The original one-shot receipt and
+600-second total bound remain mandatory; this preparation grants no new attempt.
+
+`bash ops/windows-agent-lab/run-codex-once.sh --check-interactive` checks the actual
+installed transport policy without a prompt or inference. It does not consume or
+rearm the one-shot marker and does not prove the AI analysis completed.
+
+Capacity recovery is part of preparation, before any AI receipt. On 2026-10-13,
+assisted preparation removed exactly two unreferenced superseded agent images and
+one unreferenced historical Trivy cache after validating its read-only contents as
+only `db/trivy.db` and `db/metadata.json`. The current public manifest image and
+all container references were protected; configuration, credential, state, IPC,
+source and current vulnerability-database volumes remained intact. Never use a
+blanket volume prune or remove evidence to pass the capacity check.
+
+If Docker's existing Windows data disk retains freed blocks, stop Docker through
+its public desktop CLI, stop WSL, verify the exact existing data VHDX is detached,
+and use Microsoft's `compact vdisk` maintenance operation before restarting Docker.
+No new disk, VM, reset or capacity increase is authorized. Then run Windows ReTrim
+and measure both guest free bytes and the host overlay's allocated size again.
+Do not parse an English success sentence as a cross-locale contract: the Portuguese
+DiskPart reply initially produced a false failure, while file-size and capacity
+measurements confirmed recovery from 7,947,157,504 to 5,910,822,912 VHDX bytes.
+The checked post-maintenance state had 13.52 GiB guest free and a 51.54 GiB overlay;
+these are dated measurements, not permission to skip fresh admission checks.
+Docker was restarted and retained the same configured computer.
+
+Reference: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/compact-vdisk
+
+Before inspecting browser controls, the UI preparation wakes the existing VM display
+with a single Shift key through the existing libvirt console. This restores the
+public accessibility tree after display idle without changing power policies or
+automatically unlocking a session. A locked or ambiguous session still fails closed.
+
+During an official runtime update, the capacity monitor continues to check host,
+guest and overlay limits if Docker is momentarily unavailable. Initial preparation
+admission also permits only `docker-not-ready` before starting the existing daemon;
+it still checks all disk limits. A healthy daemon is preserved instead of restarting
+its task. Ordinary execution admission, action admission and final verification still
+require Docker to be ready. The
+existing bounded UI preparation must recover normally; a transient Docker state is
+neither an accepted installation nor permission to skip disk thresholds.
+
+The selected package is 1.0.0.19 for product #309, with 1.0.0.17 as the actual
+installed upgrade baseline. The producer manifest is preserved verbatim. The lab
+checks the selected artifact hash, seven payload hashes, embedded revision, native
+signature, installed client-info response and preserved computer identity.
+Historical packages and receipts remain evidence but are not prerequisites for a
+new candidate. The current candidate has its own immutable upgrade checkpoint.
+Package preparation does not accept the scanner or AI journey.
+
+MSIX installation uses the already authenticated laboratory desktop with a limited,
+short-lived scheduled task. SSH logon alone can fail AppX PLM initialization with
+0x80070005. The bridge preserves native signature, exact package SHA-256 and
+installed-version checks and removes its temporary task and result files. It does
+not elevate the desktop account or change Windows deployment policy.
+
+Readiness invokes WSL and Docker through bounded native probes. A failed command
+reports only an allowlisted phase and numeric exit code, never raw command output
+or credentials. A probe timeout remains a failed check; it does not establish
+readiness or permit the AI attempt.
+
+Cold-boot recovery is pinned separately from the MSIX: published runtime revision
+`e29d96a0b46cd25cde6e3a9b022e177488e869df`, image digest
+`sha256:0cf6d1ef378aa8ff72abb04d4f65b35c9ef0b078c04e0501ed701c09762dbce3`
+and protocol 7. The public preparation path must restore the preserved computer as
+online with `source.current-workspace.v1`; a manual same-container recovery is not
+accepted as the cold-boot result.

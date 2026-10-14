@@ -6,7 +6,7 @@ Repository foundation, executable manifests, controlled static code corpus, cont
 
 ## Current work
 
-Issue #15 established real, independent provider states without calling Rappor Security. The Supabase lifecycle proved seven current Security Advisor families across vulnerable, partially fixed, fixed and reintroduced states, while retaining only 28 boolean case results and four authorization-check counts per state. The Vercel lifecycle proved Git Fork Protection disabled, enabled and reintroduced across the four existing controlled projects. Both reports are clean, contain no provider resource identifier or raw response, and confirm safe cleanup. Issue #14 remains the latest black-box product comparison against HML `v0.34.0`, with its 15 explicit discrepancies unchanged.
+Issue #18 adds the persistent Windows application laboratory and its bounded lifecycle runner. The single owner-authorized local-folder attempt completed through host Codex, HML MCP, restricted SSH and the official Windows client with all three scanners; the observation retains 70 findings, score 19.958358398579 and Trivy's `approved-offline-stale` state. The original unconfirmed automatic cleanup and the later verified assisted finalization remain distinct hashed receipts. Public cold-boot preparation subsequently proved protocol 7 and `source.current-workspace.v1` on the pinned runtime revision without another inference. Issue #15 established real, independent provider states without calling Rappor Security. Issue #14 remains the latest black-box product comparison against HML `v0.34.0`, with its 15 explicit discrepancies unchanged.
 
 ## Constraints
 

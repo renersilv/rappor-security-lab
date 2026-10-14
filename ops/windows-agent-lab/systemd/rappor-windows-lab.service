@@ -1,0 +1,12 @@
+[Unit]
+Description=Start the persistent Rappor Security Windows laboratory VM
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=-/usr/bin/virsh --connect qemu:///session start joao-windows-x64
+
+[Install]
+WantedBy=default.target

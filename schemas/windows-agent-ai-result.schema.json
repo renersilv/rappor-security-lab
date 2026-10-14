@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outcome",
+    "clientPath",
+    "operationContinued",
+    "analysisCompleted",
+    "summaryCode",
+    "scanners"
+  ],
+  "properties": {
+    "outcome": {
+      "enum": [
+        "completed",
+        "failed",
+        "refused"
+      ],
+      "type": "string"
+    },
+    "clientPath": {
+      "const": "host-codex-ssh-windows-app",
+      "type": "string"
+    },
+    "operationContinued": {
+      "type": "boolean"
+    },
+    "analysisCompleted": {
+      "type": "boolean"
+    },
+    "summaryCode": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 80
+    },
+    "scanners": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "version",
+          "state"
+        ],
+        "properties": {
+          "key": {
+            "enum": [
+              "semgrep",
+              "gitleaks",
+              "trivy"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+          },
+          "state": {
+            "enum": [
+              "completed",
+              "failed",
+              "unavailable"
+            ],
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

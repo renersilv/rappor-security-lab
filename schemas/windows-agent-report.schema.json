@@ -1,0 +1,652 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/windows-agent-report.schema.json",
+  "title": "Rappor Security persistent Windows application observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordedAt",
+    "laboratory",
+    "execution",
+    "delivery",
+    "runtimeDelivery",
+    "aiEvidence",
+    "environment",
+    "preflight",
+    "lifecycle",
+    "failures",
+    "analyses",
+    "cleanup",
+    "sanitization"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/windows-agent-report.schema.json"
+    },
+    "schemaVersion": {
+      "const": "2.0.0"
+    },
+    "recordedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "laboratory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sourceCommit",
+        "profileVersion"
+      ],
+      "properties": {
+        "version": {
+          "const": "0.0.0"
+        },
+        "sourceCommit": {
+          "$ref": "#/$defs/commit"
+        },
+        "profileVersion": {
+          "const": "2.0.0"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "interface",
+        "rawOutputRetained",
+        "graphicalSessionUsed",
+        "aiAttemptLimitSeconds",
+        "resumedAfterTechnicalFailure",
+        "aiEvidenceMode",
+        "aiInferenceStartedInRun"
+      ],
+      "properties": {
+        "scope": {
+          "const": "active-owner-authorized"
+        },
+        "interface": {
+          "const": "host-codex-mcp-ssh-windows-app"
+        },
+        "rawOutputRetained": {
+          "const": false
+        },
+        "graphicalSessionUsed": {
+          "const": true
+        },
+        "aiAttemptLimitSeconds": {
+          "const": 600
+        },
+        "resumedAfterTechnicalFailure": {
+          "type": "boolean"
+        },
+        "aiEvidenceMode": {
+          "const": "verified-consumed-attempt"
+        },
+        "aiInferenceStartedInRun": {
+          "const": false
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "identity",
+        "version",
+        "architecture",
+        "sha256",
+        "packageLength",
+        "signatureStatus",
+        "sourceRevision",
+        "embeddedSourceRevision",
+        "sourceArchiveSha256",
+        "sourceInputsMatchCurrent",
+        "installedBaselinePreserved",
+        "installedBaselineVersion",
+        "labVersionOverrideOnly",
+        "laboratoryOnly",
+        "semanticProductVersionChanged",
+        "workspaceProtocolVersion",
+        "computerAvailable",
+        "cleanMachineProven",
+        "microsoftStoreCertified",
+        "microsoftStoreSigned",
+        "nativeArm64Proven",
+        "buildContractSha256",
+        "requiredPayloadSha256",
+        "requiredPayloadCount"
+      ],
+      "properties": {
+        "kind": {
+          "const": "msix"
+        },
+        "identity": {
+          "const": "Rappor.RapporSecurity"
+        },
+        "version": {
+          "$ref": "#/$defs/applicationVersion"
+        },
+        "architecture": {
+          "const": "x64"
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "packageLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "signatureStatus": {
+          "const": "Valid"
+        },
+        "sourceRevision": {
+          "$ref": "#/$defs/commit"
+        },
+        "embeddedSourceRevision": {
+          "$ref": "#/$defs/commit"
+        },
+        "sourceArchiveSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "sourceInputsMatchCurrent": {
+          "const": true
+        },
+        "installedBaselinePreserved": {
+          "const": true
+        },
+        "installedBaselineVersion": {
+          "$ref": "#/$defs/applicationVersion"
+        },
+        "labVersionOverrideOnly": {
+          "const": true
+        },
+        "laboratoryOnly": {
+          "const": true
+        },
+        "semanticProductVersionChanged": {
+          "const": false
+        },
+        "workspaceProtocolVersion": {
+          "const": 1
+        },
+        "computerAvailable": {
+          "const": true
+        },
+        "cleanMachineProven": {
+          "const": false
+        },
+        "microsoftStoreCertified": {
+          "const": false
+        },
+        "microsoftStoreSigned": {
+          "const": false
+        },
+        "nativeArm64Proven": {
+          "const": false
+        },
+        "buildContractSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "requiredPayloadSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "requiredPayloadCount": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "runtimeDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "sourceRevision",
+        "imageDigest",
+        "currentWorkspaceReady"
+      ],
+      "properties": {
+        "protocolVersion": { "const": 7 },
+        "sourceRevision": { "$ref": "#/$defs/commit" },
+        "imageDigest": { "$ref": "#/$defs/digest" },
+        "currentWorkspaceReady": { "const": true }
+      }
+    },
+    "aiEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization",
+        "resultSha256",
+        "verificationSha256",
+        "completedAt",
+        "durationMs",
+        "findingCount",
+        "securityScore",
+        "scorePresentation",
+        "scoreClassification",
+        "originalCleanupConfirmed",
+        "finalCleanupVerified",
+        "automaticReviewerApproved"
+      ],
+      "properties": {
+        "authorization": { "const": "issue-18-verified-flow-20261014" },
+        "resultSha256": { "$ref": "#/$defs/hash" },
+        "verificationSha256": { "$ref": "#/$defs/hash" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "const": 198000 },
+        "findingCount": { "const": 70 },
+        "securityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "scorePresentation": { "const": "PreciseDecimal" },
+        "scoreClassification": { "const": "Critical" },
+        "originalCleanupConfirmed": { "const": false },
+        "finalCleanupVerified": { "const": true },
+        "automaticReviewerApproved": { "const": true }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostArchitecture",
+        "guestArchitecture",
+        "baselineApplicationVersion",
+        "candidateApplicationVersion",
+        "powershellVersion",
+        "wsl2",
+        "dockerDesktopVersion",
+        "dockerVersion",
+        "linuxContainers"
+      ],
+      "properties": {
+        "hostArchitecture": {
+          "enum": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "guestArchitecture": {
+          "enum": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "baselineApplicationVersion": {
+          "$ref": "#/$defs/applicationVersion"
+        },
+        "candidateApplicationVersion": {
+          "$ref": "#/$defs/applicationVersion"
+        },
+        "powershellVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "wsl2": {
+          "const": true
+        },
+        "dockerDesktopVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "dockerVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "linuxContainers": {
+          "const": true
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vmAutostart",
+        "headlessControl",
+        "hostFreeGiB",
+        "guestFreeGiB",
+        "minimumHostFreeGiB",
+        "minimumGuestFreeGiB",
+        "overlayGiB",
+        "maximumOverlayGiB",
+        "maximumOverlayGrowthGiB",
+        "capacityFailureProved"
+      ],
+      "properties": {
+        "vmAutostart": {
+          "const": true
+        },
+        "headlessControl": {
+          "const": true
+        },
+        "hostFreeGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "guestFreeGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "minimumHostFreeGiB": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "minimumGuestFreeGiB": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "overlayGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "maximumOverlayGiB": {
+          "const": 55
+        },
+        "maximumOverlayGrowthGiB": {
+          "const": 2
+        },
+        "capacityFailureProved": {
+          "const": true
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upgrade",
+        "idempotentReinstall",
+        "cleanInstall",
+        "sameComputerReused",
+        "shutdownAndBoot",
+        "suspendAndResume",
+        "heartbeatOfflineOnline",
+        "credentialRotation",
+        "credentialRevocationRecovery",
+        "invalidConfigurationRecovery"
+      ],
+      "properties": {
+        "upgrade": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "idempotentReinstall": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "cleanInstall": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "sameComputerReused": {
+          "const": true
+        },
+        "shutdownAndBoot": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "suspendAndResume": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "heartbeatOfflineOnline": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "credentialRotation": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "credentialRevocationRecovery": {
+          "$ref": "#/$defs/passedStep"
+        },
+        "invalidConfigurationRecovery": {
+          "$ref": "#/$defs/passedStep"
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/failure"
+      }
+    },
+    "analyses": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/analysis"
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "computerRetained",
+        "remoteRecordsArchived",
+        "transientFilesRemoved",
+        "controlledStatePreserved",
+        "hostFreeGiB",
+        "guestFreeGiB",
+        "overlayGiB",
+        "overlayGrowthGiB",
+        "diskWithinLimits"
+      ],
+      "properties": {
+        "computerRetained": {
+          "const": true
+        },
+        "remoteRecordsArchived": {
+          "const": true
+        },
+        "transientFilesRemoved": {
+          "const": true
+        },
+        "controlledStatePreserved": {
+          "const": true
+        },
+        "hostFreeGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "guestFreeGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "overlayGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "overlayGrowthGiB": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "diskWithinLimits": {
+          "const": true
+        }
+      }
+    },
+    "sanitization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retained",
+        "excluded"
+      ],
+      "properties": {
+        "retained": {
+          "type": "array",
+          "const": [
+            "steps",
+            "failure-classes",
+            "versions",
+            "architectures",
+            "durations",
+            "boolean-outcomes",
+            "evidence-hashes",
+            "finding-count",
+            "security-score",
+            "database-freshness"
+          ]
+        },
+        "excluded": {
+          "type": "array",
+          "const": [
+            "credentials",
+            "authorization-values",
+            "computer-identifiers",
+            "operation-identifiers",
+            "personal-paths",
+            "source-code",
+            "raw-api-responses",
+            "scanner-output",
+            "setup-logs"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"
+    },
+    "applicationVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+$"
+    },
+    "nonNegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "positiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "passedStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "durationMs"
+      ],
+      "properties": {
+        "passed": {
+          "const": true
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "failureClass",
+        "guidanceClass",
+        "recovered",
+        "durationMs"
+      ],
+      "properties": {
+        "caseId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "failureClass": {
+          "$ref": "#/$defs/identifier"
+        },
+        "guidanceClass": {
+          "$ref": "#/$defs/identifier"
+        },
+        "recovered": {
+          "const": true
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "scanner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "version",
+        "state",
+        "databaseState"
+      ],
+      "properties": {
+        "key": {
+          "enum": [
+            "semgrep",
+            "gitleaks",
+            "trivy"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "state": {
+          "const": "completed"
+        },
+        "databaseState": {
+          "enum": [null, "approved-offline-stale"]
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "status",
+        "sourceRevision",
+        "clientPath",
+        "scanners",
+        "durationMs"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "public-repository",
+            "local-synthetic-folder"
+          ]
+        },
+        "status": {
+          "const": "completed"
+        },
+        "sourceRevision": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{40}|sha256:[a-f0-9]{64})$"
+        },
+        "clientPath": {
+          "enum": [
+            "managed-hml",
+            "host-codex-ssh-windows-app"
+          ]
+        },
+        "scanners": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/scanner"
+          }
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
