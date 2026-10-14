@@ -20,6 +20,11 @@ resumes on the next cycle. A crash after delivery recognizes the exclusive
 per-Issue outcome/cursor transitions are crash-idempotent. A legitimate `blocked`
 Issue advances only when its worktree is clean and unchanged, so independent batch
 items continue. Correctable operational errors do not become `blocked`.
+Codex event, error and prompt files remain private until delivery is verified. A
+new attempt archives the preceding files instead of truncating them. Equivalent
+operational failures receive at most two later timer attempts; the third preserves
+the Issue in `doing` and suspends further Codex calls with one sanitized owner
+notice.
 Before editing, João must verify every owner-controlled prerequisite required by
 the Issue. A missing prerequisite blocks the Issue with a clean, unchanged
 worktree. Partial implementation followed by `blocked` is invalid: the wrapper
@@ -63,8 +68,10 @@ ops/joao/control.sh status
 ops/joao/control.sh resume
 ```
 
-`status` never prints the session identifier. `resume` only removes the suspension
-marker and starts the service; it does not erase the fixed batch.
+`status` never prints the session identifier or failure fingerprint. It reports a
+closed failure class and attempt count when an Issue retry exists. `resume` removes
+only the applicable suspension gate and starts the service; it does not erase the
+fixed batch, session, worktree or private diagnostics.
 
 ## Review and installation
 
@@ -105,7 +112,8 @@ atomic capture recovery, Issue-boundary recovery, staged merge recovery,
 delivered-head preservation, wrapper-only integration, leased branch deletion,
 final states, real lock contention and sanitized controls.
 It also covers precondition-first blocking and preservation when a blocked Issue
-violates the unchanged-worktree invariant.
+violates the unchanged-worktree invariant, as well as bounded equivalent failures,
+diagnostic preservation and explicit recovery.
 
 ```sh
 bash -n ops/joao/run.sh ops/joao/control.sh ops/joao/test/run-tests.sh
