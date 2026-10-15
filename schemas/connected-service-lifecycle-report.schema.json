@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/connected-service-lifecycle-report.schema.json",
+  "title": "Rappor Security connected-service lifecycle report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordedAt",
+    "laboratory",
+    "application",
+    "provider",
+    "execution",
+    "setup",
+    "summary",
+    "states",
+    "lifecycle",
+    "presentation",
+    "cleanup",
+    "sanitization"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/connected-service-lifecycle-report.schema.json" },
+    "schemaVersion": { "const": "1.1.0" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "laboratory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sourceCommit"],
+      "properties": {
+        "version": { "const": "0.0.0" },
+        "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectedVisibleVersion", "observedVisibleVersion", "visibleVersionMatches"],
+      "properties": {
+        "selectedVisibleVersion": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "observedVisibleVersion": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "visibleVersionMatches": { "type": "boolean" }
+      }
+    },
+    "provider": { "enum": ["supabase", "vercel"] },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface", "pollingBounded", "rawResponsesRetained", "resumed"],
+      "properties": {
+        "interface": { "const": "public-web-and-api" },
+        "pollingBounded": { "const": true },
+        "rawResponsesRetained": { "const": false },
+        "resumed": { "type": "boolean" }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productReused", "createdDefinitions", "connectionState", "authorizedResourceCount"],
+      "properties": {
+        "productReused": { "type": "boolean" },
+        "createdDefinitions": { "type": "integer", "minimum": 0 },
+        "connectionState": { "enum": ["Active", "Unavailable"] },
+        "authorizedResourceCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "clean", "counts"],
+      "properties": {
+        "outcome": { "$ref": "#/$defs/outcome" },
+        "clean": { "type": "boolean" },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Passed", "Failed", "BlockedByConsent", "Inconclusive"],
+          "properties": {
+            "Passed": { "type": "integer", "minimum": 0 },
+            "Failed": { "type": "integer", "minimum": 0 },
+            "BlockedByConsent": { "type": "integer", "minimum": 0 },
+            "Inconclusive": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/state" }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestCoverage",
+        "measuredFindingTransitions",
+        "scoreProgression",
+        "measuredResolution",
+        "measuredReintroduction",
+        "history",
+        "duplicateFree"
+      ],
+      "properties": {
+        "manifestCoverage": { "$ref": "#/$defs/lifecycleStatus" },
+        "measuredFindingTransitions": { "$ref": "#/$defs/lifecycleStatus" },
+        "scoreProgression": { "$ref": "#/$defs/lifecycleStatus" },
+        "measuredResolution": { "$ref": "#/$defs/lifecycleStatus" },
+        "measuredReintroduction": { "$ref": "#/$defs/lifecycleStatus" },
+        "history": { "$ref": "#/$defs/lifecycleStatus" },
+        "duplicateFree": { "type": "boolean" }
+      }
+    },
+    "presentation": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["locale", "route", "rendered", "navigable"],
+        "properties": {
+          "locale": { "enum": ["pt-BR", "en-US"] },
+          "route": { "const": "execution-detail" },
+          "rendered": { "type": "boolean" },
+          "navigable": { "type": "boolean" }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "resourcesRestored"],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "resourcesRestored": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sanitization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retained", "excluded"],
+      "properties": {
+        "retained": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "excluded": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  },
+  "$defs": {
+    "outcome": { "enum": ["Passed", "Failed", "BlockedByConsent", "Inconclusive"] },
+    "lifecycleStatus": { "enum": ["Matched", "Mismatch", "Inconclusive"] },
+    "findingGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "expectedSeverity",
+        "observedSeverities",
+        "expectedAffectedItems",
+        "observedAffectedItems",
+        "expectedAffectedItemCount",
+        "observedAffectedItemCount"
+      ],
+      "properties": {
+        "ruleId": { "type": "string" },
+        "expectedSeverity": { "type": ["string", "null"], "enum": ["info", "low", "medium", "high", "critical", "unknown", null] },
+        "observedSeverities": { "type": "array", "items": { "enum": ["info", "low", "medium", "high", "critical", "unknown"] }, "uniqueItems": true },
+        "expectedAffectedItems": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "observedAffectedItems": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "expectedAffectedItemCount": { "type": "integer", "minimum": 0 },
+        "observedAffectedItemCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "outcome",
+        "assessmentState",
+        "scannerState",
+        "scannerKey",
+        "scannerVersion",
+        "profile",
+        "profileVersion",
+        "coverageStatus",
+        "resultContractVersion",
+        "rulesVersion",
+        "coverageVersion",
+        "expectedRuleCount",
+        "coveredRuleCount",
+        "manifestCaseCount",
+        "measuredManifestCaseCount",
+        "unmeasuredCaseIds",
+        "unmeasuredRuleIds",
+        "expectedFindingCount",
+        "findingCount",
+        "expectedAffectedItemCount",
+        "affectedItemCount",
+        "findingGroups",
+        "expectedFindingRuleIds",
+        "findingRuleIds",
+        "severities",
+        "duplicateFindings",
+        "unmappedFindingCount",
+        "coverageFindingMismatches",
+        "severityMismatches",
+        "expectedMeasuredFinding",
+        "observedMeasuredFinding",
+        "expectationMatched",
+        "failureCode",
+        "score",
+        "evolution",
+        "polls"
+      ],
+      "properties": {
+        "state": { "enum": ["vulnerable", "partially-fixed", "fixed", "reintroduced", "unknown"] },
+        "outcome": { "$ref": "#/$defs/outcome" },
+        "assessmentState": { "type": "string" },
+        "scannerState": { "type": "string" },
+        "scannerKey": { "type": "string" },
+        "scannerVersion": { "type": "string" },
+        "profile": { "type": "string" },
+        "profileVersion": { "type": ["integer", "null"] },
+        "coverageStatus": { "type": "string" },
+        "resultContractVersion": { "type": ["string", "null"] },
+        "rulesVersion": { "type": ["string", "null"] },
+        "coverageVersion": { "type": ["string", "null"] },
+        "expectedRuleCount": { "type": "integer", "minimum": 0 },
+        "coveredRuleCount": { "type": "integer", "minimum": 0 },
+        "manifestCaseCount": { "type": "integer", "minimum": 0 },
+        "measuredManifestCaseCount": { "type": "integer", "minimum": 0 },
+        "unmeasuredCaseIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "unmeasuredRuleIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "expectedFindingCount": { "type": "integer", "minimum": 0 },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "expectedAffectedItemCount": { "type": "integer", "minimum": 0 },
+        "affectedItemCount": { "type": "integer", "minimum": 0 },
+        "findingGroups": { "type": "array", "items": { "$ref": "#/$defs/findingGroup" }, "uniqueItems": true },
+        "expectedFindingRuleIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "findingRuleIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "severities": { "type": "array", "items": { "enum": ["info", "low", "medium", "high", "critical", "unknown"] }, "uniqueItems": true },
+        "duplicateFindings": { "type": "integer", "minimum": 0 },
+        "unmappedFindingCount": { "type": "integer", "minimum": 0 },
+        "coverageFindingMismatches": { "type": "integer", "minimum": 0 },
+        "severityMismatches": { "type": "integer", "minimum": 0 },
+        "expectedMeasuredFinding": { "type": ["boolean", "null"] },
+        "observedMeasuredFinding": { "type": ["boolean", "null"] },
+        "expectationMatched": { "type": "boolean" },
+        "failureCode": { "type": ["string", "null"] },
+        "score": { "type": ["object", "null"] },
+        "evolution": { "type": ["object", "null"] },
+        "polls": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

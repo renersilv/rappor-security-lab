@@ -59,3 +59,38 @@ node src/verify-provider-configuration-report.mjs /tmp/report.json /tmp/report.m
 
 Do not add provider management tokens, project identifiers, raw responses,
 visitor data, source code, logs, users, rows or credentials to the repository.
+
+## HML connected-analysis gate
+
+The provider mutations above are independent ground truth. The HML comparison is
+performed by `src/run-connected-service-lifecycle.mjs`, which selects resources
+from `GET /api/integrations/connected-services/`, creates missing configurations
+through `POST /api/products/:id/connected-service-analyses`, starts assessments
+through the published analysis-definition execution contract and polls them with
+a fixed bound. Provider response bodies and HML identifiers remain transient or
+in a protected external checkpoint. The checkpoint binds each provider to one
+visible HML version and one full laboratory commit. Retesting a new deployment
+baseline therefore uses a new checkpoint path and preserves the earlier file as
+historical private evidence.
+
+Vercel expects the four exact controlled projects declared in `lib/states.mjs`.
+Supabase expects exactly one disposable project and applies all four states to
+that resource. Both adapters restore the safe provider state in `finally` and
+verify the post-condition. A connection that is not `Active`, a resource that is
+not `Authorized`, partial coverage, a terminal scanner failure, timeout or cleanup
+failure produces a non-clean outcome.
+
+The Supabase comparator maps the seven independent manifest advisor cases to the
+four canonical families published by the connected-analysis contract. Three
+manifest cases have no comparable published coverage check; they stay explicit
+and make manifest coverage `Inconclusive` instead of being inferred from another
+family. Findings are grouped by canonical family and logical synthetic object.
+Multiple objects in one family are distinct affected items; only another finding
+for the same family and object, or a repeated transient fingerprint, is counted as
+a true duplicate. Raw fingerprints, issue and occurrence identifiers, locations
+and evidence are excluded from the report.
+
+Across vulnerable, partially fixed, fixed and reintroduced states, the report
+validates measured finding transitions, score progression, resolution,
+reintroduction and history independently. Any measured mismatch is non-clean;
+an unmeasured published capability remains `Inconclusive`.

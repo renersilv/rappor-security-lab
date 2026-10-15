@@ -398,7 +398,15 @@ test("the SSH adapter accepts only the public local-client command and fixed syn
   assert.match(bridge, /ToUnixTimeSeconds\(\) -ge \$DeadlineUnix - 10/u);
   assert.doesNotMatch(bridge, /SupervisorRequest|ContinueWorkspace|Invoke-Expression/u);
   assert.doesNotMatch(content, /\beval\b|ssh .*\$@/u);
-  assert.equal((await stat(adapter)).mode & 0o111, 0o111);
+  const metadata = await stat(adapter);
+  assert.ok(metadata.isFile());
+  // Private worktree umasks may remove group/other execution without breaking the owner command.
+  assert.equal(metadata.mode & 0o100, 0o100);
+  assert.equal(metadata.mode & 0o022, 0);
+  const tracked = await execFile("git", [
+    "-C", repositoryRoot, "ls-files", "--stage", "--", "ops/windows-agent-lab/rappor-remote.sh",
+  ]);
+  assert.match(tracked.stdout, /^100755 [a-f0-9]+ 0\tops\/windows-agent-lab\/rappor-remote\.sh\n$/u);
 });
 
 test("guest automation uses only the official MSIX and bounded reversible failures", async () => {

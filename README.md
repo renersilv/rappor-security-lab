@@ -172,6 +172,54 @@ credentials or network access:
 node src/verify-provider-configuration-report.mjs
 ```
 
+## Connected-service HML lifecycle
+
+`src/run-connected-service-lifecycle.mjs` is the common black-box runner for the
+real Supabase and Vercel analysis journeys in HML. It uses only the rendered Web
+flow and the same-origin public API contracts exposed by that flow. The runner
+requires one existing `Active` provider connection, `Authorized` controlled
+resources, the dedicated mode-`0600` HML credential file and an absolute
+mode-`0600` checkpoint outside the repository. It never stores a provider,
+Product, configuration or execution identifier in its report.
+
+The runner creates or reuses the dedicated Product and connected-service
+configurations. A pending execution identifier is kept only in the protected
+checkpoint, so restarting polls the same execution instead of creating a
+duplicate. Each provider checkpoint is bound to the selected visible HML version
+and full laboratory commit; a new baseline uses a new protected checkpoint path
+and an older checkpoint is preserved rather than relabeled. Provider cleanup
+runs in `finally`; a failed, partial or unavailable scan is never interpreted as
+a clean absence. Reports distinguish `Passed`,
+`Failed`, `BlockedByConsent` and `Inconclusive` and retain only logical states,
+versioned coverage, canonical rule families, logical affected-item groups, safe
+score/evolution fields and cleanup confirmation. A repeated family is a true
+duplicate only when it repeats the same logical affected item (or the same
+transient fingerprint); distinct items in one family remain distinct findings.
+Manifest cases without a comparable published coverage check are reported as
+`Inconclusive`, never as passed. The lifecycle comparison separately validates
+finding transitions, score progression, resolution, reintroduction and history.
+Vercel states select four independent controlled projects and definitions, so
+resolution and reintroduction are compared through covered finding transitions
+while cross-definition evolution history remains explicitly `Inconclusive`.
+
+With the protected environment already loaded, run a provider lifecycle with:
+
+```sh
+npm run connected:lifecycle -- \
+  --provider vercel \
+  --checkpoint /absolute/protected/path/vercel-checkpoint.json \
+  --expected-version vMAJOR.MINOR.PATCH \
+  --source-commit 40_HEX_GIT_COMMIT \
+  --json /tmp/vercel-connected-lifecycle.json
+
+npm run connected:verify -- /tmp/vercel-connected-lifecycle.json
+```
+
+Supabase uses the same command with `--provider supabase` plus the protected
+`SUPABASE_LAB_*` and PostgreSQL service configuration documented below. The live
+run is allowed only while its disposable project is independently reachable; an
+`Active` HML connection by itself is not proof that the provider target works.
+
 ## External public observations
 
 `observations/public-external` contains dated, sanitized observations made through

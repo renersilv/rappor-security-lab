@@ -129,7 +129,7 @@ function targetFile(root, relativePath) {
   return resolve(root, relativePath);
 }
 
-async function applySupabaseState(stateName, environment = process.env, runner = execFile) {
+export async function applySupabaseState(stateName, environment = process.env, runner = execFile) {
   const state = SUPABASE_STATES[stateName];
   await psql([
     "--no-psqlrc",
