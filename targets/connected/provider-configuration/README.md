@@ -40,6 +40,18 @@ The runner first establishes a safe baseline, verifies vulnerable, negative and
 reintroduced states independently, and restores `gitForkProtection=true` on all
 four projects in `finally`.
 
+The Git links make the fork-protection control applicable; they do not authorize
+deploying the laboratory repository. The repository-root `vercel.json` sets
+`git.deploymentEnabled` to `false` for all branches, following the
+[Vercel Git configuration contract](https://vercel.com/docs/project-configuration/git-configuration).
+Keep this file in the revision being pushed and the project root at the repository
+root. The provider field `gitProviderOptions.createDeployments=disabled` alone
+did not prevent Git previews in the 2026-10-16 laboratory observation and is not
+sufficient evidence of deployment prevention. After publishing a laboratory
+revision, verify the provider's Git result and absence of new deployments for that
+revision with bounded polling. Preserve unexpected-deployment evidence and stop
+if prevention fails; do not retry pushes or remove existing deployments implicitly.
+
 The CLI's saved authentication remains outside Git. The runner discards account
 and project identifiers, environment variables and every unused API field in
 memory:
