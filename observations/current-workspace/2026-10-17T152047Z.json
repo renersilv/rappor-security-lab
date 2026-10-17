@@ -1,0 +1,152 @@
+{
+  "$schema": "../../schemas/current-workspace-report.schema.json",
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-10-17T15:20:47Z",
+  "issue": 19,
+  "status": "partial",
+  "verdict": "inconclusive",
+  "candidate": {
+    "visibleVersion": "v0.79.0",
+    "publicClientSourceRevision": "1c6412c0e813f4a3f95b125871b4338b6f168356",
+    "linuxClientProtocolVersion": 1,
+    "linuxClientArchiveSha256": "9fd7775aacb84fcfd9d638a61397119389757fce1b4e7b02502476054b2f0ed5",
+    "agentProtocolVersion": 7
+  },
+  "authorization": {
+    "originalMaximumStarts": 4,
+    "extensionMaximumStarts": 5,
+    "maximumCliLinuxStarts": 3,
+    "reservedIdeWindowsStarts": 2,
+    "consumedStarts": 3,
+    "cliLinuxStarts": 3,
+    "ideWindowsStarts": 0,
+    "active": false,
+    "extensionActivated": true,
+    "limitSeconds": 600,
+    "priorOutcomes": [
+      "needs-owner-action",
+      "needs-owner-action"
+    ],
+    "currentOutcome": "needs-owner-action"
+  },
+  "preparation": {
+    "kind": "assisted",
+    "inferenceStarts": 0,
+    "clientInstalled": true,
+    "computerApproved": true,
+    "computerOnline": true,
+    "scannerCount": 3,
+    "capabilities": [
+      "source.current-workspace.v1",
+      "source.local-folder.v1"
+    ],
+    "initiallyRegisteredWorkspaceCount": 0,
+    "folderConsentGrantedBeforeRun": false,
+    "oauthRefreshPersistenceVerified": true
+  },
+  "execution": {
+    "clientPath": "host-codex-linux-client",
+    "attemptSequence": 3,
+    "durationMs": 141841,
+    "shortNaturalPrompt": true,
+    "preflightToolCount": 32,
+    "automaticReviewCount": 10,
+    "automaticReviewsApproved": true,
+    "rawOutputRetained": false,
+    "outcome": "needs-owner-action",
+    "stopCategory": "native-folder-consent-required",
+    "modelObservedFirstUse": {
+      "catalogInitiallyEmpty": false,
+      "productReused": true,
+      "clientDiscovered": true,
+      "clientInstalled": true,
+      "computerApproved": true,
+      "exactComputerSelected": true,
+      "folderConsented": false,
+      "typedRecoveryObserved": false,
+      "noSecretExposed": true
+    }
+  },
+  "analysis": {
+    "baseline": {
+      "completed": false,
+      "scoreAvailable": false,
+      "findingCount": 0,
+      "coverageComplete": false,
+      "historyObserved": false
+    },
+    "guidanceRead": false,
+    "remediationApplied": false,
+    "functionalTestsAfterRemediationPassed": false,
+    "rerun": {
+      "completed": false,
+      "scoreAvailable": false,
+      "findingCount": null,
+      "coverageComplete": false,
+      "historyObserved": false
+    },
+    "webComparison": {
+      "rendered": false,
+      "scoreMatched": false,
+      "findingsMatched": false,
+      "coverageMatched": false,
+      "historyMatched": false
+    },
+    "scanners": []
+  },
+  "workspace": {
+    "beforeRevision": "sha256:c840f07f3271d47515b8677ce1efcb1ba3e962b7e27bac9cde3c11ac0443bae4",
+    "afterRevision": "sha256:c840f07f3271d47515b8677ce1efcb1ba3e962b7e27bac9cde3c11ac0443bae4",
+    "functionalAssertionPassed": true,
+    "detections": {
+      "semgrep": true,
+      "gitleaks": true,
+      "trivy": true
+    }
+  },
+  "acceptance": {
+    "assistedPreparationSeparated": true,
+    "autonomousFirstUseProven": false,
+    "exactComputerSelectionObserved": true,
+    "nativeFolderConsentProven": false,
+    "baselineProven": false,
+    "remediationProven": false,
+    "comparableRerunProven": false,
+    "ideWindowsProven": false,
+    "partialRunTreatedAsClean": false
+  },
+  "unmetCriteria": [
+    "autonomous-first-use",
+    "native-folder-consent",
+    "cli-baseline",
+    "cli-guidance",
+    "cli-remediation",
+    "cli-functional-after-remediation",
+    "cli-rerun",
+    "cli-web-comparison",
+    "ide-windows-journey"
+  ],
+  "sanitization": {
+    "retained": [
+      "candidate-pins",
+      "bounded-consumption-counts",
+      "boolean-outcomes",
+      "duration",
+      "review-count",
+      "workspace-revisions",
+      "independent-detections",
+      "unmet-criteria"
+    ],
+    "excluded": [
+      "credentials",
+      "authorization-values",
+      "computer-identifiers",
+      "operation-identifiers",
+      "personal-paths",
+      "source-code",
+      "raw-tool-responses",
+      "scanner-output",
+      "setup-logs"
+    ]
+  }
+}

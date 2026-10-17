@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lab.rappor.com/schemas/current-workspace-report.schema.json",
+  "title": "Rappor Security current workspace AI observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordedAt",
+    "issue",
+    "status",
+    "verdict",
+    "candidate",
+    "authorization",
+    "preparation",
+    "execution",
+    "analysis",
+    "workspace",
+    "acceptance",
+    "unmetCriteria",
+    "sanitization"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/current-workspace-report.schema.json" },
+    "schemaVersion": { "const": "1.0.0" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "issue": { "const": 19 },
+    "status": { "const": "partial" },
+    "verdict": { "const": "inconclusive" },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibleVersion", "publicClientSourceRevision", "linuxClientProtocolVersion", "linuxClientArchiveSha256", "agentProtocolVersion"],
+      "properties": {
+        "visibleVersion": { "const": "v0.79.0" },
+        "publicClientSourceRevision": { "$ref": "#/$defs/commit" },
+        "linuxClientProtocolVersion": { "const": 1 },
+        "linuxClientArchiveSha256": { "$ref": "#/$defs/hash" },
+        "agentProtocolVersion": { "const": 7 }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["originalMaximumStarts", "extensionMaximumStarts", "maximumCliLinuxStarts", "reservedIdeWindowsStarts", "consumedStarts", "cliLinuxStarts", "ideWindowsStarts", "active", "extensionActivated", "limitSeconds", "priorOutcomes", "currentOutcome"],
+      "properties": {
+        "originalMaximumStarts": { "const": 4 },
+        "extensionMaximumStarts": { "const": 5 },
+        "maximumCliLinuxStarts": { "const": 3 },
+        "reservedIdeWindowsStarts": { "const": 2 },
+        "consumedStarts": { "const": 3 },
+        "cliLinuxStarts": { "const": 3 },
+        "ideWindowsStarts": { "const": 0 },
+        "active": { "const": false },
+        "extensionActivated": { "const": true },
+        "limitSeconds": { "const": 600 },
+        "priorOutcomes": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "needs-owner-action" },
+            { "const": "needs-owner-action" }
+          ],
+          "items": false
+        },
+        "currentOutcome": { "const": "needs-owner-action" }
+      }
+    },
+    "preparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "inferenceStarts", "clientInstalled", "computerApproved", "computerOnline", "scannerCount", "capabilities", "initiallyRegisteredWorkspaceCount", "folderConsentGrantedBeforeRun", "oauthRefreshPersistenceVerified"],
+      "properties": {
+        "kind": { "const": "assisted" },
+        "inferenceStarts": { "const": 0 },
+        "clientInstalled": { "const": true },
+        "computerApproved": { "const": true },
+        "computerOnline": { "const": true },
+        "scannerCount": { "const": 3 },
+        "capabilities": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "source.current-workspace.v1" },
+            { "const": "source.local-folder.v1" }
+          ],
+          "items": false
+        },
+        "initiallyRegisteredWorkspaceCount": { "const": 0 },
+        "folderConsentGrantedBeforeRun": { "const": false },
+        "oauthRefreshPersistenceVerified": { "const": true }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientPath", "attemptSequence", "durationMs", "shortNaturalPrompt", "preflightToolCount", "automaticReviewCount", "automaticReviewsApproved", "rawOutputRetained", "outcome", "stopCategory", "modelObservedFirstUse"],
+      "properties": {
+        "clientPath": { "const": "host-codex-linux-client" },
+        "attemptSequence": { "const": 3 },
+        "durationMs": { "type": "integer", "minimum": 0, "maximum": 600000 },
+        "shortNaturalPrompt": { "const": true },
+        "preflightToolCount": { "const": 32 },
+        "automaticReviewCount": { "type": "integer", "minimum": 1 },
+        "automaticReviewsApproved": { "const": true },
+        "rawOutputRetained": { "const": false },
+        "outcome": { "const": "needs-owner-action" },
+        "stopCategory": { "const": "native-folder-consent-required" },
+        "modelObservedFirstUse": { "$ref": "#/$defs/firstUse" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "guidanceRead", "remediationApplied", "functionalTestsAfterRemediationPassed", "rerun", "webComparison", "scanners"],
+      "properties": {
+        "baseline": { "$ref": "#/$defs/incompleteAnalysis" },
+        "guidanceRead": { "const": false },
+        "remediationApplied": { "const": false },
+        "functionalTestsAfterRemediationPassed": { "const": false },
+        "rerun": { "$ref": "#/$defs/incompleteAnalysis" },
+        "webComparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rendered", "scoreMatched", "findingsMatched", "coverageMatched", "historyMatched"],
+          "properties": {
+            "rendered": { "const": false },
+            "scoreMatched": { "const": false },
+            "findingsMatched": { "const": false },
+            "coverageMatched": { "const": false },
+            "historyMatched": { "const": false }
+          }
+        },
+        "scanners": { "type": "array", "maxItems": 0 }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beforeRevision", "afterRevision", "functionalAssertionPassed", "detections"],
+      "properties": {
+        "beforeRevision": { "$ref": "#/$defs/digest" },
+        "afterRevision": { "$ref": "#/$defs/digest" },
+        "functionalAssertionPassed": { "const": true },
+        "detections": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["semgrep", "gitleaks", "trivy"],
+          "properties": {
+            "semgrep": { "const": true },
+            "gitleaks": { "const": true },
+            "trivy": { "const": true }
+          }
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assistedPreparationSeparated", "autonomousFirstUseProven", "exactComputerSelectionObserved", "nativeFolderConsentProven", "baselineProven", "remediationProven", "comparableRerunProven", "ideWindowsProven", "partialRunTreatedAsClean"],
+      "properties": {
+        "assistedPreparationSeparated": { "const": true },
+        "autonomousFirstUseProven": { "const": false },
+        "exactComputerSelectionObserved": { "const": true },
+        "nativeFolderConsentProven": { "const": false },
+        "baselineProven": { "const": false },
+        "remediationProven": { "const": false },
+        "comparableRerunProven": { "const": false },
+        "ideWindowsProven": { "const": false },
+        "partialRunTreatedAsClean": { "const": false }
+      }
+    },
+    "unmetCriteria": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "autonomous-first-use" },
+        { "const": "native-folder-consent" },
+        { "const": "cli-baseline" },
+        { "const": "cli-guidance" },
+        { "const": "cli-remediation" },
+        { "const": "cli-functional-after-remediation" },
+        { "const": "cli-rerun" },
+        { "const": "cli-web-comparison" },
+        { "const": "ide-windows-journey" }
+      ],
+      "items": false
+    },
+    "sanitization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retained", "excluded"],
+      "properties": {
+        "retained": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "excluded": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "firstUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalogInitiallyEmpty", "productReused", "clientDiscovered", "clientInstalled", "computerApproved", "exactComputerSelected", "folderConsented", "typedRecoveryObserved", "noSecretExposed"],
+      "properties": {
+        "catalogInitiallyEmpty": { "const": false },
+        "productReused": { "const": true },
+        "clientDiscovered": { "const": true },
+        "clientInstalled": { "const": true },
+        "computerApproved": { "const": true },
+        "exactComputerSelected": { "const": true },
+        "folderConsented": { "const": false },
+        "typedRecoveryObserved": { "const": false },
+        "noSecretExposed": { "const": true }
+      }
+    },
+    "incompleteAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed", "scoreAvailable", "findingCount", "coverageComplete", "historyObserved"],
+      "properties": {
+        "completed": { "const": false },
+        "scoreAvailable": { "const": false },
+        "findingCount": { "type": ["integer", "null"], "minimum": 0 },
+        "coverageComplete": { "const": false },
+        "historyObserved": { "const": false }
+      }
+    }
+  }
+}

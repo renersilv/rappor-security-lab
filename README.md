@@ -253,6 +253,39 @@ node src/verify-windows-agent-report.mjs /tmp/windows-agent.json /tmp/windows-ag
 
 The VM boot unit, safety boundary, exact restore behavior and runtime variables are documented in [`targets/connected/windows-agent/README.md`](targets/connected/windows-agent/README.md).
 
+## Current workspace AI laboratory
+
+Issue #19's independent CLI/Linux slice uses the real Codex CLI, the isolated HML
+MCP OAuth connection and the official Linux client against a private copy of the
+controlled synthetic corpus. The original four-start authorization and its two
+consumed CLI attempts remain immutable. One audited extension permits exactly a
+fifth global start and a third CLI start while preserving two starts exclusively
+for IDE/Windows proof. The extension is bound to the original receipt and the
+pre-extension state digest; its activation and the third reservation are persisted
+in one atomic write. Each process tree is limited to 600 seconds, and failure,
+refusal or timeout still consumes its reservation.
+
+The inert control and live preflight are:
+
+```sh
+bash ops/current-workspace-lab/run-codex-bounded.sh --self-test
+bash ops/current-workspace-lab/run-codex-bounded.sh --prepare
+bash ops/current-workspace-lab/run-codex-bounded.sh --preflight
+```
+
+The live command uses the exact short natural-language prompt pinned in
+`scanner-profiles/current-workspace-ai.json` and never sends a product identifier,
+computer identifier, path, endpoint or credential to the model. See
+[`targets/connected/current-workspace/README.md`](targets/connected/current-workspace/README.md)
+for the authorization, evidence and incomplete-matrix boundaries.
+
+The 2026-10-17 CLI observation consumed the audited third CLI start after a
+32-tool preflight. It observed the prepared client and exact computer selection,
+then stopped for native folder consent before any baseline scanner completed. The
+workspace stayed at the vulnerable revision with its functional assertion and all
+three independent signals intact. The observation is explicitly `partial` and
+`inconclusive`; it does not claim remediation or substitute for IDE/Windows proof.
+
 ## Autonomous execution
 
 The reviewed operational contract, controls and user-service examples for João are

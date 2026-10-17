@@ -1,0 +1,37 @@
+{
+  "id": "current-workspace-ai",
+  "profileVersion": "1.0.0",
+  "issue": 19,
+  "candidate": {
+    "visibleVersion": "v0.79.0",
+    "publicClientSourceRevision": "1c6412c0e813f4a3f95b125871b4338b6f168356",
+    "linuxClientProtocolVersion": 1,
+    "linuxClientArchiveSha256": "9fd7775aacb84fcfd9d638a61397119389757fce1b4e7b02502476054b2f0ed5",
+    "linuxManifestSha256": "b6d9dc31327be27b6c684e7364b5363e0566c09193e3715ba2b3cb39f2f16067",
+    "linuxInstallerSha256": "2e9b9a1a28acdf0da7bbef8b1360b86c9842be6554b7b583df0f138e46c94d8f"
+  },
+  "authorization": {
+    "id": "issue19-ai-20261016",
+    "extensionId": "issue19-ai-20261016-extension-1",
+    "maximumStarts": 5,
+    "maximumCliLinuxStarts": 3,
+    "reservedIdeWindowsStarts": 2,
+    "maximumSecondsPerStart": 600,
+    "sequential": true
+  },
+  "client": {
+    "kind": "Codex CLI",
+    "operatingSystem": "Linux x86_64",
+    "mcpServerName": "rapporLabIssue19",
+    "processingLocation": "current-computer"
+  },
+  "prompt": "Analise este projeto com a Rappor Security, processando neste computador. Mostre a nota e os principais problemas antes de corrigir qualquer coisa.",
+  "followUpPrompt": "Agora leia a orientação dos principais problemas, corrija somente este projeto sintético, execute os testes funcionais, analise novamente os arquivos atuais e compare a nota, os problemas, a cobertura e o histórico com a Web.",
+  "corpus": {
+    "manifestVersion": "1.0.0",
+    "initialState": "vulnerable",
+    "expectedFixedState": "fixed",
+    "initialRevision": "sha256:c840f07f3271d47515b8677ce1efcb1ba3e962b7e27bac9cde3c11ac0443bae4",
+    "fixedRevision": "sha256:2826f18722c51124fdf4ccbc0a3d2a12ce83ce9cf069b6b63abc2f0f7792c5dc"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outcome",
+    "clientPath",
+    "firstUse",
+    "baseline",
+    "guidanceRead",
+    "remediationApplied",
+    "functionalTestsPassed",
+    "rerun",
+    "web",
+    "ownerAction",
+    "summaryCode",
+    "scanners"
+  ],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["completed", "failed", "refused", "needs-owner-action"]
+    },
+    "clientPath": {
+      "type": "string",
+      "const": "host-codex-linux-client"
+    },
+    "firstUse": {
+      "$ref": "#/$defs/firstUse"
+    },
+    "baseline": {
+      "$ref": "#/$defs/analysis"
+    },
+    "guidanceRead": {
+      "type": "boolean"
+    },
+    "remediationApplied": {
+      "type": "boolean"
+    },
+    "functionalTestsPassed": {
+      "type": "boolean"
+    },
+    "rerun": {
+      "$ref": "#/$defs/analysis"
+    },
+    "web": {
+      "$ref": "#/$defs/web"
+    },
+    "ownerAction": {
+      "type": "string",
+      "enum": ["none", "continue-client-consent", "approve-computer-in-browser", "confirm-folder-locally"]
+    },
+    "summaryCode": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 80
+    },
+    "scanners": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "version", "state", "databaseState"],
+        "properties": {
+          "key": { "type": "string", "enum": ["semgrep", "gitleaks", "trivy"] },
+          "version": { "type": "string", "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._+-]{0,63}|unavailable)$" },
+          "state": { "type": "string", "enum": ["completed", "failed", "unavailable"] },
+          "databaseState": { "type": "string", "enum": ["not-applicable", "current", "approved-offline-stale", "unavailable"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "firstUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalogInitiallyEmpty",
+        "productReused",
+        "clientDiscovered",
+        "clientInstalled",
+        "computerApproved",
+        "exactComputerSelected",
+        "folderConsented",
+        "typedRecoveryObserved",
+        "noSecretExposed"
+      ],
+      "properties": {
+        "catalogInitiallyEmpty": { "type": "boolean" },
+        "productReused": { "type": "boolean" },
+        "clientDiscovered": { "type": "boolean" },
+        "clientInstalled": { "type": "boolean" },
+        "computerApproved": { "type": "boolean" },
+        "exactComputerSelected": { "type": "boolean" },
+        "folderConsented": { "type": "boolean" },
+        "typedRecoveryObserved": { "type": "boolean" },
+        "noSecretExposed": { "type": "boolean" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed", "score", "findingCount", "coverageComplete", "historyObserved"],
+      "properties": {
+        "completed": { "type": "boolean" },
+        "score": { "type": "string", "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?|unavailable)$" },
+        "findingCount": { "type": "integer", "minimum": -1 },
+        "coverageComplete": { "type": "boolean" },
+        "historyObserved": { "type": "boolean" }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rendered", "scoreMatched", "findingsMatched", "coverageMatched", "historyMatched"],
+      "properties": {
+        "rendered": { "type": "boolean" },
+        "scoreMatched": { "type": "boolean" },
+        "findingsMatched": { "type": "boolean" },
+        "coverageMatched": { "type": "boolean" },
+        "historyMatched": { "type": "boolean" }
+      }
+    }
+  }
+}
