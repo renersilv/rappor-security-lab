@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "issue": 19,
+  "stage": "consent-preparation-v1",
+  "contract": "issue-19.md",
+  "maxReviews": 3,
+  "nextGate": "campaign-authorization",
+  "allowsFinalDelivery": false
+}

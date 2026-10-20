@@ -6,6 +6,17 @@ Repository foundation, executable manifests, controlled static code corpus, cont
 
 ## Current work
 
+Issue #21 / ADR-0001 introduces opt-in persistent preparation and independent review
+for #19 in the existing executor. The contract is consolidated in
+`ops/joao/contracts/issue-19.md`; it preserves all Linux/Windows, processing-mode,
+real-AI, negative-case and rendered-Web acceptance criteria. A preparation pass is
+not #19 acceptance. Four CLI experiment starts are consumed and two IDE starts remain
+reserved. No further CLI experiment is authorized by this automation change.
+
+The prior source-count/late-consent review findings were corrected in #19's unintegrated
+worktree; independent automatic review remains the next gate. Product v0.81.0 and the
+current #19 target stay separate from historical Windows #18 evidence below.
+
 Issue #18 adds the persistent Windows application laboratory and its bounded lifecycle runner. The single owner-authorized local-folder attempt completed through host Codex, HML MCP, restricted SSH and the official Windows client with all three scanners; the observation retains 70 findings, score 19.958358398579 and Trivy's `approved-offline-stale` state. The original unconfirmed automatic cleanup and the later verified assisted finalization remain distinct hashed receipts. Public cold-boot preparation subsequently proved protocol 7 and `source.current-workspace.v1` on the pinned runtime revision without another inference. Issue #15 established real, independent provider states without calling Rappor Security. Issue #14 remains the latest black-box product comparison against HML `v0.34.0`, with its 15 explicit discrepancies unchanged.
 
 ## Constraints

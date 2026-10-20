@@ -32,6 +32,13 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
 - Keep at most one open Issue in `doing`.
 - New Issues created after a batch starts wait for the next batch.
 - A technical failure that João can investigate remains `doing`.
+- An explicit versioned preparation contract may preserve intermediate work in the same
+  issue/worktree and use bounded independent review. Its private stage is not a new
+  operational label. Preparation success never satisfies the full acceptance gate.
+  Authorizations for later experiments do not block independent offline preparation.
+  Routine recovery already authorized for the same isolated account does not require
+  renewed owner permission. Never enlarge experiment budgets or override denial.
+  ADR-0001 and `ops/joao/contracts/` define the current opt-in scope.
 - Operational execution failures are kept in private state. Two equivalent
   failures are retried by later timer activations; the third suspends new Codex
   calls while preserving the `doing` Issue, batch, session, branch, worktree and

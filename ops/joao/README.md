@@ -25,12 +25,40 @@ new attempt archives the preceding files instead of truncating them. Equivalent
 operational failures receive at most two later timer attempts; the third preserves
 the Issue in `doing` and suspends further Codex calls with one sanitized owner
 notice.
-Before editing, João must verify every owner-controlled prerequisite required by
-the Issue. A missing prerequisite blocks the Issue with a clean, unchanged
-worktree. Partial implementation followed by `blocked` is invalid: the wrapper
-preserves the work and suspends instead of discarding, accepting or repeatedly
-advancing it. The owner must then return the Issue to `doing` or explicitly
-replan its independently deliverable scope.
+Before an external action, João checks that action's prerequisites. Routine recovery
+already authorized for the isolated account is not a new owner decision. Independently
+authorized offline work may continue while a later live-test gate remains unavailable.
+
+### Opt-in preparation stages
+
+Issue #19 is governed by `contracts/19.json` and `contracts/issue-19.md` (ADR-0001).
+The installed runner appends this single current contract instead of accumulating old
+Issue instructions. A preparation return in `doing` triggers deterministic checks and
+an independent, read-only, approval-disabled review in a separate session. The same
+configured model/effort is retained; no test-model experiment or API key is used.
+
+The private `stage.json` binds issue, branch, exact worktree, contract digest and source
+snapshot, including untracked source. Review rounds are persisted before invocation and
+limited to three, including interrupted reviews and failed checks. Findings feed the next
+implementation turn as data. Changing source invalidates a pass; malformed state fails
+closed. Review diagnostics are retained privately across rounds.
+
+A passed preparation waits for campaign authorization; a genuinely missing external
+prerequisite also waits. These waits preserve dirty work and prior commits without a
+suspension or delivery-invalid retry. Timers emit one sanitized transition notice and
+then make no model calls. `resume` cannot authorize a campaign or bypass this wait.
+An exhausted review limit requires assisted diagnosis, not repeated resets. Final
+delivery is forbidden while the preparation-only contract is installed. Transition to
+a campaign/final-delivery contract is a separate, explicit, reviewed change; only then
+may the ordinary full acceptance/integration checks apply. This mechanism never marks
+#19/#17 complete on preparation evidence.
+
+The existing serialized worker may recover an expired #19 OAuth session once per
+credential generation through the official CLI and public browser, after a classified
+refresh failure. The fixed isolated account, current grant, unchanged scopes, eight-hour
+expiry boundary, private permissions and normal browser sandbox are checked. Revoked or
+missing grants do not trigger recovery. Unavailable live access does not stop offline work.
+No new service is installed. Direct parallel login is not permitted.
 
 After every Issue is delivered as `validating`, the wrapper acquires its private
 main-integration lock, incorporates current `origin/main` into the batch branch,

@@ -26,6 +26,8 @@ NPM_BIN=npm
 PROMPT_FILE="$SCRIPT_DIR/PROMPT.md"
 RUN_LOCK="$STATE_ROOT/run.lock"
 MAIN_LOCK="$STATE_ROOT/main-integration.lock"
+# shellcheck source=ops/joao/stages.sh
+source "$SCRIPT_DIR/stages.sh"
 
 log() {
   printf 'joao: %s\n' "$*"
@@ -569,6 +571,7 @@ run_codex() {
   {
     sed -n '1,$p' "$PROMPT_FILE"
     printf '\nCurrent Issue: #%s\nBatch branch: %s\n' "$issue" "$branch"
+    stage_prompt "$issue"
   } > "$prompt"
   chmod 600 "$prompt"
   : > "$events"
@@ -605,6 +608,7 @@ run_codex() {
 
 verify_delivery() {
   local issue=$1 worktree=$2 branch=$3 local_head remote_head base_sha issue_base_sha commit_count
+  ! stage_enabled "$issue" || { fail "preparation contract does not permit final delivery"; return 1; }
   [[ $(issue_operational_state "$issue") == validating ]] || { fail "Issue #$issue was not delivered as validating"; return 1; }
   validate_worktree "$branch" "$worktree" "$(read_state base_sha)" || return 1
   [[ -z $($GIT_BIN -C "$worktree" status --porcelain) ]] || { fail "delivered worktree is not clean"; return 1; }
@@ -654,6 +658,9 @@ clear_item_state() {
     clear_state_file "$name"
   done
   clear_issue_retry
+  for name in stage.json stage-review.result.json stage-review.prompt.md stage-review.events.jsonl stage-review.errors.log stage-checks.log; do
+    clear_state_file "$name"
+  done
   if [[ -n $issue ]]; then
     clear_issue_diagnostics "$issue"
   fi
@@ -762,6 +769,11 @@ execute_issues() {
       next=$((next + 1))
       continue
     fi
+    if stage_enabled "$issue" && [[ $operational == blocked ]]; then
+      (( doing_count == 0 )) || suspend "another Issue is in doing during stage recovery"
+      execute_staged_item "$issue" "$worktree" "$branch"
+      return $?
+    fi
     if [[ $operational == blocked ]]; then
       (( doing_count == 0 )) || suspend "another Issue is in doing during blocked recovery"
       accept_blocked "$issue" "$worktree" "$branch" "$next"
@@ -781,6 +793,11 @@ execute_issues() {
       fi
     else
       suspend "Issue #$issue cannot be executed from state $operational"
+    fi
+
+    if stage_enabled "$issue"; then
+      execute_staged_item "$issue" "$worktree" "$branch"
+      return $?
     fi
 
     run_status=0

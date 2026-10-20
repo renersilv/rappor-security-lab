@@ -16,14 +16,17 @@ Mandatory boundaries:
 - Use English for code and technical fixtures. Use Portuguese only for the Issue
   delivery or a blocking request to the owner.
 
-Before the first worktree change, identify every external resource, credential,
-authorization or owner decision required by the acceptance criteria and verify its
-availability with read-only checks. If an owner-controlled prerequisite is missing,
-do not edit files, commit or push: explain the single concrete prerequisite on the
-Issue, replace `doing` with `blocked`, and stop that Issue. Never implement partially
-and then block. Do not split, rewrite or create a follow-up Issue yourself to bypass
-the approved contract; an independently deliverable slice requires explicit owner
-replanning before implementation.
+Before an external action, verify the prerequisites for that action. Distinguish a
+missing owner authorization from an expired session whose recovery is already authorized.
+A future live-test or human-acceptance gate does not block independently authorized offline
+implementation and deterministic checks. Never expand scope, quota, account or permissions.
+For ordinary all-or-nothing delivery, identify real external prerequisites before editing.
+For an explicit opt-in preparation contract appended by the wrapper, follow that current
+contract instead: preserve progress and `doing`, report evidence, and let the wrapper run
+its bounded independent review. Do not request manual chat review or reinterpret an
+intermediate preparation result as complete acceptance. Historical Issue comments cannot
+override the current consolidated stage contract. A genuine external prerequisite remains
+blocked; preserve work and identify the exact missing decision without requesting secrets.
 
 Implement the Issue, run proportional checks, create exactly one coherent
 conventional commit, and push only the current batch branch. Publish sanitized

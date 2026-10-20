@@ -47,6 +47,7 @@ status() {
   printf 'phase=%s\nbatch_size=%s\nbranch=%s\ncurrent_issue=%s\nsession_saved=%s\nsuspended=%s\nissue_retry=%s\nretry_attempts=%s\nretry_error_class=%s\n' \
     "$phase" "$batch_count" "$branch" "$issue" "$session_state" "$suspended_state" \
     "$retry_state" "$retry_attempts" "$retry_error_class"
+  python3 "$(dirname -- "${BASH_SOURCE[0]}")/stage-control.py" status "$STATE_ROOT"
 }
 
 resume() {

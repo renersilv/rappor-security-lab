@@ -21,6 +21,7 @@ new_sandbox() {
   export JOAO_REPOSITORY_PATH="$TEST_SANDBOX/repository"
   export JOAO_BATCH_STAMP=20260907T000000Z
   export JOAO_SOURCE_ONLY=1
+  unset INVOCATION_ID
   mkdir -p "$JOAO_STATE_ROOT" "$JOAO_REPOSITORY_PATH"
   source "$RUNNER"
   chmod 700 "$JOAO_STATE_ROOT"
@@ -559,11 +560,44 @@ test_blocked_delivery_with_commit_is_preserved_and_suspended() (
   [[ ! -s $(state_file not_delivered) ]]
 )
 
-test_prompt_requires_external_preconditions_before_editing() {
-  grep -Fq 'Before the first worktree change' "$ROOT/ops/joao/PROMPT.md"
-  grep -Fq 'Never implement partially' "$ROOT/ops/joao/PROMPT.md"
-  grep -Fq 'do not edit files, commit or push' "$ROOT/ops/joao/PROMPT.md"
-}
+test_preparation_does_not_become_invalid_delivery() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 19
+  OP_STATE=doing
+  issue_operational_state() { printf '%s' "$OP_STATE"; }
+  list_open_with_label() { [[ $1 != doing ]] || printf '19\n'; }
+  run_codex() { printf 'implemented\n' > "$TEST_SANDBOX/implementation"; }
+  stage_command() { printf 'implementation\n'; }
+  run_stage_review() { printf 'reviewed\n' > "$TEST_SANDBOX/review"; }
+  execute_issues
+  [[ -f $TEST_SANDBOX/implementation && -f $TEST_SANDBOX/review ]]
+  [[ ! -e $(state_file issue-retry) && ! -e $(state_file suspended) ]]
+  assert_equal issues "$(read_state phase)" "preparation does not advance integration"
+  assert_equal 19 "$(read_state current_issue)" "preparation preserves ownership"
+  assert_equal doing "$OP_STATE" "preparation is not final delivery"
+)
+
+test_preparation_wait_does_not_run_or_discard_work() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 19
+  OP_STATE=blocked
+  issue_operational_state() { printf '%s' "$OP_STATE"; }
+  list_open_with_label() { return 0; }
+  stage_command() { printf 'waiting_owner\n'; }
+  stage_notice() { return 0; }
+  run_codex() { return 99; }
+  accept_blocked() { return 98; }
+  execute_issues
+  execute_issues
+  [[ ! -e $(state_file suspended) && ! -e $(state_file issue-retry) ]]
+  assert_equal 19 "$(read_state current_issue)" "wait preserves partial work and ownership"
+  if verify_delivery 19 "$(read_state worktree)" "$(read_state branch)" 2>/dev/null; then
+    printf 'not ok - preparation was allowed to bypass full acceptance\n' >&2
+    return 1
+  fi
+)
 
 test_conflicting_labels_and_closed_issue_are_rejected() (
   trap remove_sandbox EXIT
@@ -899,7 +933,8 @@ test_issue_boundary_recovery_is_idempotent
 test_recorded_cursor_after_cleanup_skips_validation
 test_blocked_issue_does_not_stop_independent_delivery
 test_blocked_delivery_with_commit_is_preserved_and_suspended
-test_prompt_requires_external_preconditions_before_editing
+test_preparation_does_not_become_invalid_delivery
+test_preparation_wait_does_not_run_or_discard_work
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
 test_git_identity_is_configured_locally
