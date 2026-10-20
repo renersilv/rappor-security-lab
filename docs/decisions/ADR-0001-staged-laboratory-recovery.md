@@ -45,3 +45,15 @@ review exhaustion, exact worktree binding, dirty-work preservation, idempotent w
 notifications and rejection of premature final delivery. Install only under the existing
 sequential, run and main-integration locks after the active worker finishes. Preserve
 all #19 changes and history; do not integrate its unfinished implementation as part of #21.
+
+## Runtime verification amendment
+
+The first actual review failed to create the host's restricted read-only namespace; its
+output was rejected and the failed attempt remains counted. Rather than relaxing the
+sandbox or granting approval, the host now prepares a bounded immutable source/evidence
+bundle. The separate reviewer has shell, apps, plugins, multi-agent and web search disabled,
+keeps read-only/never-approve policy, and returns schema-constrained JSON. Any attempted
+tool use invalidates the result. This is static review of exact supplied source plus
+independently produced test/typed-proof evidence; it is never claimed as a live experiment.
+The wrapper checks source stability again after review. No credential files or raw
+OAuth/MCP outputs enter the review bundle.

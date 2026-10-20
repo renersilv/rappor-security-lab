@@ -6,9 +6,14 @@ is disabled. Do not modify files, Git, Issues, credentials, labels or services. 
 execute a live AI-remediation test, turn/start, a campaign runner, OAuth login, a client
 continuation, a scanner or product publication. Never use the product repository.
 
-Read the existing diff including untracked source files and the deterministic-check log.
-Read narrowly relevant sanitized evidence referenced by the implementation, but never
-credential stores, environment files, OAuth callback/token material or unrelated logs.
+All source, including untracked files and local imported modules, is supplied in the
+immutable review evidence below, together with check counts and sanitized typed receipts.
+Review this supplied data directly. DO NOT call tools, search the web or attempt to open
+filesystem paths: tool access is disabled and no lookup is required. Do not demand shell
+access when the source is already supplied. If specific necessary evidence is missing,
+return changes_requested naming that exact missing evidence; never invent a pass.
+This static review is distinct from the host-run deterministic checks and real technical
+proofs. It does not itself execute the product or prove human/AI acceptance.
 Review real behavior and test assertions, not merely test counts or matching source strings.
 Check event ordering, cancellation, late handoffs, exact bindings, per-scanner status,
 coverage/provenance, cleanup, second-analysis behavior and ledger/authorization preservation.

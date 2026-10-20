@@ -138,6 +138,38 @@ class StageTests(unittest.TestCase):
         self.assertNotIn(str(self.work), output)
         self.assertNotIn('snapshot', output)
 
+    def test_bundle_binds_source_and_never_includes_credentials(self):
+        (self.work / 'src').mkdir()
+        (self.work / 'src/helper.mjs').write_text('export const safe = true;\n')
+        (self.work / 'src/change.mjs').write_text('import {safe} from "./helper.mjs";\n')
+        (self.work / '.gitignore').write_text('.env\n')
+        self.git('add', '.gitignore', 'src/helper.mjs')
+        self.git('commit', '-qm', 'test: helper')
+        (self.work / '.env').write_text('DO_NOT_INCLUDE=private\n')
+        (self.state / 'stage-checks.log').write_text('ℹ tests 4\nℹ pass 4\nℹ fail 0\n')
+        bundle = stage.review_bundle(self.work, self.git('rev-parse', 'HEAD').decode().strip(), self.state)
+        self.assertIn('src/change.mjs', bundle['sources'])
+        self.assertIn('src/helper.mjs', bundle['sources'])
+        self.assertNotIn('DO_NOT_INCLUDE', json.dumps(bundle))
+        self.assertEqual(bundle['sourceSnapshot'], stage.snapshot(self.work))
+
+    def test_bundle_rejects_symlink_and_unapproved_files(self):
+        (self.state / 'stage-checks.log').write_text('ℹ fail 0\n')
+        outside = self.root / 'secret.mjs'
+        outside.write_text('private')
+        (self.work / 'src').mkdir()
+        (self.work / 'src/link.mjs').symlink_to(outside)
+        with self.assertRaises(ValueError):
+            stage.review_bundle(self.work, self.git('rev-parse', 'HEAD').decode().strip(), self.state)
+
+    def test_review_with_tool_use_is_rejected_even_if_final_verdict_passes(self):
+        self.events({'verdict': 'pass', 'findings': []})
+        path = self.state / 'stage-review.events.jsonl'
+        path.write_text(json.dumps({'type': 'item.completed', 'item': {'type': 'command_execution'}}) +
+                        '\n' + path.read_text())
+        with self.assertRaises(ValueError):
+            stage.review_result(path)
+
     def test_external_requirement_does_not_grant_campaign(self):
         self.command('phase')
         self.command('begin-review')

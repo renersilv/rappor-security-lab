@@ -578,6 +578,24 @@ test_preparation_does_not_become_invalid_delivery() (
   assert_equal doing "$OP_STATE" "preparation is not final delivery"
 )
 
+test_failed_preparation_checks_resume_correction_without_owner() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  prepare_resumable_issue 19
+  OP_STATE=blocked
+  issue_operational_state() { printf '%s' "$OP_STATE"; }
+  execute_stage() { return 0; }
+  stage_command() { printf 'correction\n'; }
+  mock_stage_gh() {
+    [[ $* == *"--remove-label blocked --add-label doing"* ]] || return 1
+    OP_STATE=doing
+  }
+  GH_BIN=mock_stage_gh
+  execute_staged_item 19 "$(read_state worktree)" "$(read_state branch)"
+  assert_equal doing "$OP_STATE" "failed checks schedule corrective implementation"
+  [[ ! -e $(state_file suspended) && ! -e $(state_file issue-retry) ]]
+)
+
 test_preparation_wait_does_not_run_or_discard_work() (
   trap remove_sandbox EXIT
   new_sandbox
@@ -935,6 +953,7 @@ test_blocked_issue_does_not_stop_independent_delivery
 test_blocked_delivery_with_commit_is_preserved_and_suspended
 test_preparation_does_not_become_invalid_delivery
 test_preparation_wait_does_not_run_or_discard_work
+test_failed_preparation_checks_resume_correction_without_owner
 test_conflicting_labels_and_closed_issue_are_rejected
 test_unexpected_push_url_is_rejected
 test_git_identity_is_configured_locally

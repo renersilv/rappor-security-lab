@@ -34,7 +34,10 @@ authorized offline work may continue while a later live-test gate remains unavai
 Issue #19 is governed by `contracts/19.json` and `contracts/issue-19.md` (ADR-0001).
 The installed runner appends this single current contract instead of accumulating old
 Issue instructions. A preparation return in `doing` triggers deterministic checks and
-an independent, read-only, approval-disabled review in a separate session. The same
+an independent, read-only, approval-disabled review in a separate session. A bounded
+source/evidence bundle includes local imports and typed proof summaries; shell, apps,
+plugins, multi-agent and web search are disabled. Any tool call invalidates the result.
+The reviewer returns schema-constrained JSON and does not need a host namespace. The same
 configured model/effort is retained; no test-model experiment or API key is used.
 
 The private `stage.json` binds issue, branch, exact worktree, contract digest and source

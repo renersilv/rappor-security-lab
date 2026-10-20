@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import stat
 import subprocess
@@ -117,6 +118,70 @@ def transition(state, action, digest=None, verdict=None):
     return value
 
 
+def review_bundle(worktree, base, state_root):
+    if not re.fullmatch(r'[0-9a-f]{40}', base):
+        raise ValueError('invalid-review-base')
+    names = set(filter(None, git(worktree, 'diff', '--name-only', '-z', base).split(b'\0')))
+    names.update(filter(None, git(worktree, 'ls-files', '--others', '--exclude-standard', '-z').split(b'\0')))
+    allowed = {'src', 'test', 'schemas', 'scanner-profiles', 'docs', 'ops', 'observations', 'targets'}
+    pending = [os.fsdecode(name) for name in names]
+    sources = {}
+    size = 0
+    while pending:
+        name = pending.pop()
+        if name in sources:
+            continue
+        relative = Path(name)
+        if relative.is_absolute() or '..' in relative.parts or (
+                relative.parts[0] not in allowed and name not in {'package.json', 'AGENTS.md', 'README.md'}):
+            raise ValueError('source-outside-review-allowlist')
+        path = worktree / relative
+        if path.is_symlink() or not path.resolve().is_relative_to(worktree):
+            raise ValueError('review-source-is-symlink')
+        if not path.exists():
+            sources[name] = {'deleted': True}
+            continue
+        if path.suffix not in {'.mjs', '.js', '.ts', '.tsx', '.json', '.py', '.sh', '.md', '.ps1'}:
+            raise ValueError('unsupported-review-source')
+        content = path.read_text()
+        size += len(content.encode())
+        if size > 800000:
+            raise ValueError('review-bundle-too-large')
+        sources[name] = {'sha256': hashlib.sha256(content.encode()).hexdigest(), 'content': content}
+        for imported in re.findall(r'from\s+["\'](\.[^"\']+)["\']', content):
+            imported_path = (path.parent / imported).resolve()
+            if imported_path.is_file() and imported_path.suffix in {'.mjs', '.js', '.ts'}:
+                if not imported_path.is_relative_to(worktree):
+                    raise ValueError('review-import-outside-worktree')
+                pending.append(str(imported_path.relative_to(worktree)))
+    log = state_root / 'stage-checks.log'
+    check_summary = [line for line in log.read_text().splitlines()
+                     if line.startswith(('ℹ tests', 'ℹ pass', 'ℹ fail', 'ℹ skipped', 'ℹ cancelled'))]
+    proofs = []
+    for path in sorted((state_root / 'tmp').glob('issue19-consent-proof-*/typed-validation-receipt.json')):
+        value = private_read(path)
+        proof = {key: value.get(key) for key in ('status', 'executionState', 'progress', 'scannerStates',
+                 'coverageComplete', 'inferenceStarts', 'turnStarts', 'serverRequests', 'sameExistingOperation')}
+        # Retain typed outcome evidence only; never forward operation IDs, paths or raw outputs.
+        for key in ('coverageComplete', 'sameExistingOperation'):
+            if type(proof[key]) is not bool:
+                raise ValueError('invalid-proof-boolean')
+        for key in ('inferenceStarts', 'turnStarts', 'serverRequests'):
+            if type(proof[key]) is not int or proof[key] != 0:
+                raise ValueError('invalid-no-model-proof')
+        if proof['status'] != 'completed' or proof['executionState'] != 'completed':
+            raise ValueError('invalid-proof-state')
+        if proof['progress'] != {'total': 3, 'completed': 3, 'failed': 0, 'pending': 0}:
+            raise ValueError('incomplete-scanner-proof')
+        if proof['scannerStates'] != {name: 'completed' for name in ('semgrep', 'gitleaks', 'trivy')}:
+            raise ValueError('incomplete-scanner-proof')
+        proof['receiptSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+        proofs.append(proof)
+    return {'sourceSnapshot': snapshot(worktree), 'sources': sources,
+            'checkSummary': check_summary, 'typedTechnicalProofs': proofs,
+            'reviewLimit': 'Static independent review of supplied exact source and evidence; not a live AI test.'}
+
+
 def review_result(path):
     last = None
     # Private events may contain tool output. Parse only the final agent message.
@@ -125,6 +190,8 @@ def review_result(path):
     with path.open() as stream:
         for line in stream:
             event = json.loads(line)
+            if event.get('type') in {'item.started', 'item.completed'} and event.get('item', {}).get('type') not in {'agent_message', 'reasoning'}:
+                raise ValueError('review-attempted-tool-use')
             if event.get('type') == 'item.completed' and event.get('item', {}).get('type') == 'agent_message':
                 last = event['item'].get('text')
     value = json.loads(last or '')
@@ -169,6 +236,10 @@ def main():
             raise ValueError('stage-binding-changed')
     else:
         state = dict(schema=1, **binding, phase='implementation', reason='none', reviews=0, snapshot=None)
+    if action == 'bundle':
+        base = (Path(state_root) / 'issue_base_sha').read_text().strip()
+        print(json.dumps(review_bundle(worktree, base, Path(state_root))))
+        return
     if action == 'phase':
         state = transition(state, 'reconcile', snapshot(worktree))
     elif action == 'finish-review':
