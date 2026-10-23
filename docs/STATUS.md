@@ -1,3 +1,15 @@
+# Current work — authorized native campaign continuation
+
+Laboratory #22 adds an opt-in bridge from the preserved #19 preparation to the
+owner-authorized native Windows campaign, using the same executor/session/worktree.
+Ten native starts are authorized, one consumed and nine remaining at this handoff;
+both IDE reservations and all prior Linux outcomes remain intact. Activation binds
+exact public candidate metadata and protected authorization/history. It requires
+an isolated Git delivery with clean installed main and the existing release gate.
+Technical progress and final acceptance remain separate; #19/#17 are unfinished.
+See ADR-0002 and ops/joao/CAMPAIGN-ROLLOUT.md. Earlier preparation figures below
+are historical and do not supersede the separate native authorization.
+
 # Status
 
 ## Current state

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Sourced by the runner; only versioned contracts opt into intermediate preparation.
+# shellcheck source=ops/joao/campaign.sh
+source "$SCRIPT_DIR/campaign.sh"
 
 stage_enabled() {
   [[ -f $SCRIPT_DIR/contracts/$1.json ]]
@@ -11,6 +13,10 @@ stage_command() {
 
 stage_prompt() {
   local issue=$1
+  if campaign_enabled "$issue"; then
+    campaign_command prompt
+    return $?
+  fi
   [[ ! -f $SCRIPT_DIR/contracts/$issue.json ]] || {
     printf '\nCURRENT OPT-IN STAGE: preparation, not final delivery.\n'
     cat "$SCRIPT_DIR/contracts/issue-$issue.md"
@@ -127,6 +133,17 @@ execute_stage() {
 
 execute_staged_item() {
   local issue=$1 worktree=$2 branch=$3 result=0 phase
+  if campaign_enabled "$issue"; then
+    execute_campaign_item "$issue" "$worktree" "$branch" || result=$?
+    if (( result == 124 )); then
+      return 124
+    elif (( result != 0 )); then
+      record_issue_failure "$issue" "$branch" codex_exit "campaign_$result"
+      return 70
+    fi
+    clear_issue_retry
+    return 0
+  fi
   execute_stage "$issue" "$worktree" "$branch" || result=$?
   if (( result == 124 )); then
     return 124
