@@ -22,10 +22,16 @@ source. Inspect the actual files before changing them.
 The service uses PrivateTmp: global /tmp scripts from assisted chat are unavailable.
 Use durable handoff copies and create private helpers under the existing state/tmp;
 do not stop merely because a chat-only /tmp file is absent. Its original native-cycle
-script still pins v0.83.0 and observes consent only for start_workspace_analysis:
-update the explicit candidate binding and support the actual rerun_analysis
-operation handoff, validating origin/computer/folder/operation and preserving the
-same configuration/revision. Do not treat a rerun as another unrelated baseline.
+script still pins v0.83.0; update the explicit candidate binding before use.
+Both baseline and reanalysis use the advertised start_workspace_analysis tool.
+For reanalysis, supply the existing analysisConfigurationId and its exact
+analysisConfigurationRevisionId, preserving product, processing mode and computer.
+Use a fresh idempotency key for the new operation, then handle its returned public
+continuation and required consent. Bind every operation to the same trusted origin,
+computer and physical folder; verify cleanup for each operation. Do not treat the
+rerun as an unrelated baseline or reuse a prior operation's consent descriptor.
+Discover tool names from the server's actual catalog. Never require or call an
+unadvertised reanalysis tool, or treat its absence as a product defect or owner block.
 Before a model test, require the wrapper publication to finish, verify exact public
 SHA/version and client readiness, and validate the corrected consent/cleanup path
 without inference. No moving candidate, stale v0.83.0 receipt or older #318 proof

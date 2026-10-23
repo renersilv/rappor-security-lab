@@ -50,3 +50,14 @@ origin. Verify publication separately before writing it. After activation succee
 change #19 from blocked to doing before starting the service: its release gate
 selects doing/to-do/validating before the wrapper can execute. Preserve that gate.
 A running worker keeps its locks; do not bypass it.
+
+## Public reanalysis contract correction — 2026-10-23
+
+The assisted handoff incorrectly required a separate reanalysis tool. The public
+MCP contract uses start_workspace_analysis for both baseline and reanalysis; the
+latter supplies the existing analysisConfigurationId and exact revision ID. The
+continuation contract now preserves product/computer/origin/folder identity and
+per-operation consent/cleanup without depending on an unadvertised tool name.
+This corrects the laboratory instruction, not the product, budget or acceptance
+criteria. Amend the installed contract binding through the audited handoff only
+after the active bounded operation finishes; never replace it beneath a worker.
