@@ -61,3 +61,20 @@ per-operation consent/cleanup without depending on an unadvertised tool name.
 This corrects the laboratory instruction, not the product, budget or acceptance
 criteria. Amend the installed contract binding through the audited handoff only
 after the active bounded operation finishes; never replace it beneath a worker.
+
+## Post-acceptance continuation — laboratory #23
+
+After root and João independently accept the native CLI cycle, its test inference
+stops. The same executor, worktree, saved session and review mechanism may continue
+the remaining authorized #19 preparation and technical verification without another
+remediation-test inference. This includes managed technical checks, bounded negative
+cases and IDE preparation; it does not renew the exhausted Linux budget, spend the
+eight unused native starts or either IDE reservation, or satisfy the remaining AI/
+IDE/full acceptance matrix by inference. The earlier native-only contract describes
+the completed campaign stage, not a reason to leave permitted follow-up work idle.
+
+An assisted reviewed amendment binds the later contract and sets the existing phase
+to active under the same locks, preserving the original state/contract/session/
+preparation/result/receipt hashes and every counter. Record that amendment in the
+existing private diagnostics. No new architecture, service, process, budget or final
+acceptance rule is introduced; a concrete unavailable user action remains explicit.

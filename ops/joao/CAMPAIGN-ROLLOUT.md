@@ -45,3 +45,39 @@ without another attempt or changed source fingerprint enter that state without
 resetting budget. Owner_required must identify an action unavailable with existing
 authorization/credentials. Neither activation nor a completed model turn proves
 acceptance. Inspect campaign results and independent end-to-end proofs.
+
+## Reviewed post-CLI continuation — laboratory #23
+
+The native CLI cycle has an accepted receipt and João's independent review. Do not
+reactivate the campaign from scratch, reset its counters or repeat that cycle.
+Deliver the #23 documentation change as an isolated Git commit, keeping installed
+main clean and the unfinished #19 worktree intact. This is the existing ADR-0002
+continuation, not another process, authorization budget or acceptance criterion.
+
+After the worker's current operation and cleanup have finished, obtain the existing
+shared, executor and laboratory integration locks. Confirm phase review_pending,
+the expected executor/checkpoint values and root plus João's accepted evidence.
+Before any amendment, preserve private immutable copies and SHA-256 hashes of the
+original campaign state and contract, saved session, preparation state/reviews,
+latest result, authorization reference and original attempt/acceptance receipts.
+Verify that the recorded two starts and both historical receipt hashes still match.
+Never modify those source receipts or infer acceptance from model-turn-completed.
+
+Record the amendment intent in the existing private diagnostics with issue #23,
+UTC time, the old/new contract hashes, original state/evidence hashes and the reason:
+continue remaining authorized technical work without test-model inference. After
+Git integration, verify the exact new contract. Update only contractSha256 to that
+hash and phase to active in the existing campaign state, atomically; preserve all
+other fields, including authorization, session/stage bindings, consumed counts,
+receipt hashes, executorPasses, lastFinishedPass, noProgressPasses and progress
+fingerprint. Append a completed amendment receipt outside campaign.json containing
+the before/after state hashes and evidence references. This neither clears an
+operational suspension nor permits bypassing a failed binding check.
+
+Preserve the existing release gate and check #19 is doing before service start.
+Release locks before starting the existing service. Verify actual continuation,
+not just successful activation. Do not spend the eight unused native starts or two
+IDE reservations, invoke the old Linux runner, or request another authorization for
+already permitted preparation. The contract directs managed technical checks,
+no-model negatives and IDE preparation until a precise user action or genuine new
+review boundary remains. No part of this rollout claims all #19/#17 criteria passed.

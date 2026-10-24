@@ -1,14 +1,25 @@
-# Current work — authorized native campaign continuation
+# Current work — remaining checks after native CLI acceptance
 
-Laboratory #22 adds an opt-in bridge from the preserved #19 preparation to the
-owner-authorized native Windows campaign, using the same executor/session/worktree.
-Ten native starts are authorized, one consumed and nine remaining at this handoff;
-both IDE reservations and all prior Linux outcomes remain intact. Activation binds
-exact public candidate metadata and protected authorization/history. It requires
-an isolated Git delivery with clean installed main and the existing release gate.
-Technical progress and final acceptance remain separate; #19/#17 are unfinished.
+Laboratory #23 continues the same ADR-0002 executor/worktree/session after root and
+João accepted native Windows CLI attempt 2. Its verified cycle changed the score
+from 86.8324 to 97.4027: one fixed issue, one remaining and no new issue; three
+unchanged functional tests passed, all three scanners completed both executions,
+rendered Web showed 86 to 97 with matching history, and cleanup passed. João's
+third executor pass independently confirmed the evidence and 308 checks.
+
+Two native starts are consumed; eight stay unused under stop-on-completion. Both
+IDE reservations remain untouched. This continuation permits remaining managed
+technical checks, bounded no-model negatives and IDE preparation, without another
+test-model inference, reset or budget change. It requires actual progress through
+available work rather than another audit of the accepted CLI or a matrix alone.
+
+The audited assisted amendment preserves the original state, contract, session,
+preparation, results and attempt/acceptance receipt hashes. It changes only the
+campaign contract digest and phase to active, without resetting counters or
+rewriting evidence. Native CLI acceptance does not complete #19/#17: managed AI,
+IDE, remaining platform/negative coverage and final acceptance stay distinct.
 See ADR-0002 and ops/joao/CAMPAIGN-ROLLOUT.md. Earlier preparation figures below
-are historical and do not supersede the separate native authorization.
+are historical and do not authorize new Linux or native inference.
 
 # Status
 
