@@ -78,3 +78,35 @@ to active under the same locks, preserving the original state/contract/session/
 preparation/result/receipt hashes and every counter. Record that amendment in the
 existing private diagnostics. No new architecture, service, process, budget or final
 acceptance rule is introduced; a concrete unavailable user action remains explicit.
+
+## Bounded reviewed continuation — laboratory #24
+
+Source changes are provenance, not independent progress. The #19 continuation
+reached pass 47 because new observation notes or harness edits changed the source
+snapshot and renewed the old three-pass heuristic. A reviewed diagnosis also
+failed to reach the resumed session when it existed only in an untracked note.
+
+Use the existing campaign controller with a monotonic independent-review
+checkpoint. At most three executor launches may follow that checkpoint. Count
+before invoking the executor, including failed and timed-out launches without a
+finish result. Notes, commits, helper changes, consumed experiments and executor
+claims cannot renew this window. Exhaustion is technical `review_pending`, never
+an inferred owner authorization request or product acceptance. Preserve an actual
+`owner_required` result. The review never resets cumulative passes or test budgets.
+
+An assisted operator review binds the exact campaign state, latest pass, immutable
+private evidence, concrete diagnosis/correction, verified cleanup and next action.
+It also binds a private handoff file by path and SHA-256. The controller validates
+that binding on every use and includes its exact text in the continuation prompt.
+The executor result schema cannot supply or advance a review checkpoint. The
+operator review is separate from the executor and must not release the same
+failure on a bare claim or unchanged diagnosis. Receipt flags and model completion
+are not independent acceptance proof; the reviewer must inspect referenced evidence.
+
+Install #24 from its own reviewed worktree/commit under the existing locks, after
+the active pass and cleanup finish. Existing campaigns require an explicit audited
+upgrade of this metadata, with before/after hashes and retained original state.
+There is no inferred checkpoint or silent migration. Keep the timer off through
+upgrade and the first single-pass verification. The same session, #19 worktree,
+branch, authorization, candidate and historical receipts remain bound. This adds
+no service, model-test authorization or #19/#17 acceptance shortcut.

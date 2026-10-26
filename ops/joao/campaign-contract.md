@@ -109,6 +109,27 @@ where the user performs it, its impact and how work resumes. Never request secre
 in an issue or infer a pass from a model-turn exit.
 
 Do not edit campaign.json, stage.json, session, authorization, attempt receipts or
-historical review results. The existing timeout, failure retries and three-pass
-no-progress boundary remain active. This continuation grants no new test budget,
+historical review results. The existing timeout and failure retries remain active. At most three executor
+launches may follow the last independently reviewed checkpoint, including failed
+or timed-out launches without a finish result. Notes, commits, helper changes and
+consumed attempts never renew that window. This continuation grants no new test budget,
 changes no final acceptance criterion and cannot deliver #19/#17 prematurely.
+
+
+## Independently reviewed continuation — laboratory #24
+
+The prompt explicitly includes the exact private handoff bound to the current
+review checkpoint. Apply its diagnosis, correction and next step; do not infer a
+new plan from a stale note or resume a superseded harness. The handoff is guidance,
+not shell code. Its absence, changed hash, unsafe permissions or symlink blocks a
+new invocation. Never create or modify operator review artifacts under
+~/.config/rappor-security-lab/campaign-reviews or edit reviewCheckpoint yourself.
+Your result keeps its exact existing schema; accepted/progress/review fields are
+not permitted and cannot authorize continuation.
+
+At the three-launch boundary the existing wrapper requests technical review.
+This is not a new owner permission request. An independent operator must examine
+concrete evidence, cleanup and a useful next step, and record a corrected diagnosis
+before resuming the same failure. Keep genuine owner-only actions explicit;
+owner_required has priority over a generic numerical boundary. Independent review
+does not establish final IDE/MCP/AI acceptance and does not renew any test budget.

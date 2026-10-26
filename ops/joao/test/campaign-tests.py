@@ -22,6 +22,9 @@ class CampaignTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.state = self.root / 'state'
         self.state.mkdir()
+        self.operator = self.root / 'operator-reviews'
+        self.operator.mkdir(mode=0o700)
+        self.review_number = 0
         self.worktree = self.state / 'worktrees/joao-batch-20261023T000000Z-19-19'
         self.worktree.mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'joao/batch-20261023T000000Z-19-19', str(self.worktree)], check=True)
@@ -61,9 +64,54 @@ class CampaignTests(unittest.TestCase):
         return MODULE.private(self.state / 'campaign.json')
 
     def command(self, action, expected=0):
-        result = subprocess.run(['python3', '-B', str(SCRIPT), action, str(self.state)], capture_output=True, text=True)
+        # Replace only the operator directory in an isolated process, never HOME or live state.
+        driver = """import importlib.util,sys
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('controller',sys.argv[1])
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+m.REVIEW_ROOT=Path(sys.argv[2]);sys.argv=[sys.argv[1],*sys.argv[3:]]
+try:m.main()
+except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
+ print('campaign_error=invalid-or-unavailable-evidence',file=sys.stderr);sys.exit(65)
+"""
+        result = subprocess.run(['python3', '-B', '-c', driver, str(SCRIPT), str(self.operator),
+                                 action, str(self.state)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stderr)
+        if expected == 65:
+            self.assertNotIn('Traceback', result.stderr)
         return result.stdout
+
+    def reference(self, path):
+        return dict(path=str(path), sha256=MODULE.digest(path))
+
+    def independent_review(self, handoff='Reviewed: use the console diagnosis, not the obsolete UIA probe.'):
+        self.review_number += 1
+        folder = self.operator / str(self.review_number)
+        folder.mkdir(mode=0o700)
+        before = MODULE.private(self.state / 'campaign.json')
+        snapshot = folder / 'before.json'
+        snapshot.write_bytes((self.state / 'campaign.json').read_bytes())
+        snapshot.chmod(0o600)
+        refs = {}
+        for name, content in [('handoff', handoff), ('diagnosis', 'Independent observed failure'),
+                              ('correction', 'Reviewed specific correction'),
+                              ('cleanup', 'Independent cleanup evidence')]:
+            path = folder / (name + '.txt')
+            path.write_text(content + f'\nReview {self.review_number}.\n')
+            path.chmod(0o600)
+            refs[name] = self.reference(path)
+        receipt = dict(schema=1, issue=24, targetIssue=19,
+                       reviewedThroughPass=before['executorPasses'], previousReview=before.get('reviewCheckpoint'),
+                       failureFingerprint='e'*64,
+                       beforeState=self.reference(snapshot), **refs)
+        for key in ('authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256', 'contractSha256'):
+            receipt[key] = before[key]
+        receipt_path = folder / 'review.json'
+        MODULE.save(receipt_path, receipt)
+        after = copy.deepcopy(before)
+        after.update(reviewCheckpoint=self.reference(receipt_path), phase='active')
+        MODULE.save(self.state / 'campaign.json', after)
+        return before, receipt_path
 
     def test_activation_preserves_preparation_session_and_history(self):
         paths = [self.state / 'stage.json', self.state / 'session', self.attempts / 'attempt-1' / 'receipt.json']
@@ -142,6 +190,9 @@ class CampaignTests(unittest.TestCase):
     def test_executor_continuations_do_not_erase_review_count_or_consume_test_budget(self):
         self.activate()
         for number in range(1, 5):
+            if number == 4:
+                self.assertEqual(self.command('phase').strip(), 'review_pending')
+                self.independent_review()
             self.command('begin')
             self.assertIn(f'"executorPass": {number}', self.command('prompt'))
         self.assertEqual(self.command('phase').strip(), 'active')
@@ -215,6 +266,15 @@ execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
 
     def test_real_cycle_resumes_existing_session_and_cannot_integrate(self):
         self.activate()
+        handoff = 'REVIEWED_NEXT_STEP_24: inspect actual console evidence; do not repeat the obsolete probe.'
+        self.independent_review(handoff)
+        # Exercise the real wrapper with only its operator-directory constant isolated.
+        scripts = self.root / 'wrapper'
+        shutil.copytree(SCRIPT.parent, scripts)
+        controller = scripts / 'campaign-control.py'
+        controller.write_text(controller.read_text().replace(
+            "REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'",
+            f'REVIEW_ROOT = Path({str(self.operator)!r})'))
         branch = self.stage['branch']
         head = subprocess.check_output(['git', '-C', str(self.worktree), 'rev-parse', 'HEAD']).decode().strip()
         for name, value in dict(batch='19', branch=branch, worktree=str(self.worktree), base_sha=head,
@@ -251,10 +311,11 @@ run_cycle
 run_cycle
 '''
         before = (self.state / 'stage.json').read_bytes()
-        result = subprocess.run(['bash', '-c', wrapper, 'fixture', str(SCRIPT.parent), str(self.state),
+        result = subprocess.run(['bash', '-c', wrapper, 'fixture', str(scripts), str(self.state),
                                   str(self.worktree), str(executable)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         args = json.loads((self.state / 'fake-model-args.json').read_text())
+        self.assertIn(handoff, (self.state / 'fake-model-prompt.txt').read_text())
         self.assertIn('resume', args)
         self.assertIn(self.session, args)
         self.assertEqual((self.state / 'stage.json').read_bytes(), before)
@@ -299,30 +360,192 @@ run_cycle
             self.result(number)
             expected = 'review_pending' if number == 3 else 'active'
             self.assertEqual(self.command('finish').strip(), expected)
-        self.assertIn('campaign_no_progress_passes=3', self.command('status'))
+        self.assertIn('campaign_unreviewed_passes=3', self.command('status'))
         self.command('begin', 65)
         self.assertEqual(MODULE.private(self.state / 'stage.json')['reviews'], 3)
         self.assertIn('campaign_remaining=9', self.command('status'))
 
-    def test_new_source_or_attempt_resets_only_no_progress_counter(self):
-        self.activate()
-        self.command('begin')
-        self.result(1)
-        self.command('finish')
-        self.command('begin')
-        (self.worktree / 'new-proof.txt').write_text('new independent technical evidence\n')
-        self.result(2)
-        self.command('finish')
-        self.assertIn('campaign_no_progress_passes=0', self.command('status'))
-        self.command('begin')
-        self.result(3)
-        self.command('finish')
-        self.command('begin')
-        self.attempt(2)
-        self.result(4)
-        self.command('finish')
-        self.assertIn('campaign_no_progress_passes=0', self.command('status'))
+    def test_notes_helpers_commits_and_failed_starts_cannot_renew_window(self):
+        initial = self.activate()
+        for number in range(1, 4):
+            self.command('begin')
+            for name in ('observation.md', 'helper.py', 'new-proof.txt'):
+                (self.worktree / name).write_text(f'Same inconclusive result, pass {number}.\n')
+            subprocess.run(['git', '-C', str(self.worktree), 'add', '.'], check=True)
+            subprocess.run(['git', '-C', str(self.worktree), '-c', 'user.name=Fixture', '-c',
+                            'user.email=fixture@example.invalid', 'commit', '-qm', 'test: repeated result'], check=True)
+            if number == 2:
+                self.attempt(2)
+            self.result(number)
+            self.assertEqual(self.command('finish').strip(), 'review_pending' if number == 3 else 'active')
+        self.command('begin', 65)
+        final = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual(final['executorPasses'], 3)
+        self.assertEqual(final['noProgressPasses'], initial['noProgressPasses'])
+        self.assertEqual(final['progressFingerprint'], initial['progressFingerprint'])
         self.assertIn('campaign_remaining=8', self.command('status'))
+
+    def test_three_failed_launches_without_finish_are_bounded(self):
+        self.activate()
+        for _ in range(3):
+            self.command('begin')
+        before_status = (self.state / 'campaign.json').read_bytes()
+        self.assertIn('campaign=review_pending', self.command('status'))
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), before_status)
+        self.assertEqual(self.command('phase').strip(), 'review_pending')
+        self.command('begin', 65)
+        value = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual(value['executorPasses'], 3)
+        self.assertEqual(value['lastFinishedPass'], 0)
+        # Independent review can diagnose an aborted pass without inventing its result.
+        self.independent_review()
+        self.command('begin')
+        value = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual(value['executorPasses'], 4)
+        self.assertEqual(value['lastFinishedPass'], 0)
+
+    def test_review_preserves_cumulative_pass48_ledgers_and_delivers_exact_handoff(self):
+        value = self.activate()
+        value.update(executorPasses=48, lastFinishedPass=48)
+        del value['reviewCheckpoint']
+        MODULE.save(self.state / 'campaign.json', value)
+        self.command('status', 65)
+        protected = [self.state / 'stage.json', self.state / 'session', self.auth_path,
+                     self.attempts / 'attempt-1' / 'receipt.json']
+        originals = [path.read_bytes() for path in protected]
+        marker = self.root / 'must-not-execute'
+        handoff = f'Restricted Mode diagnosis. Literal $(touch {marker}) is not a command.'
+        before, _ = self.independent_review(handoff)
+        prompt = self.command('prompt')
+        self.assertIn(handoff, prompt)
+        self.assertFalse(marker.exists())
+        after = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual({k:v for k,v in after.items() if k not in {'phase','reviewCheckpoint'}},
+                         {k:v for k,v in before.items() if k not in {'phase','reviewCheckpoint'}})
+        for number in range(49, 52):
+            self.command('begin'); self.result(number)
+            self.assertEqual(self.command('finish').strip(), 'review_pending' if number == 51 else 'active')
+        self.command('begin', 65)
+        self.assertEqual([path.read_bytes() for path in protected], originals)
+        self.independent_review('A separately reviewed correction and next step.')
+        self.command('begin')
+        self.assertIn('campaign_executor_passes=52', self.command('status'))
+        self.assertIn('campaign_remaining=9', self.command('status'))
+
+    def test_executor_cannot_supply_review_or_acceptance_fields(self):
+        self.activate(); self.command('begin')
+        for field in ('reviewCheckpoint', 'reviewedThroughPass', 'accepted', 'progressEvidence'):
+            self.result(1)
+            result = MODULE.private(self.state / 'campaign-result.json')
+            result[field] = True
+            MODULE.save(self.state / 'campaign-result.json', result)
+            self.command('finish', 65)
+            self.assertIsNone(MODULE.private(self.state / 'campaign.json')['reviewCheckpoint'])
+
+    def test_handoff_absence_tampering_permissions_and_symlink_fail_on_every_action(self):
+        self.activate(); self.command('begin'); self.result(1); self.command('finish')
+        _, review_path = self.independent_review()
+        receipt = MODULE.private(review_path)
+        handoff = Path(receipt['handoff']['path'])
+        original = handoff.read_bytes()
+        for mutation in ('missing', 'changed', 'permissions', 'symlink'):
+            with self.subTest(mutation=mutation):
+                if mutation == 'missing': handoff.unlink()
+                elif mutation == 'changed': handoff.write_text('Different instructions')
+                elif mutation == 'permissions': handoff.chmod(0o644)
+                else:
+                    target = self.root / 'unbound-handoff'
+                    target.write_bytes(original); target.chmod(0o600)
+                    handoff.unlink(); handoff.symlink_to(target)
+                for action in ('status', 'phase', 'prompt', 'begin'):
+                    self.command(action, 65)
+                handoff.unlink(missing_ok=True); handoff.write_bytes(original); handoff.chmod(0o600)
+
+    def test_review_checkpoint_future_boolean_unbound_and_stale_before_fail(self):
+        self.activate(); self.command('begin'); self.result(1); self.command('finish')
+        _, review_path = self.independent_review()
+        original = MODULE.private(review_path)
+        state = MODULE.private(self.state / 'campaign.json')
+        for field, invalid in [('reviewedThroughPass', True), ('reviewedThroughPass', -1),
+                               ('reviewedThroughPass', 2), ('sessionSha256', 'f'*64),
+                               ('beforeState', original['cleanup'])]:
+            changed = copy.deepcopy(original); changed[field] = invalid
+            MODULE.save(review_path, changed)
+            current = copy.deepcopy(state); current['reviewCheckpoint'] = self.reference(review_path)
+            MODULE.save(self.state / 'campaign.json', current)
+            self.command('prompt', 65)
+        MODULE.save(review_path, original)
+        state['reviewCheckpoint'] = self.reference(review_path)
+        MODULE.save(self.state / 'campaign.json', state)
+        external = self.worktree / 'self-approved.json'
+        external.write_bytes(review_path.read_bytes()); external.chmod(0o600)
+        state['reviewCheckpoint'] = self.reference(external)
+        MODULE.save(self.state / 'campaign.json', state)
+        self.command('begin', 65)
+
+    def test_same_failure_without_changed_correction_cannot_be_released(self):
+        self.activate(); self.command('begin'); self.result(1); self.command('finish')
+        _, first_path = self.independent_review()
+        first = MODULE.private(first_path)
+        self.command('begin'); self.result(2); self.command('finish')
+        _, second_path = self.independent_review()
+        original = MODULE.private(second_path)
+        for field in ('correction', 'cleanup'):
+            changed = copy.deepcopy(original); changed[field] = first[field]
+            MODULE.save(second_path, changed)
+            state = MODULE.private(self.state / 'campaign.json')
+            state['reviewCheckpoint'] = self.reference(second_path)
+            MODULE.save(self.state / 'campaign.json', state)
+            self.command('begin', 65)
+        MODULE.save(second_path, original)
+        state['reviewCheckpoint'] = self.reference(second_path)
+        MODULE.save(self.state / 'campaign.json', state)
+        self.command('begin')
+
+    def test_invalid_utf8_is_sanitized_even_when_its_hash_matches(self):
+        self.activate(); self.command('begin'); self.result(1); self.command('finish')
+        _, receipt_path = self.independent_review()
+        receipt = MODULE.private(receipt_path)
+        handoff = Path(receipt['handoff']['path']); handoff.write_bytes(b'\xff\xfe')
+        receipt['handoff'] = self.reference(handoff)
+        MODULE.save(receipt_path, receipt)
+        state = MODULE.private(self.state / 'campaign.json')
+        state['reviewCheckpoint'] = self.reference(receipt_path)
+        MODULE.save(self.state / 'campaign.json', state)
+        self.command('prompt', 65)
+
+    def test_rollback_of_review_reference_cannot_buy_more_launches(self):
+        self.activate()
+        self.independent_review()
+        first = MODULE.private(self.state / 'campaign.json')['reviewCheckpoint']
+        for number in range(1,4):
+            self.command('begin'); self.result(number); self.command('finish')
+        self.independent_review()
+        self.command('begin'); self.result(4); self.command('finish')
+        current = MODULE.private(self.state / 'campaign.json')
+        current['reviewCheckpoint'] = first
+        MODULE.save(self.state / 'campaign.json', current)
+        self.command('begin', 65)
+        self.assertEqual(MODULE.private(self.state / 'campaign.json')['executorPasses'], 4)
+
+    def test_old_campaign_snapshot_conflicts_with_later_bound_result(self):
+        self.activate()
+        old = (self.state / 'campaign.json').read_bytes()
+        self.command('begin'); self.result(1); self.command('finish')
+        (self.state / 'campaign.json').write_bytes(old)
+        for action in ('status', 'phase', 'prompt', 'begin'):
+            self.command(action, 65)
+
+    def test_owner_required_keeps_priority_at_review_and_native_ceiling(self):
+        self.activate()
+        for number in range(1,4):
+            self.command('begin')
+            if number == 3:
+                for attempt in range(2,11): self.attempt(attempt)
+            self.result(number, 'owner_required' if number == 3 else 'active')
+            self.assertEqual(self.command('finish').strip(), 'owner_required' if number == 3 else 'active')
+        self.assertEqual(self.command('phase').strip(), 'owner_required')
+        self.command('begin',65)
 
     def test_repeated_finish_does_not_create_another_pass(self):
         self.activate()

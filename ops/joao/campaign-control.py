@@ -13,6 +13,9 @@ import sys
 import tempfile
 
 sys.dont_write_bytecode = True
+REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'
+MAX_UNREVIEWED_PASSES = 3
+
 STAGE_SPEC = importlib.util.spec_from_file_location('campaign_stage', Path(__file__).with_name('stage-control.py'))
 STAGE = importlib.util.module_from_spec(STAGE_SPEC)
 STAGE_SPEC.loader.exec_module(STAGE)
@@ -73,8 +76,94 @@ def candidate(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def progress(worktree, consumed):
-    return hashlib.sha256(f'{STAGE.snapshot(Path(worktree))}:{consumed}'.encode()).hexdigest()
+def artifact(reference, *, protected=False, text=False):
+    if not isinstance(reference, dict) or set(reference) != {'path', 'sha256'}:
+        raise ValueError('invalid-review-reference')
+    path = Path(reference['path'])
+    if not path.is_absolute() or path.is_symlink() or path != path.resolve():
+        raise ValueError('invalid-review-path')
+    if protected and (REVIEW_ROOT.is_symlink() or not path.resolve().is_relative_to(REVIEW_ROOT.resolve())):
+        raise ValueError('review-artifact-outside-operator-directory')
+    metadata = path.lstat()
+    if (not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_uid != os.getuid() or metadata.st_size > 1024 * 1024):
+        raise ValueError('invalid-review-artifact')
+    contents = path.read_bytes()
+    if hashlib.sha256(contents).hexdigest() != reference['sha256']:
+        raise ValueError('review-artifact-changed')
+    if text:
+        content = contents.decode('utf-8')
+        if not content.strip() or len(content) > 32768 or '\x00' in content:
+            raise ValueError('invalid-reviewed-handoff')
+        return content
+    return json.loads(contents)
+
+
+def reviewed_checkpoint(value):
+    # Only operator artifacts establish the checkpoint; executor results never do.
+    if 'reviewCheckpoint' not in value:
+        raise ValueError('explicit-reviewed-upgrade-required')
+    reference = value['reviewCheckpoint']
+    if reference is None:
+        return 0, None
+    newest = None
+    newer_receipt = None
+    newer_pass = value['executorPasses']
+    seen = set()
+    for _ in range(256):
+        receipt = artifact(reference, protected=True)
+        expected = {'schema', 'issue', 'targetIssue', 'reviewedThroughPass',
+                    'authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256',
+                    'contractSha256', 'previousReview', 'beforeState', 'handoff',
+                    'diagnosis', 'correction', 'cleanup', 'failureFingerprint'}
+        if not isinstance(receipt, dict) or set(receipt) != expected or type(receipt['schema']) is not int or receipt['schema'] != 1 or receipt['issue'] != 24 or receipt['targetIssue'] != 19:
+            raise ValueError('invalid-independent-review')
+        through = receipt['reviewedThroughPass']
+        if type(through) is not int or not 0 <= through <= newer_pass or reference['sha256'] in seen:
+            raise ValueError('invalid-review-checkpoint')
+        failure = receipt['failureFingerprint']
+        if failure is not None and (not isinstance(failure, str) or not re.fullmatch(r'[a-f0-9]{64}', failure)):
+            raise ValueError('invalid-reviewed-failure')
+        if newer_receipt is not None:
+            if (failure is not None and failure == newer_receipt['failureFingerprint'] and
+                    receipt['correction']['sha256'] == newer_receipt['correction']['sha256']):
+                raise ValueError('repeated-failure-without-reviewed-correction')
+            if through < newer_pass and receipt['cleanup']['sha256'] == newer_receipt['cleanup']['sha256']:
+                raise ValueError('stale-reviewed-cleanup')
+        seen.add(reference['sha256'])
+        for key in ('authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256'):
+            if receipt[key] != value[key]:
+                raise ValueError('independent-review-binding-changed')
+        if newest is None and receipt['contractSha256'] != value['contractSha256']:
+            raise ValueError('reviewed-contract-changed')
+        before = artifact(receipt['beforeState'], protected=True)
+        if (not isinstance(before, dict) or type(before.get('executorPasses')) is not int or before['executorPasses'] != through or
+                before.get('reviewCheckpoint') != receipt['previousReview'] or
+                any(before.get(key) != value[key] for key in (
+                    'authorizationSha256', 'stageSha256', 'sessionSha256',
+                    'candidateSha256', 'worktree', 'branch', 'attemptsRoot'))):
+            raise ValueError('review-before-state-mismatch')
+        handoff = artifact(receipt['handoff'], protected=True, text=True)
+        for key in ('diagnosis', 'correction', 'cleanup'):
+            artifact(receipt[key], text=True)
+        if newest is None:
+            newest = through, handoff
+        reference = receipt['previousReview']
+        if reference is None:
+            return newest
+        newer_pass = through
+        newer_receipt = receipt
+    raise ValueError('review-chain-too-long')
+
+
+def enforce_review_limit(value, used):
+    if value['phase'] != 'active':
+        return
+    through, _ = reviewed_checkpoint(value)
+    if value['executorPasses'] - through >= MAX_UNREVIEWED_PASSES:
+        value.update(phase='review_pending', reviewReason='continuation_review_required')
+    elif used >= 10:
+        value.update(phase='review_pending', reviewReason='native_budget_exhausted')
 
 
 def consumption(root, auth):
@@ -128,12 +217,23 @@ def bound(state_root, value):
     if branch != value['branch'] or (state_root / 'current_issue').read_text().strip() != '19':
         raise ValueError('active-issue-changed')
     auth = authorization(private(Path(value['authorizationPath'])))
+    latest_result = state_root / 'campaign-result.json'
+    if latest_result.exists() or latest_result.is_symlink():
+        result = private(latest_result)
+        if (isinstance(result, dict) and result.get('issue') == 19 and
+                result.get('authorizationId') == auth['authorizationId'] and
+                type(result.get('executorPass')) is int and
+                result['executorPass'] > value['executorPasses']):
+            raise ValueError('executor-pass-counter-rewound')
     used = consumption(Path(value['attemptsRoot']), auth)
     if used < value['lastObservedConsumption']:
         raise ValueError('attempt-history-rewound')
     for number, expected in value['historicalReceiptHashes'].items():
         if not re.fullmatch(r'[1-9]|10', number) or digest(Path(value['attemptsRoot']) / f'attempt-{number}' / 'receipt.json') != expected:
             raise ValueError('historical-attempt-changed')
+    through, _ = reviewed_checkpoint(value)
+    if value['executorPasses'] - through > MAX_UNREVIEWED_PASSES:
+        raise ValueError('unreviewed-pass-limit-exceeded')
     return auth, used
 
 
@@ -171,7 +271,8 @@ def activate(state_root, auth_path, attempts_root, candidate_path):
                  contractSha256=digest(Path(__file__).with_name('campaign-contract.md')),
                  historicalReceiptHashes={str(number): digest(attempts_root / f'attempt-{number}' / 'receipt.json') for number in range(1, used + 1)},
                  executorPasses=0, lastFinishedPass=0, noProgressPasses=0,
-                 progressFingerprint=progress(stage['worktree'], used), allowsFinalDelivery=False)
+                 progressFingerprint=STAGE.snapshot(Path(stage['worktree'])),
+                 reviewCheckpoint=None, allowsFinalDelivery=False)
     bound(state_root, value)
     save(path, value)
 
@@ -196,13 +297,22 @@ def main():
     auth, used = bound(root, value)
     if args.action in {'phase', 'begin', 'finish'}:
         checkpoint(value, used)
+        if args.action in {'phase', 'begin'}:
+            enforce_review_limit(value, used)
         save(path, value)
     if args.action == 'status':
-        print(f"campaign={value['phase']}\ncampaign_client=cli-windows-native\ncampaign_remaining={10-used}\ncampaign_executor_passes={value['executorPasses']}\ncampaign_no_progress_passes={value['noProgressPasses']}")
+        through, _ = reviewed_checkpoint(value)
+        effective = value.copy()
+        enforce_review_limit(effective, used)
+        print(f"campaign={effective['phase']}\ncampaign_client=cli-windows-native\ncampaign_remaining={10-used}\ncampaign_executor_passes={value['executorPasses']}\ncampaign_reviewed_through_pass={through}\ncampaign_unreviewed_passes={value['executorPasses']-through}")
     elif args.action == 'phase':
         print(value['phase'])
     elif args.action == 'prompt':
         print(Path(__file__).with_name('campaign-contract.md').read_text())
+        _, handoff = reviewed_checkpoint(value)
+        if handoff is not None:
+            print('\nINDEPENDENTLY REVIEWED HANDOFF — APPLY THIS DIAGNOSIS AND NEXT STEP:')
+            print(handoff)
         print('\nCURRENT PRIVATE CAMPAIGN BINDING (data, never executable commands):')
         print(json.dumps(dict(authorizationId=auth['authorizationId'], authorizationPath=value['authorizationPath'],
                               attemptsRoot=value['attemptsRoot'], remainingNativeStarts=10-used,
@@ -224,15 +334,7 @@ def main():
         if result['phase'] not in {'active', 'review_pending', 'owner_required'} or not isinstance(result['summary'], str) or not 1 <= len(result['summary']) <= 2000:
             raise ValueError('invalid-campaign-result')
         value['phase'] = result['phase']
-        fingerprint = progress(value['worktree'], used)
-        value['noProgressPasses'] = value['noProgressPasses'] + 1 if fingerprint == value['progressFingerprint'] else 0
-        value['progressFingerprint'] = fingerprint
-        if value['noProgressPasses'] >= 3:
-            value['phase'] = 'review_pending'
-            value['reviewReason'] = 'no_progress'
-        if used >= 10:
-            value['phase'] = 'review_pending'
-            value['reviewReason'] = 'native_budget_exhausted'
+        enforce_review_limit(value, used)
         value['lastSummary'] = result['summary']
         value['lastFinishedPass'] = value['executorPasses']
         save(path, value)

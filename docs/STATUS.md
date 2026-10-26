@@ -1,3 +1,17 @@
+# Current structural repair — laboratory #24
+
+The campaign controller now bounds continuation to three executor launches after
+an independently reviewed checkpoint. Source edits, notes, commits and consumed
+attempts cannot renew it; failed or timed-out launches also count. The same saved
+session receives the exact private reviewed handoff, verified by SHA-256. Existing
+campaigns require an explicit audited operator amendment after active work and
+cleanup finish; the timer remains off for the first single-pass verification.
+
+This isolated operations change does not modify #19's unfinished worktree, test
+budgets, product, Windows runtime or acceptance criteria. See ADR-0002 and
+ops/joao/CAMPAIGN-ROLLOUT.md for review evidence, protected bindings and rollout.
+The native result and remaining #19/#17 coverage below are unchanged.
+
 # Current work — remaining checks after native CLI acceptance
 
 Laboratory #23 continues the same ADR-0002 executor/worktree/session after root and
