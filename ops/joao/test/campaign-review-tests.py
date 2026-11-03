@@ -161,6 +161,37 @@ class ReviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.finish()
 
+    def test_exact_bound_manifest_filename_resumes_cached_review(self):
+        directory = self.response(evidence=['worker.ps1', self.manifest.name])
+        events = (directory / 'events.jsonl').read_bytes()
+        self.finish()
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'active')
+        self.assertEqual(C.private(directory / 'result.json')['evidence'], ['worker.ps1', 'manifest'])
+        self.assertEqual(events, (directory / 'events.jsonl').read_bytes())
+
+    def test_unbound_manifest_name_and_duplicate_identity_are_rejected(self):
+        directory = self.prepare()
+        bundle = C.private(directory / 'bundle.json')
+        for refs in [['manifest-pass999.json'], ['manifest', self.manifest.name]]:
+            with self.subTest(refs=refs):
+                response = dict(verdict='pass', findings=[], nextAction='Continue the existing offline preparation.',
+                                scope='offline', evidence=refs, cleanupAssessment='not_required',
+                                progress='none', ownerRequest=None)
+                C.save(directory / 'events.jsonl', dict(type='item.completed', item=dict(type='agent_message', text=json.dumps(response))))
+                with self.assertRaises(ValueError):
+                    R.result(directory / 'events.jsonl', bundle)
+
+    def test_manifest_filename_cannot_alias_a_different_hash_or_source(self):
+        directory = self.response(evidence=[self.manifest.name])
+        bundle = C.private(directory / 'bundle.json')
+        other_hash = copy.deepcopy(bundle)
+        other_hash['manifest']['sha256'] = '0' * 64
+        collision = copy.deepcopy(bundle)
+        collision['sources'][self.manifest.name] = dict(content='unrelated', sha256='0' * 64)
+        for invalid in [other_hash, collision]:
+            with self.assertRaises(ValueError):
+                R.result(directory / 'events.jsonl', invalid)
+
     def test_unchanged_executable_source_stops_third_review(self):
         for number in range(1, 4):
             if number > 1:

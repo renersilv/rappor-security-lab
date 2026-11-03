@@ -200,6 +200,15 @@ def result(path, bundle):
     if scope == 'bounded_no_model' and json.loads(bundle['sources']['manifest']['content']).get('functionalTimingFeasible') is False:
         raise ValueError('unresolved-timing-cannot-authorize-live-work')
     refs = parsed['evidence']
+    # A citation may use the exact bound manifest filename shown in the packet.
+    # Resolve only that identity; never infer a file from an arbitrary basename.
+    manifest_name = Path(bundle['manifest']['path']).name
+    if isinstance(refs, list) and manifest_name in refs:
+        if (manifest_name in bundle['sources'] or
+                bundle['manifest']['sha256'] != bundle['sources']['manifest']['sha256']):
+            raise ValueError('ambiguous-manifest-citation')
+        refs = ['manifest' if name == manifest_name else name for name in refs]
+        parsed['evidence'] = refs
     if (not isinstance(refs, list) or not 1 <= len(refs) <= 12 or
             any(not isinstance(name, str) or name not in bundle['sources'] for name in refs) or
             len(set(refs)) != len(refs) or any(bundle['sources'][name].get('omitted') for name in refs)):

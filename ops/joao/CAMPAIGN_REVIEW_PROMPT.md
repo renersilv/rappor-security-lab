@@ -35,7 +35,9 @@ nextAction. Correctable technical failures and review itself are not owner actio
 Never request or include credentials. Technical failures stay doing.
 
 Supply evidence as 1–12 exact source/evidence names from the bundle that support
-your diagnosis. cleanupAssessment is verified, not_required or unresolved; only
+your diagnosis. Cite the manifest as "manifest" or its exact bound filename;
+these identify the same evidence and must not both be cited.
+cleanupAssessment is verified, not_required or unresolved; only
 verified can accompany bounded_no_model, and must cite an actual cleanup receipt
 and relevant implementation, not a mocked test. A failed local cleanup is not
 erased by aggregate cleanup: evaluate both. Findings and nextAction are plain
