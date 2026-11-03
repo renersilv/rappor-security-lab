@@ -1,5 +1,61 @@
 # Native campaign bridge rollout
 
+## Technical recovery and objective evidence — laboratory #26
+
+ADR-0004 adds no service and changes no campaign authorization. Install the exact
+reviewed commit between worker invocations, with the timer paused and the shared,
+Joao run and laboratory integration locks held. Record hashes of campaign,
+preparation, session, attempt receipts and authorization before and after the
+fast-forward. Preserve the active batch's separate dirty worktree. Restore the
+timer after installation and verify the same task resumes without quota changes.
+
+The existing operational retry gate now triggers at most two independent repair
+candidates for an active campaign. Model output is data, with a fixed source
+allowlist and new regression requirement; the host performs isolated tests,
+independent review, exact-tree Git installation and matching gate release.
+Protected state corruption and semantic stagnation cannot be fixed by erasing a
+gate. A repaired exhausted review transport gets at most three extra calls bound
+to its installed commit/receipt/bundle; failed candidates grant nothing and the
+cumulative counter never resets. This is not remediation inference authorization.
+Recovery notices retain pending intent even after the operational gate is removed.
+
+Run the Python campaign, campaign-review, stage, objectives and recovery suites;
+Bash runner and campaign-review wrapper suites; shellcheck and npm run check.
+The opt-in command below additionally exercises a real isolated sandbox, local Git
+remote, failing baseline, passing correction, independent-review boundary,
+installation and exact-state preservation. Its model transport is a deterministic
+double, so it is not proof of live model diagnostic quality:
+
+```sh
+JOAO_RECOVERY_E2E=1 python3 -B ops/joao/test/recovery-tests.py RecoveryTests.test_real_sandbox_synthetic_repair_end_to_end
+```
+
+Run that command under the shared resource lock and never inject a fake failure in
+the live campaign. Bubblewrap has no host home, /etc, credentials, state, network
+or VM access; a transient scope limits memory to 1 GiB, tasks to 64 and CPU to one.
+The current unit's NoNewPrivileges setting must also permit this sandbox.
+
+Assisted verification on 2026-11-03 passed the real isolated synthetic recovery
+under the shared resource lock and NoNewPrivileges, including all fixed automation
+suites, the added regression, local Git publication and original-state preservation.
+The separate host isolation probe could not read host home or /etc or reach the
+host HTTP listener. The full repository check passed its 113 Node tests; the
+automation check passed campaign (35), review (26), stages (14), objectives (16),
+recovery (21 plus the separately run E2E), runner and seven review-wrapper cases.
+Independent code review found and corrected stale-evidence renewal, persistent
+notification, grant-bound and stalled-gate defects before installation. None of
+these checks is another live product or remediation-model test.
+
+The versioned objective matrix records documented acceptance only. An independent
+review classifies each pass; bound current-pass runtime artifacts can establish a
+candidate, but mocks, notes, source edits and stale receipts cannot. Three
+preparations invoke diagnostic replanning; six unchanged reviews including replan
+still stop explicitly. Historical unclassified reviews retain the old bound.
+Existing pending review results without objective fields are recorded conservatively
+as unclassified preparation; later requests use the new schema. No historical
+result is rewritten or retrospectively promoted. Inspect control.sh status and the
+updated #19 review notice for remaining journeys, not a completion percentage.
+
 ## Automatic review delivery — laboratory #25
 
 ADR-0003 supersedes the manual-only renewal described in the historical #24

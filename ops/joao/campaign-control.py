@@ -309,6 +309,10 @@ def main():
         print(value['phase'])
     elif args.action == 'prompt':
         print(Path(__file__).with_name('campaign-contract.md').read_text())
+        objective_spec = importlib.util.spec_from_file_location('objective_prompt', Path(__file__).with_name('objectives.py'))
+        objective_module = importlib.util.module_from_spec(objective_spec)
+        objective_spec.loader.exec_module(objective_module)
+        print(objective_module.prompt(root))
         _, handoff = reviewed_checkpoint(value)
         if handoff is not None:
             print('\nINDEPENDENTLY REVIEWED HANDOFF — APPLY THIS DIAGNOSIS AND NEXT STEP:')

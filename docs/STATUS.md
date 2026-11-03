@@ -1,4 +1,19 @@
-# Current structural repair — laboratory #25
+# Current structural repair — laboratory #26
+
+The existing serialized worker now routes active-campaign operational suspensions
+through bounded diagnosis, isolated failing-before/passing-after regression and
+independent repair review. Only the host installs an approved allowlisted repair
+and releases its matching operational gate, preserving campaign state and budgets.
+Persistent notifications survive a crash or GitHub outage after recovery.
+
+A versioned eight-journey objective matrix separates accepted Windows CLI evidence,
+technical-only Linux evidence and incomplete IDE/MCP, managed, negative, Web and
+final acceptance. Current-pass runtime proof requires bound artifacts; preparation
+cannot promote acceptance. Three preparations trigger diagnostic replanning.
+See ADR-0004 and ops/joao/CAMPAIGN-ROLLOUT.md. This automation delivery does not
+complete #19/#17 or authorize another remediation-test inference.
+
+## Previous structural repair — laboratory #25
 
 The campaign boundary now invokes an independent fresh review in the existing
 service. Protected source/state snapshots and a typed result bind the checkpoint;

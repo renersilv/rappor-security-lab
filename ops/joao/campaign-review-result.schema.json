@@ -9,7 +9,9 @@
     "evidence",
     "cleanupAssessment",
     "progress",
-    "ownerRequest"
+    "ownerRequest",
+    "objectiveId",
+    "evidenceLevel"
   ],
   "properties": {
     "verdict": {
@@ -103,6 +105,27 @@
             }
           }
         }
+      ]
+    },
+    "objectiveId": {
+      "type": "string",
+      "enum": [
+        "windows-cli-local",
+        "linux-cli-local",
+        "ide-mcp",
+        "managed-ai",
+        "managed-technical",
+        "negative-consent-cleanup",
+        "web-entries",
+        "final-gate"
+      ]
+    },
+    "evidenceLevel": {
+      "type": "string",
+      "enum": [
+        "preparation",
+        "runtime_observation",
+        "acceptance_candidate"
       ]
     }
   }

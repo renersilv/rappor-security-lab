@@ -29,6 +29,7 @@ R.C = C
 class ReviewTests(unittest.TestCase):
     def setUp(self):
         BASE.CampaignTests.setUp(self)
+        self.state.chmod(0o700)
         self.old_review_root = C.REVIEW_ROOT
         C.REVIEW_ROOT = self.operator
         value = BASE.CampaignTests.activate(self)
@@ -240,6 +241,107 @@ class ReviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.finish()
 
+    def test_classified_preparation_replans_then_stops_without_accepting(self):
+        for number in range(1, 7):
+            if number > 1:
+                value = C.private(self.state / 'campaign.json')
+                value.update(phase='review_pending', executorPasses=number, lastFinishedPass=number)
+                C.save(self.state / 'campaign.json', value)
+                manifest = C.private(self.manifest)
+                manifest['executorPass'] = number
+                self.manifest = self.candidate_dir / f'manifest-pass{number}.json'
+                C.save(self.manifest, manifest)
+            self.response(objectiveId='ide-mcp', evidenceLevel='preparation')
+            self.finish()
+            if number == 3:
+                self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+                self.assertIn(R.OBJECTIVES.REPLAN, C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[1])
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 5)
+        self.assertIs(C.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
+
+    def runtime_observation_pass(self, number, identity=None):
+        """Create immutable synthetic runtime files through the real review path."""
+        value = C.private(self.state / 'campaign.json')
+        value.update(phase='review_pending', executorPasses=number, lastFinishedPass=number)
+        C.save(self.state / 'campaign.json', value)
+        C.save(self.state / 'campaign-result.json', dict(schema=1, issue=19, executorPass=number,
+               authorizationId=self.auth['authorizationId'], phase='review_pending',
+               summary='Current synthetic observation awaits independent validation.'))
+        if number > 1:
+            source = self.source.read_bytes()
+            self.candidate_dir = self.attempts / 'candidates' / f'pass{number}'
+            self.candidate_dir.mkdir()
+            self.source = self.candidate_dir / 'worker.ps1'
+            R.put(self.source, source)
+            self.manifest = self.candidate_dir / f'manifest-pass{number}.json'
+        files = {'worker.ps1': C.digest(self.source)}
+        observation = dict(executorPass=number)
+        if identity is not None:
+            artifact = self.candidate_dir / 'runtime-artifact.json'
+            C.save(artifact, dict(executorPass=number, candidate=value['candidate'],
+                                 observationType='official_runtime', executionFingerprint=identity))
+            files[artifact.name] = C.digest(artifact)
+            observation.update(objectiveId='ide-mcp', candidate=value['candidate'],
+                               observationType='official_runtime',
+                               artifacts={artifact.name: C.digest(artifact)})
+        receipt = self.candidate_dir / 'live-observation.json'
+        C.save(receipt, observation)
+        files[receipt.name] = C.digest(receipt)
+        C.save(self.manifest, dict(issue=19, executorPass=number, candidate=value['candidate'],
+               authorizationId=self.auth['authorizationId'], files=files, newLiveActivity=True))
+        self.response(verdict='pass', findings=[], objectiveId='ide-mcp',
+                      evidenceLevel='runtime_observation', progress='new_runtime_evidence',
+                      evidence=['worker.ps1', receipt.name],
+                      nextAction='Continue the next authorized preparation step using this observation and retain its limits.')
+        self.finish()
+        return R.OBJECTIVES._history(self.state)[-1]
+
+    def test_insufficient_runtime_receipt_replans_at_three_and_stops_at_six(self):
+        for number in range(1, 7):
+            record = self.runtime_observation_pass(number)
+            self.assertFalse(record['materialProgress'])
+            self.assertEqual(record['validatedEvidenceLevel'], 'preparation')
+            self.assertEqual(record['preparationStreak'], number)
+            self.assertEqual(R.job(self.state)[1]['unchangedReviews'], number)
+            if number == 3:
+                self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+                handoff = C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[1]
+                self.assertIn(R.OBJECTIVES.REPLAN, handoff)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 5)
+        self.assertIs(C.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
+
+    def test_repackaged_runtime_identity_cannot_reset_review_counter(self):
+        first = self.runtime_observation_pass(1, 'a' * 64)
+        self.assertTrue(first['materialProgress'])
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 0)
+        original = {path: C.digest(path) for path in self.candidate_dir.iterdir() if path.is_file()}
+        second = self.runtime_observation_pass(2, 'a' * 64)
+        self.assertNotEqual(first['runtimeEvidenceHashes'], second['runtimeEvidenceHashes'])
+        self.assertEqual(first['runtimeIdentityHashes'], second['runtimeIdentityHashes'])
+        self.assertFalse(second['materialProgress'])
+        self.assertEqual(second['preparationStreak'], 1)
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 1)
+        self.assertEqual(original, {path: C.digest(path) for path in original})
+        self.assertFalse(second['acceptanceChanged'])
+
+    def test_new_valid_runtime_observation_resets_counter_without_acceptance(self):
+        protected = [self.state / 'session', self.auth_path, self.attempts / 'attempt-1/receipt.json']
+        before = [C.digest(path) for path in protected]
+        self.runtime_observation_pass(1)
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 1)
+        record = self.runtime_observation_pass(2, 'c' * 64)
+        self.assertTrue(record['materialProgress'])
+        self.assertEqual(record['validatedEvidenceLevel'], 'runtime_observation')
+        self.assertEqual(record['preparationStreak'], 0)
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 0)
+        objective = next(item for item in R.OBJECTIVES.status(self.state) if item['objectiveId'] == 'ide-mcp')
+        self.assertEqual(objective['acceptanceState'], 'unproven')
+        self.assertFalse(record['acceptanceChanged'])
+        self.assertIs(C.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
+        self.assertEqual(before, [C.digest(path) for path in protected])
+
     def test_owner_action_has_priority_over_stagnation_and_actionable_notice(self):
         self.response(verdict='owner_required', ownerRequest=dict(action='interactive_login', location='windows_ide'))
         directory, marker = R.job(self.state)
@@ -292,6 +394,10 @@ class ReviewTests(unittest.TestCase):
         controller.write_text(controller.read_text().replace(
             "REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'",
             f'REVIEW_ROOT = Path({str(self.operator)!r})'))
+        recovery = scripts / 'recovery.py'
+        recovery.write_text(recovery.read_text().replace(
+            "REVIEW_ROOT=Path.home() / '.config/rappor-security-lab/campaign-reviews'",
+            f'REVIEW_ROOT=Path({str(self.operator)!r})'))
         fake = self.root / 'fake-reviewer.py'
         verdict = dict(verdict='changes_requested', findings=['worker.ps1: replace unconditional failure.'],
                        nextAction='Implement the bounded offline correction and validate its production path.',

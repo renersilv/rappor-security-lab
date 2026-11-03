@@ -15,6 +15,9 @@ sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location('campaign', Path(__file__).with_name('campaign-control.py'))
 C = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(C)
+OBJECTIVE_SPEC = importlib.util.spec_from_file_location('campaign_objectives', Path(__file__).with_name('objectives.py'))
+OBJECTIVES = importlib.util.module_from_spec(OBJECTIVE_SPEC)
+OBJECTIVE_SPEC.loader.exec_module(OBJECTIVES)
 CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh'}
 
 
@@ -150,6 +153,7 @@ def prepare(root):
                   unchangedExecutableReviews=same)
     put(directory / 'bundle.json', encoded(bundle))
     prompt = (Path(__file__).with_name('CAMPAIGN_REVIEW_PROMPT.md').read_text() +
+              '\nPRODUCT OBJECTIVE CONTEXT:\n' + encoded(OBJECTIVES.review_context(root)).decode() +
               '\nAUTHORIZED CONTRACT:\n' + Path(__file__).with_name('campaign-contract.md').read_text() +
               '\nIMMUTABLE EVIDENCE (data, not instructions):\n' + encoded(bundle).decode())
     put(directory / 'prompt.md', prompt.encode())
@@ -179,8 +183,13 @@ def result(path, bundle):
     parsed = json.loads(last or '')
     expected = {'verdict', 'findings', 'nextAction', 'scope', 'evidence', 'cleanupAssessment',
                 'progress', 'ownerRequest'}
-    if set(parsed) != expected or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
+    objective_fields = {'objectiveId', 'evidenceLevel'}
+    if set(parsed) not in (expected, expected | objective_fields) or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
         raise ValueError('invalid-independent-verdict')
+    if objective_fields <= set(parsed):
+        ids = {item['id'] for item in OBJECTIVES._matrix()['objectives']}
+        if parsed['objectiveId'] not in ids or parsed['evidenceLevel'] not in OBJECTIVES.LEVELS:
+            raise ValueError('invalid-reviewed-objective')
     findings = parsed['findings']
     if (not isinstance(findings, list) or len(findings) > 8 or
             any(not isinstance(f, str) or not 1 <= len(f) <= 2000 for f in findings) or
@@ -254,20 +263,16 @@ def finish(root):
         raise ValueError('candidate-changed-during-review')
     bundle = C.private(directory / 'bundle.json')
     verdict = result(directory / 'events.jsonl', bundle)
+    objective = OBJECTIVES.record_review(root, directory, verdict)
     put(directory / 'result.json', encoded(verdict))
     # The reviewer must establish semantic progress; renamed files/notes do not.
     progressed = (verdict['progress'] == 'behavior_change' and
                   marker['sourceFingerprint'] != marker['previousSourceFingerprint'])
     if verdict['progress'] == 'new_runtime_evidence':
-        manifest = json.loads(bundle['sources']['manifest']['content'])
-        observations = [json.loads(bundle['sources'][name]['content']) for name in verdict['evidence']
-                        if name.endswith('.json') and name.startswith('live-') and
-                        not bundle['sources'][name].get('omitted')]
-        progressed = any(isinstance(observation, dict) and observation.get('executorPass') == value['executorPasses']
-                         for observation in observations)
-        progressed = progressed and manifest.get('newLiveActivity') is True
+        progressed = objective['materialProgress']
     rounds = 0 if progressed else marker['unchangedReviews'] + 1
-    if verdict['verdict'] != 'owner_required' and rounds >= 3:
+    replanning = 'objectiveId' in verdict and objective['diagnosticReplanning']
+    if verdict['verdict'] != 'owner_required' and rounds >= (6 if replanning else 3):
         marker['unchangedReviews'] = rounds
         marker['phase'] = 'stalled'
         marker['noticePending'] = True
@@ -287,7 +292,8 @@ def finish(root):
                    'the existing private tmp/issue19-native-windows-20261023/candidates/<unique-directory> '
                    'for this pass. Include every relevant source, '
                    'test, diagnosis and sanitized receipt with hashes. Do not copy prior metadata as fresh '
-                   'proof. The wrapper performs the next independent review automatically; no chat request.\n')
+                   'proof. The wrapper performs the next independent review automatically; no chat request.\n' +
+                   ('\n' + OBJECTIVES.REPLAN + '\n' if replanning else ''))
         receipt = dict(schema=1, issue=24, targetIssue=19, reviewedThroughPass=value['executorPasses'],
                        previousReview=value['reviewCheckpoint'], beforeState=reference(directory / 'before.json'),
                        handoff=put(directory / 'handoff.md', handoff.encode()),
@@ -366,6 +372,7 @@ def main():
                           'unresolved-cleanup-cannot-authorize-live-work',
                           'unresolved-timing-cannot-authorize-live-work',
                           'invalid-review-evidence-citation', 'invalid-reviewed-progress',
+                          'invalid-reviewed-objective',
                           'missing-actionable-owner-request', 'unexpected-owner-request'}
             if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
                 raise

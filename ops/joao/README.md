@@ -24,12 +24,35 @@ Codex event, error and prompt files remain private until delivery is verified. A
 new attempt archives the preceding files instead of truncating them. Equivalent
 operational failures receive at most two later timer attempts; the third preserves
 the Issue in `doing` and suspends further Codex calls with one sanitized owner
-notice.
+notice. For the active #19 campaign, the bounded technical recovery below replaces
+the immediate assisted handoff.
 Before an external action, João checks that action's prerequisites. Routine recovery
 already authorized for the isolated account is not a new owner decision. Independently
 authorized offline work may continue while a later live-test gate remains unavailable.
 
 ### Opt-in preparation stages
+
+ADR-0004 adds automatic diagnosis after three equivalent campaign operational
+failures. A fresh tool-disabled model proposes an allowlisted patch and a new
+regression in a separate worktree. Host-owned bubblewrap checks reproduce the
+failure first and then run all required checks without network, host credentials,
+state or VM access, under a 1 GiB/64-task/one-CPU transient scope. A separate fresh
+review must pass before the host commits, installs and pushes the exact tree.
+Only the matching operational retry gate is released. Existing authorizations,
+attempts, session, worktree and evidence remain unchanged. Two repair candidates
+per fingerprint bound model use; a pending push reuses the same reviewed commit.
+`recovery.json` and immutable diagnostics retain restart and notification state.
+An exhausted or unsafe repair identifies the concrete stop instead of pretending
+that the service is still progressing. No new remediation inference is granted.
+
+`objectives.json` anchors eight product journeys. `control.sh status` and the
+updated campaign notice expose preparation separately from current-pass runtime
+evidence. Hashed artifact checks reject stale, mock or misbound progress claims;
+even an acceptance candidate needs final independent acceptance. Three preparation
+reviews request a different hypothesis and the smallest missing proof. Six unchanged
+reviews with this diagnostic replan still stop visibly; repairs cannot silently
+clear that semantic stop. Historical unclassified reviews keep their three-round
+bound. See CAMPAIGN-ROLLOUT.md for installation and evidence limits.
 
 Activated campaigns use ADR-0003's independent automatic review at review_pending.
 The existing timer reviews exact source/evidence in a fresh tool-disabled session,

@@ -18,10 +18,11 @@ campaign_review_notice() {
   case $phase in
     reviewing) message='A revisão independente automática está em execução, limitada a 20 minutos. O próprio serviço entregará o diagnóstico ao João. Nenhuma ação sua é necessária nesta etapa.' ;;
     continued) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
-    stalled) message='A continuação automática parou após três revisões sem progresso relevante confirmado. A issue permanece em andamento: é uma falha técnica, não falta de autorização. Diagnóstico e próximo passo estão no relatório privado campaign-auto-review.json; é necessária investigação da repetição antes de liberar novas rodadas.' ;;
+    stalled) message='A continuação automática esgotou as revisões sem progresso relevante confirmado, incluindo o replanejamento quando aplicável. A issue permanece em andamento: é uma falha técnica, não falta de autorização. O diagnóstico foi preservado; a recuperação não pode declarar uma retomada enquanto essa condição persistir.' ;;
     owner_required) message=$(campaign_review_command notice-body) || return $? ;;
     *) return 65 ;;
   esac
+  message+=$'\n\n'$(python3 "$SCRIPT_DIR/objectives.py" public "$STATE_ROOT") || return $?
   existing=$($GH_BIN api --paginate "repos/$REPOSITORY_SLUG/issues/19/comments" \
     --jq ".[] | select(.body | contains(\"$marker\")) | .id") || return $?
   [[ $existing != *$'\n'* ]] || return 65
@@ -55,7 +56,7 @@ campaign_review_flush_notice() {
 }
 
 run_campaign_review() {
-  local worktree=$1 directory phase archive validation attempts request result=0
+  local worktree=$1 directory phase archive validation attempts limit request result=0
   phase=$(campaign_review_command phase) || return $?
   if [[ $phase == stalled ]]; then
     campaign_review_notice stalled || return $?
@@ -76,9 +77,11 @@ run_campaign_review() {
     fi
   fi
   if [[ ! -f $directory/model-completed ]]; then
+    limit=$(python3 "$SCRIPT_DIR/recovery.py" review-limit "$STATE_ROOT") || return $?
+    [[ $limit =~ ^(3|6|9)$ ]] || return 65
     if [[ -f $directory/model-attempts ]]; then
       attempts=$(cat "$directory/model-attempts") || return $?
-      [[ $attempts =~ ^[0-3]$ ]] || return 65
+      [[ $attempts =~ ^[0-9]$ ]] || return 65
     elif [[ -f $directory/events.jsonl ]]; then
       # Preserve already consumed transports when upgrading an existing job.
       attempts=1
@@ -88,7 +91,7 @@ run_campaign_review() {
     else
       attempts=0
     fi
-    (( attempts < 3 )) || return 70
+    (( attempts < limit )) || return 70
     if [[ -f $directory/events.jsonl || -f $directory/errors.log ]]; then
       archive=$(mktemp -d "$directory/retry-XXXXXX") || return $?
       if [[ -f $directory/events.jsonl ]]; then

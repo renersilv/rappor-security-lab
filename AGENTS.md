@@ -45,6 +45,15 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
   private diagnostics. Only that suspension creates one sanitized owner notice.
   `ops/joao/control.sh status` exposes the closed failure class and attempt count,
   and `resume` releases only the suspended retry gate after assisted correction.
+- For the active #19 campaign, ADR-0004 supersedes the immediate assisted handoff:
+  the existing worker diagnoses operational suspension, proposes at most two
+  allowlisted repairs per fingerprint in `joao/recovery-*` worktrees, runs isolated
+  regressions and obtains independent review before host-owned integration and
+  release of only the matching retry gate. Models never modify installed main,
+  campaign state, authorization, budgets, existing tests or recovery authority.
+  Product objective evidence is tracked separately from preparation; three
+  preparations trigger diagnostic replanning, never inferred acceptance. Exhausted
+  replanning, unverifiable authority and unsafe repairs remain explicit stops.
 - Use `blocked` only for a real owner decision, authorization, credential supplied through a secure channel or owner-controlled external change.
 - Deliver an implemented Issue open with `validating`. It moves to `done` only after the batch branch is integrated and its laboratory validation passes. The owner closes accepted work.
 

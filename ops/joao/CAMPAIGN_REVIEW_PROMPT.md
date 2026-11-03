@@ -55,3 +55,12 @@ in the manifest. Old observations, mocks, notes and proposed future work are non
 ownerRequest is null unless owner_required. For an owner action choose the exact
 typed action/location; the host publishes its fixed sanitized instruction. Put the
 specific diagnosis in nextAction privately, never credentials or commands.
+
+Always identify objectiveId and evidenceLevel using PRODUCT OBJECTIVE CONTEXT.
+An acceptance_candidate remains unaccepted until the full applicable acceptance
+gate is independently verified. Harness edits, mocks, parsing and notes count only
+as preparation. Runtime claims need the exact receipt/artifact binding described
+in that context. After three preparations without product evidence, formulate a
+different causal hypothesis and one discriminating permitted check, or move to
+independent authorized work. Do not merely repeat the same harness exercise or
+ask for chat review. The installed budget and prior safety boundaries still apply.

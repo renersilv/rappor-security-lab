@@ -28,6 +28,8 @@ RUN_LOCK="$STATE_ROOT/run.lock"
 MAIN_LOCK="$STATE_ROOT/main-integration.lock"
 # shellcheck source=ops/joao/stages.sh
 source "$SCRIPT_DIR/stages.sh"
+# shellcheck source=ops/joao/recovery.sh
+source "$SCRIPT_DIR/recovery.sh"
 
 log() {
   printf 'joao: %s\n' "$*"
@@ -199,7 +201,11 @@ record_issue_failure() {
   fi
   write_issue_retry
   if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
-    notify_issue_retry_attention || log "owner attention could not be published; the next activation will retry it"
+    if campaign_enabled "$issue"; then
+      recovery_notice || log "recovery notice will be retried on the next activation"
+    else
+      notify_issue_retry_attention || log "owner attention could not be published; the next activation will retry it"
+    fi
     log "Issue #$issue automatic execution suspended after equivalent failures"
   else
     log "Issue #$issue retry $ISSUE_RETRY_ATTEMPTS/$ISSUE_RETRY_MAX_ATTEMPTS scheduled"
@@ -215,6 +221,10 @@ check_issue_retry_gate() {
     return 1
   }
   if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
+    if campaign_enabled "$issue"; then
+      recover_campaign_failure || log "bounded campaign recovery did not complete; preserved diagnostics remain available"
+      return 75
+    fi
     notify_issue_retry_attention || log "owner attention could not be published; a later activation will retry it"
     log "Issue #$issue retry is suspended; use ops/joao/control.sh status or resume"
     return 75
@@ -1032,6 +1042,7 @@ run_cycle() {
   }
   [[ ! -f $(state_file suspended) ]] || fail "execution is suspended; use control.sh resume"
   preflight
+  recovery_flush_notice || return $?
   if [[ ! -f $(state_file batch) ]]; then
     recover_incomplete_capture || return $?
     capture_batch || {

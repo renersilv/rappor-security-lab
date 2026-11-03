@@ -593,7 +593,11 @@ export JOAO_STATE_ROOT=$2
 export JOAO_REPOSITORY_PATH=$3
 source "$1/run.sh"
 GH_BIN=mock_gh
-mock_gh() { [[ $1 != issue ]] || printf notification >> "$STATE_ROOT/mock-notification"; }
+mock_gh() {
+  if [[ $1 == api && $2 == --method ]]; then
+    printf notification >> "$STATE_ROOT/mock-notification"
+  fi
+}
 run_codex() { printf forbidden > "$STATE_ROOT/forbidden-model"; return 1; }
 for attempt in 1 2 3; do
   result=0
