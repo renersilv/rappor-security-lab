@@ -28,6 +28,15 @@ Issue comment before dispatch, without another reviewer or checkpoint. Failed
 model transports keep separate retry diagnostics. Timeouts count toward the existing
 three-attempt operational gate. Static review does not execute candidate test code.
 
+A transport completing successfully is not sufficient to cache a verdict. Validate
+the response before retaining model-completed; pass requires zero unresolved findings.
+If a cached response violates the typed output contract, preserve it and request a
+fresh independent response against the same immutable evidence with explicit output
+rules. Never delete findings or coerce a verdict to make it pass. Changed evidence
+and attempted tool use fail closed rather than triggering this format recovery.
+At most three model transports per job, including failures, are admitted; the
+actual request and its hash are retained separately from the original snapshot.
+
 Three reviews without independently established behavior change or current-pass
 runtime evidence stop with an explicit technical notice, preserving doing. Names,
 comments, timestamps and notes do not establish semantic progress. An owner-only

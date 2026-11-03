@@ -346,13 +346,32 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
     if args.action == 'prepare':
         prepare(args.root)
     elif args.action == 'finish':
         finish(args.root)
+    elif args.action == 'validate-response':
+        directory, marker = job(args.root)
+        if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
+            raise ValueError('review-snapshot-changed')
+        try:
+            result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+        except ValueError as error:
+            repairable = {'invalid-review-findings', 'invalid-independent-verdict',
+                          'missing-concrete-next-action', 'invalid-continuation-scope',
+                          'correction-must-remain-offline', 'invalid-cleanup-assessment',
+                          'unresolved-cleanup-cannot-authorize-live-work',
+                          'unresolved-timing-cannot-authorize-live-work',
+                          'invalid-review-evidence-citation', 'invalid-reviewed-progress',
+                          'missing-actionable-owner-request', 'unexpected-owner-request'}
+            if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
+                raise
+            print('regenerate')
+        else:
+            print('valid')
     elif args.action == 'reconcile':
         reconcile(args.root)
     elif args.action == 'notice':

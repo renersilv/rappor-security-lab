@@ -53,6 +53,8 @@ with (root / 'trace').open('a') as out:
 counter = root / 'model-count'
 number = int(counter.read_text()) + 1 if counter.exists() else 1
 counter.write_text(str(number))
+if (root / 'repair-on-model').exists():
+    (root / 'invalid-response').unlink(missing_ok=True)
 print('{"type":"diagnostic","attempt":' + str(number) + '}')
 print('private-review-error-' + str(number), file=sys.stderr)
 if (root / 'model-timeout').exists():
@@ -87,6 +89,8 @@ campaign_command() {
 
 campaign_review_command() {
   case $1 in
+    validate-response)
+      if [[ -f $STATE_ROOT/invalid-response ]]; then printf 'regenerate\n'; else printf 'valid\n'; fi ;;
     reconcile)
       record reconcile
       if [[ -f $STATE_ROOT/transition-intent ]]; then
@@ -223,3 +227,31 @@ assert not (root / 'job/model-completed').exists()
 assert (root / 'phase').read_text().strip() == 'review_pending'
 PY
 printf 'PASS review timeout returns 70 and preserves both failed attempts\n'
+
+fresh_case cached_invalid_response
+mkdir -p "$STATE_ROOT/job"
+printf 'Original invalid review must survive.\n' > "$STATE_ROOT/job/events.jsonl"
+printf 'completed\n' > "$STATE_ROOT/job/model-completed"
+touch "$STATE_ROOT/invalid-response" "$STATE_ROOT/repair-on-model"
+dispatch 0
+assert_trace 'review-model=1' 'review-finish=1' 'executor=1'
+[[ $(cat "$STATE_ROOT/job/model-attempts") == 2 ]]
+python3 - "$STATE_ROOT/job" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+assert any(p.read_text() == 'Original invalid review must survive.\n' for p in root.glob('rejected-*/events.jsonl'))
+assert len(list(root.glob('request-*.md.sha256'))) == 1
+PY
+printf 'PASS invalid cached response is preserved and regenerated before continuation\n'
+
+fresh_case bounded_invalid_responses
+touch "$STATE_ROOT/invalid-response"
+dispatch 70
+dispatch 70
+dispatch 70
+dispatch 70
+assert_trace 'review-model=3' 'review-finish=0' 'executor=0'
+[[ ! -e $STATE_ROOT/job/model-completed ]]
+[[ $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
+printf 'PASS invalid responses cannot consume more than three transports per job\n'

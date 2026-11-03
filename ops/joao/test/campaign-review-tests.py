@@ -169,6 +169,23 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(C.private(directory / 'result.json')['evidence'], ['worker.ps1', 'manifest'])
         self.assertEqual(events, (directory / 'events.jsonl').read_bytes())
 
+    def test_pass_with_findings_is_rejected_without_modifying_evidence_or_state(self):
+        directory = self.response(verdict='pass', findings=['The correction is complete.'])
+        before = (self.state / 'campaign.json').read_bytes()
+        events = (directory / 'events.jsonl').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'invalid-review-findings'):
+            self.finish()
+        self.assertEqual(before, (self.state / 'campaign.json').read_bytes())
+        self.assertEqual(events, (directory / 'events.jsonl').read_bytes())
+
+    def test_empty_pass_can_continue_only_within_its_explicit_scope(self):
+        self.response(verdict='pass', findings=[], scope='read_only_preflight', cleanupAssessment='unresolved')
+        self.finish()
+        through, handoff = C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))
+        self.assertEqual(through, 1)
+        self.assertIn('Scope: read_only_preflight', handoff)
+        self.assertIs(C.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
+
     def test_unbound_manifest_name_and_duplicate_identity_are_rejected(self):
         directory = self.prepare()
         bundle = C.private(directory / 'bundle.json')

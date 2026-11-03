@@ -20,6 +20,10 @@ Use changes_requested plus scope offline for a concrete correctable defect or
 missing material evidence. Supply findings with file/behavior, consequence and
 required check, and a practical nextAction. Do not just repeat 'needs review'.
 Use pass only when the reviewed change satisfies its immediate gate, not #19/#17.
+For pass, findings MUST be an empty array. Findings are unresolved defects, not
+positive observations or summaries of completed fixes. Put any necessary limits
+in nextAction. For changes_requested or owner_required, findings must contain
+1–8 actionable unresolved items. Never discard an unresolved defect to claim pass.
 A pass can select offline, read_only_preflight or bounded_no_model. The latter
 requires explicit adequate cleanup evidence and complete relevant source. It
 permits only already authorized bounded technical work under the contract and

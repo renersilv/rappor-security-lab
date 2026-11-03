@@ -55,7 +55,7 @@ campaign_review_flush_notice() {
 }
 
 run_campaign_review() {
-  local worktree=$1 directory phase archive result=0
+  local worktree=$1 directory phase archive validation attempts request result=0
   phase=$(campaign_review_command phase) || return $?
   if [[ $phase == stalled ]]; then
     campaign_review_notice stalled || return $?
@@ -64,8 +64,31 @@ run_campaign_review() {
   directory=$(campaign_review_command prepare) || return $?
   campaign_review_notice reviewing || return $?
   # The saved executor session never reviews or writes its own checkpoint.
-  # Reuse a completed response after a crash; do not buy another verdict.
+  # Cache only a valid response. A malformed verdict is never an approval.
+  if [[ -f $directory/model-completed ]]; then
+    validation=$(campaign_review_command validate-response) || return $?
+    if [[ $validation == regenerate ]]; then
+      archive=$(mktemp -d "$directory/rejected-XXXXXX") || return $?
+      cp "$directory/events.jsonl" "$archive/events.jsonl" || return $?
+      mv "$directory/model-completed" "$archive/model-completed" || return $?
+    elif [[ $validation != valid ]]; then
+      return 65
+    fi
+  fi
   if [[ ! -f $directory/model-completed ]]; then
+    if [[ -f $directory/model-attempts ]]; then
+      attempts=$(cat "$directory/model-attempts") || return $?
+      [[ $attempts =~ ^[0-3]$ ]] || return 65
+    elif [[ -f $directory/events.jsonl ]]; then
+      # Preserve already consumed transports when upgrading an existing job.
+      attempts=1
+      for archive in "$directory"/retry-*; do
+        [[ ! -d $archive ]] || attempts=$((attempts + 1))
+      done
+    else
+      attempts=0
+    fi
+    (( attempts < 3 )) || return 70
     if [[ -f $directory/events.jsonl || -f $directory/errors.log ]]; then
       archive=$(mktemp -d "$directory/retry-XXXXXX") || return $?
       if [[ -f $directory/events.jsonl ]]; then
@@ -75,16 +98,25 @@ run_campaign_review() {
         mv "$directory/errors.log" "$archive/" || return $?
       fi
     fi
+    request=$(mktemp "$directory/request-XXXXXX.md") || return $?
+    # Keep the original snapshot immutable; bind the actual updated instructions too.
+    cat "$SCRIPT_DIR/CAMPAIGN_REVIEW_PROMPT.md" "$directory/prompt.md" > "$request" || return $?
+    sha256sum "$request" > "$request.sha256" || return $?
+    chmod 600 "$request" "$request.sha256"
+    printf '%s\n' "$((attempts + 1))" > "$directory/model-attempts" || return $?
+    chmod 600 "$directory/model-attempts"
     env -u OPENAI_API_KEY -u CODEX_API_KEY \
       "$TIMEOUT_BIN" --signal=TERM --kill-after=15s 20m \
       "$CODEX_BIN" exec --ignore-user-config -C "$worktree" -m "$MODEL" -s read-only \
       -c 'approval_policy="never"' -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
       --disable shell_tool --disable apps --disable plugins --disable remote_plugin --disable multi_agent \
       -c 'web_search="disabled"' --output-schema "$SCRIPT_DIR/campaign-review-result.schema.json" \
-      --json - < "$directory/prompt.md" > "$directory/events.jsonl" 2> "$directory/errors.log" || result=$?
+      --json - < "$request" > "$directory/events.jsonl" 2> "$directory/errors.log" || result=$?
     chmod 600 "$directory/events.jsonl" "$directory/errors.log"
     # Review timeout is an operational failure, not an executor time slice.
     (( result == 0 )) || return 70
+    validation=$(campaign_review_command validate-response) || return $?
+    [[ $validation == valid ]] || return 70
     printf 'completed\n' > "$directory/model-completed"
     chmod 600 "$directory/model-completed"
   fi
