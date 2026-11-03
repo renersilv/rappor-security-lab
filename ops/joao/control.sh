@@ -50,6 +50,7 @@ status() {
   if [[ -e $STATE_ROOT/campaign.json ]]; then
     printf 'stage=authorized_campaign\n'
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-control.py" status "$STATE_ROOT"
+    python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" status "$STATE_ROOT"
   else
   python3 "$(dirname -- "${BASH_SOURCE[0]}")/stage-control.py" status "$STATE_ROOT"
   fi

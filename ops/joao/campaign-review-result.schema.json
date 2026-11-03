@@ -1,0 +1,110 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "findings",
+    "nextAction",
+    "scope",
+    "evidence",
+    "cleanupAssessment",
+    "progress",
+    "ownerRequest"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "changes_requested",
+        "owner_required"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "nextAction": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 6000
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "offline",
+        "read_only_preflight",
+        "bounded_no_model"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "cleanupAssessment": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "not_required",
+        "unresolved"
+      ]
+    },
+    "progress": {
+      "type": "string",
+      "enum": [
+        "behavior_change",
+        "new_runtime_evidence",
+        "none"
+      ]
+    },
+    "ownerRequest": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "action",
+            "location"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "interactive_login",
+                "restore_connection",
+                "supply_credential",
+                "product_decision",
+                "manual_observation"
+              ]
+            },
+            "location": {
+              "type": "string",
+              "enum": [
+                "windows_ide",
+                "rappor_portal",
+                "provider_portal",
+                "secure_channel",
+                "this_chat"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

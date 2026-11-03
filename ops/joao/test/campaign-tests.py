@@ -240,6 +240,8 @@ r=dict(schema=1, issue=19, executorPass=v['executorPasses'], authorizationId='is
 END
 }
 source "$SCRIPT_DIR/stages.sh"
+campaign_review_flush_notice() { :; }
+run_campaign_review() { printf 'review boundary reached\n'; }
 execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
 execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
 '''
@@ -302,6 +304,8 @@ export JOAO_STATE_ROOT=$2
 export JOAO_REPOSITORY_PATH=$3
 source "$1/run.sh"
 CODEX_BIN=$4
+campaign_review_flush_notice() { :; }
+run_campaign_review() { printf 'review boundary reached\n'; }
 preflight() { :; }
 issue_operational_state() { printf doing; }
 list_open_with_label() { [[ $1 != doing ]] || printf '19\n'; }

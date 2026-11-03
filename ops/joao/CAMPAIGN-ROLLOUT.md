@@ -1,5 +1,47 @@
 # Native campaign bridge rollout
 
+## Automatic review delivery — laboratory #25
+
+ADR-0003 supersedes the manual-only renewal described in the historical #24
+instructions below. The same protected checkpoint format, saved session, counters,
+candidate and executable contract remain bound; no campaign migration is needed.
+Install the isolated reviewed commit while the worker is inactive, under the
+shared sequential, João run and lab main-integration locks. Preserve clean main
+and the unfinished #19 worktree. Restore the existing timer after installation.
+
+The existing service now reviews review_pending before dispatching the executor
+and immediately after an executor returns new reviewable evidence. A separate
+read-only/tool-disabled session receives the hash-checked candidate packet and
+prior handoff. It can request offline correction, a bounded existing technical
+step, or a typed owner action; none accepts #19/#17 or starts remediation inference.
+Candidate packets use the existing private tmp/issue19-native-windows-20261023/
+candidates/<unique-directory>/manifest-pass<N>.json layout (attemptsRoot/candidates
+is also accepted). Exactly one manifest must bind the pass, authorization, candidate
+and every relevant file hash. Missing/ambiguous packets fail closed with operational
+retry and a notice, never an inferred successful review. Large vendor files are
+explicitly omitted from static context; their hash alone is not reviewed content.
+
+Review jobs, snapshots, output and intent live under the protected campaign-reviews
+directory. campaign-auto-review.json identifies the job/phase and pending notice.
+After a crash the wrapper reconciles the exact transition and updates the same
+Issue comment before dispatch, without another reviewer or checkpoint. Failed
+model transports keep separate retry diagnostics. Timeouts count toward the existing
+three-attempt operational gate. Static review does not execute candidate test code.
+
+Three reviews without independently established behavior change or current-pass
+runtime evidence stop with an explicit technical notice, preserving doing. Names,
+comments, timestamps and notes do not establish semantic progress. An owner-only
+action has priority, includes an actionable typed public instruction and preserves
+the detailed diagnosis privately. A stopped operational retry is still investigated
+before control.sh resume; that command does not increase test budget or override a
+stagnation checkpoint. These exceptional stops are visible, unlike the former
+silent review_pending success loop.
+
+Verify offline Python/controller and Bash wrapper tests plus npm run check before
+integration. Then verify an actual fresh reviewer result and automatic executor
+continuation in the existing service. Offline fake transport coverage does not
+substitute for that operational verification or for the unfinished product tests.
+
 Laboratory #22 delivers this bridge in an isolated Git commit based on installed
 main. Its assisted branch is assist/joao-authorized-campaign. It must not integrate
 the unfinished #19 batch or change any historical preparation/attempt receipt.

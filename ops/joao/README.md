@@ -31,6 +31,16 @@ authorized offline work may continue while a later live-test gate remains unavai
 
 ### Opt-in preparation stages
 
+Activated campaigns use ADR-0003's independent automatic review at review_pending.
+The existing timer reviews exact source/evidence in a fresh tool-disabled session,
+then delivers the concrete next action to the saved executor. No chat handoff is
+needed for ordinary technical correction. `control.sh status` exposes
+`campaign_independent_review`; one updated issue comment reports review, continuation
+or a real stop. Source/state changes invalidate review, repeated non-progress is
+bounded, and notification/crash recovery cannot buy another model or checkpoint.
+The preserved contract still forbids remediation inference and final #19/#17 delivery.
+See CAMPAIGN-ROLLOUT.md for packet and operational recovery requirements.
+
 Issue #19 is governed by `contracts/19.json` and `contracts/issue-19.md` (ADR-0001).
 The installed runner appends this single current contract instead of accumulating old
 Issue instructions. A preparation return in `doing` triggers deterministic checks and

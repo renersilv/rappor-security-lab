@@ -9,9 +9,98 @@ campaign_command() {
   python3 "$SCRIPT_DIR/campaign-control.py" "$1" "$STATE_ROOT"
 }
 
+campaign_review_command() {
+  python3 "$SCRIPT_DIR/campaign-review.py" "$1" "$STATE_ROOT"
+}
+
+campaign_review_notice() {
+  local phase=$1 marker='<!-- joao-campaign-review:19 -->' existing message payload
+  case $phase in
+    reviewing) message='A revisão independente automática está em execução, limitada a 20 minutos. O próprio serviço entregará o diagnóstico ao João. Nenhuma ação sua é necessária nesta etapa.' ;;
+    continued) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
+    stalled) message='A continuação automática parou após três revisões sem progresso relevante confirmado. A issue permanece em andamento: é uma falha técnica, não falta de autorização. Diagnóstico e próximo passo estão no relatório privado campaign-auto-review.json; é necessária investigação da repetição antes de liberar novas rodadas.' ;;
+    owner_required) message=$(campaign_review_command notice-body) || return $? ;;
+    *) return 65 ;;
+  esac
+  existing=$($GH_BIN api --paginate "repos/$REPOSITORY_SLUG/issues/19/comments" \
+    --jq ".[] | select(.body | contains(\"$marker\")) | .id") || return $?
+  [[ $existing != *$'\n'* ]] || return 65
+  payload=$(state_file campaign-review-notice.json)
+  python3 -c 'import json,sys; print(json.dumps({"body": sys.argv[1]+"\n\n"+sys.argv[2]}))' \
+    "$message" "$marker" > "$payload"
+  chmod 600 "$payload"
+  if [[ -n $existing ]]; then
+    [[ $existing =~ ^[0-9]+$ ]] || return 65
+    $GH_BIN api --method PATCH "repos/$REPOSITORY_SLUG/issues/comments/$existing" --input "$payload" >/dev/null
+  else
+    $GH_BIN api --method POST "repos/$REPOSITORY_SLUG/issues/19/comments" --input "$payload" >/dev/null
+  fi
+}
+
+campaign_review_flush_notice() {
+  local phase operational
+  campaign_review_command reconcile || return $?
+  phase=$(campaign_review_command notice) || return $?
+  [[ $phase != none ]] || return 0
+  campaign_review_notice "$phase" || return $?
+  if [[ $phase == owner_required ]]; then
+    operational=$(issue_operational_state 19) || return $?
+    if [[ $operational == doing ]]; then
+      $GH_BIN issue edit 19 --repo "$REPOSITORY_SLUG" --remove-label doing --add-label blocked >/dev/null || return $?
+    else
+      [[ $operational == blocked ]] || return 65
+    fi
+  fi
+  campaign_review_command notice-done
+}
+
+run_campaign_review() {
+  local worktree=$1 directory phase archive result=0
+  phase=$(campaign_review_command phase) || return $?
+  if [[ $phase == stalled ]]; then
+    campaign_review_notice stalled || return $?
+    return 70
+  fi
+  directory=$(campaign_review_command prepare) || return $?
+  campaign_review_notice reviewing || return $?
+  # The saved executor session never reviews or writes its own checkpoint.
+  # Reuse a completed response after a crash; do not buy another verdict.
+  if [[ ! -f $directory/model-completed ]]; then
+    if [[ -f $directory/events.jsonl || -f $directory/errors.log ]]; then
+      archive=$(mktemp -d "$directory/retry-XXXXXX") || return $?
+      if [[ -f $directory/events.jsonl ]]; then
+        mv "$directory/events.jsonl" "$archive/" || return $?
+      fi
+      if [[ -f $directory/errors.log ]]; then
+        mv "$directory/errors.log" "$archive/" || return $?
+      fi
+    fi
+    env -u OPENAI_API_KEY -u CODEX_API_KEY \
+      "$TIMEOUT_BIN" --signal=TERM --kill-after=15s 20m \
+      "$CODEX_BIN" exec --ignore-user-config -C "$worktree" -m "$MODEL" -s read-only \
+      -c 'approval_policy="never"' -c "model_reasoning_effort=\"$REASONING_EFFORT\"" \
+      --disable shell_tool --disable apps --disable plugins --disable remote_plugin --disable multi_agent \
+      -c 'web_search="disabled"' --output-schema "$SCRIPT_DIR/campaign-review-result.schema.json" \
+      --json - < "$directory/prompt.md" > "$directory/events.jsonl" 2> "$directory/errors.log" || result=$?
+    chmod 600 "$directory/events.jsonl" "$directory/errors.log"
+    # Review timeout is an operational failure, not an executor time slice.
+    (( result == 0 )) || return 70
+    printf 'completed\n' > "$directory/model-completed"
+    chmod 600 "$directory/model-completed"
+  fi
+  phase=$(campaign_review_command finish) || return $?
+  campaign_review_flush_notice || return $?
+  [[ $phase != stalled ]] || return 70
+}
+
 execute_campaign_item() {
   local issue=$1 worktree=$2 branch=$3 phase operational result=0
+  campaign_review_flush_notice || return $?
   phase=$(campaign_command phase) || return $?
+  if [[ $phase == review_pending ]]; then
+    run_campaign_review "$worktree" || return $?
+    phase=$(campaign_command phase) || return $?
+  fi
   if [[ $phase != active ]]; then
     log "Issue #$issue campaign is $phase; preserving evidence without another model"
     return 0
@@ -37,4 +126,7 @@ execute_campaign_item() {
     [[ $operational == doing ]] || return 65
   fi
   log "Issue #$issue campaign progressed to $phase; final acceptance remains pending"
+  if [[ $phase == review_pending ]]; then
+    run_campaign_review "$worktree" || return $?
+  fi
 }

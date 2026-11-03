@@ -1,4 +1,13 @@
-# Current structural repair — laboratory #24
+# Current structural repair — laboratory #25
+
+The campaign boundary now invokes an independent fresh review in the existing
+service. Protected source/state snapshots and a typed result bind the checkpoint;
+the same executor receives its concrete next step automatically. Review failures
+use bounded operational retry, unchanged executable source cannot renew indefinitely,
+and one updated Issue notice exposes the current review/continuation or real stop.
+See ADR-0003. Static review never accepts #19/#17 or consumes test reservations.
+
+## Previous structural repair — laboratory #24
 
 The campaign controller now bounds continuation to three executor launches after
 an independently reviewed checkpoint. Source edits, notes, commits and consumed
