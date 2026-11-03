@@ -111,6 +111,36 @@ class ReviewTests(unittest.TestCase):
             self.finish()
         self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'review_pending')
 
+    def test_c_source_is_reviewed_as_text_and_changes_code_fingerprint(self):
+        state = C.private(self.state / 'campaign.json')
+        before = R.packet(state, self.state)['sourceFingerprint']
+        source = self.candidate_dir / 'disposable-check.c'
+        R.put(source, b'int main(void) { return 0; }\n')
+        manifest = C.private(self.manifest)
+        manifest['files'][source.name] = C.digest(source)
+        C.save(self.manifest, manifest)
+        packet = R.packet(state, self.state)
+        self.assertEqual(packet['sources'][source.name]['content'], source.read_text())
+        self.assertNotEqual(packet['sourceFingerprint'], before)
+        self.response(evidence=[source.name])
+        self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+
+    def test_c_evidence_preserves_binary_hash_and_permission_rejection(self):
+        state = C.private(self.state / 'campaign.json')
+        source = self.candidate_dir / 'disposable-check.c'
+        manifest = C.private(self.manifest)
+        for content, mode, changed in [(b'\x7fELF\x00binary', 0o600, False),
+                                       (b'int main(void) { return 0; }\n', 0o644, False),
+                                       (b'int main(void) { return 0; }\n', 0o600, True)]:
+            source.write_bytes(content)
+            source.chmod(mode)
+            manifest['files'][source.name] = '0' * 64 if changed else C.digest(source)
+            C.save(self.manifest, manifest)
+            with self.subTest(mode=mode, changed=changed, binary=b'\x00' in content):
+                with self.assertRaisesRegex(ValueError, 'binary-review-evidence|invalid-candidate-source|candidate-hash-changed'):
+                    R.packet(state, self.state)
+
     def test_changed_source_and_updated_manifest_are_also_rejected(self):
         self.response()
         self.source.write_text('new source')

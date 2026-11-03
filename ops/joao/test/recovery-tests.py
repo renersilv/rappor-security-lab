@@ -143,6 +143,69 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.base)
 
+    def review_fixture(self):
+        spec = importlib.util.spec_from_file_location('recovery_review_fixture', HERE / 'campaign-review-tests.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture = module.ReviewTests()
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
+        return fixture, module.R
+
+    def test_diagnosis_reports_current_packet_failure_not_prior_success(self):
+        fixture, review = self.review_fixture()
+        fixture.response(verdict='pass', findings=[])
+        marker = review.C.private(fixture.state / 'campaign-auto-review.json')
+        marker['phase'] = 'continued'
+        review.C.save(fixture.state / 'campaign-auto-review.json', marker)
+        campaign = review.C.private(fixture.state / 'campaign.json')
+        campaign.update(executorPasses=2, lastFinishedPass=2)
+        review.C.save(fixture.state / 'campaign.json', campaign)
+        manifest = review.C.private(fixture.manifest)
+        source = fixture.candidate_dir / 'private-filename.sql'
+        review.put(source, b'SELECT 1;\n')
+        manifest['executorPass'] = 2
+        manifest['files'][source.name] = review.C.digest(source)
+        review.C.save(fixture.candidate_dir / 'manifest-pass2.json', manifest)
+        incident = dict(error_class='codex_exit', fingerprint=FINGERPRINT)
+        with patch.object(R, 'load_review', return_value=review):
+            diagnostic = R.incident_bundle(fixture.state, self.repo, incident)['incident']
+        self.assertEqual(diagnostic['executorPass'], 2)
+        self.assertEqual(diagnostic['packetValidation'], 'unsupported-candidate-evidence')
+        self.assertIn('.sql', diagnostic['candidateSuffixes'])
+        self.assertEqual(diagnostic['reviewExecutorPass'], 1)
+        self.assertFalse(diagnostic['reviewMatchesCurrentPass'])
+        self.assertNotIn('verdict', diagnostic)
+        self.assertNotIn('responseValidation', diagnostic)
+        self.assertNotIn('private-filename', json.dumps(diagnostic))
+        self.assertNotIn(str(fixture.root), json.dumps(diagnostic))
+        (fixture.state / 'campaign-auto-review.json').unlink()
+        with patch.object(R, 'load_review', return_value=review):
+            diagnostic = R.incident_bundle(fixture.state, self.repo, incident)['incident']
+        self.assertEqual(diagnostic['packetValidation'], 'unsupported-candidate-evidence')
+        self.assertNotIn('reviewExecutorPass', diagnostic)
+
+    def test_diagnosis_includes_response_only_for_current_review(self):
+        fixture, review = self.review_fixture()
+        fixture.response(verdict='pass', findings=[])
+        incident = dict(error_class='codex_exit', fingerprint=FINGERPRINT)
+        with patch.object(R, 'load_review', return_value=review):
+            diagnostic = R.incident_bundle(fixture.state, self.repo, incident)['incident']
+        self.assertEqual(diagnostic['packetValidation'], 'valid')
+        self.assertTrue(diagnostic['reviewMatchesCurrentPass'])
+        self.assertEqual(diagnostic['verdict'], 'pass')
+        self.assertEqual(diagnostic['responseValidation'], 'valid')
+
+    def test_packet_diagnostic_exceptions_do_not_expose_raw_details(self):
+        fixture, review = self.review_fixture()
+        with patch.object(R, 'load_review', return_value=review), \
+                patch.object(review, 'packet', side_effect=OSError('private /host/path token=synthetic')):
+            diagnostic = R.incident_bundle(fixture.state, self.repo,
+                                          dict(error_class='codex_exit', fingerprint=FINGERPRINT))['incident']
+        self.assertEqual(diagnostic['packetValidation'], 'invalid-or-unavailable-evidence')
+        self.assertNotIn('/host/path', json.dumps(diagnostic))
+        self.assertNotIn('token=', json.dumps(diagnostic))
+
     def ready(self):
         folder = self.root / 'ready-repair'
         folder.mkdir(mode=0o700)

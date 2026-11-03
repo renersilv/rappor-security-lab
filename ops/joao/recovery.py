@@ -229,6 +229,18 @@ def call_model(folder, name, prompt, schema, model, effort):
     return response(events)
 
 
+def load_review():
+    spec = importlib.util.spec_from_file_location('incident_review', HERE / 'campaign-review.py')
+    review = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(review)
+    return review
+
+
+def diagnostic_reason(error):
+    reason = str(error)
+    return reason if re.fullmatch('[a-z-]{1,100}', reason) else 'invalid-or-unavailable-evidence'
+
+
 def incident_bundle(root, repo, incident):
     sources = {}
     for name in sorted(ALLOWED):
@@ -241,22 +253,44 @@ def incident_bundle(root, repo, incident):
     if matrix.exists():
         sources['ops/joao/objectives.json'] = matrix.read_text()
     diagnostic = {'class': incident.get('error_class'), 'fingerprint': incident['fingerprint']}
+    # Packet preparation can fail before a job exists. Diagnose the current
+    # campaign first; an older successful review cannot explain that failure.
+    campaign_path = root / 'campaign.json'
+    review = None
+    campaign = None
+    if campaign_path.exists():
+        review = load_review()
+        campaign = review.C.private(campaign_path)
+        review.C.bound(root, campaign)
+        diagnostic.update(executorPass=campaign['executorPasses'], campaignPhase=campaign['phase'])
+        try:
+            review.packet(campaign, root)
+            diagnostic['packetValidation'] = 'valid'
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            diagnostic['packetValidation'] = diagnostic_reason(error)
+            try:
+                _, _, _, manifest = review.candidate_manifest(campaign, root)
+                suffixes = {Path(name).suffix for name in manifest['files'] if isinstance(name, str)}
+                diagnostic['candidateSuffixes'] = sorted(suffix for suffix in suffixes
+                                                        if re.fullmatch(r'\.[a-z0-9]{1,8}', suffix))
+            except (ValueError, KeyError, TypeError, OSError):
+                pass
     marker = root / 'campaign-auto-review.json'
     if marker.exists():
-        spec = importlib.util.spec_from_file_location('incident_review', HERE / 'campaign-review.py')
-        review = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(review)
+        review = review or load_review()
         directory, value = review.job(root)
-        diagnostic.update(reviewPhase=value['phase'], executorPass=value['executorPass'])
-        try:
-            answer = review.result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
-            diagnostic['responseValidation'] = 'valid'
-            diagnostic['verdict'] = answer['verdict']
-        except (ValueError, KeyError, TypeError, OSError) as error:
-            reason = str(error)
-            diagnostic['responseValidation'] = reason if re.fullmatch('[a-z-]{1,100}', reason) else 'invalid-or-unavailable-response'
-        if (directory / 'model-attempts').exists():
-            diagnostic['reviewTransports'] = (directory / 'model-attempts').read_text().strip()[:2]
+        matches = campaign is not None and value['executorPass'] == campaign['executorPasses']
+        diagnostic.update(reviewPhase=value['phase'], reviewExecutorPass=value['executorPass'],
+                          reviewMatchesCurrentPass=matches)
+        if matches:
+            try:
+                answer = review.result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+                diagnostic['responseValidation'] = 'valid'
+                diagnostic['verdict'] = answer['verdict']
+            except (ValueError, KeyError, TypeError, OSError) as error:
+                diagnostic['responseValidation'] = diagnostic_reason(error)
+            if (directory / 'model-attempts').exists():
+                diagnostic['reviewTransports'] = (directory / 'model-attempts').read_text().strip()[:2]
     return dict(incident=diagnostic, sources=sources, base=git(repo, 'rev-parse', 'HEAD'))
 
 

@@ -18,7 +18,7 @@ SPEC.loader.exec_module(C)
 OBJECTIVE_SPEC = importlib.util.spec_from_file_location('campaign_objectives', Path(__file__).with_name('objectives.py'))
 OBJECTIVES = importlib.util.module_from_spec(OBJECTIVE_SPEC)
 OBJECTIVE_SPEC.loader.exec_module(OBJECTIVES)
-CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh'}
+CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh', '.c'}
 
 
 def encoded(value):
@@ -56,7 +56,7 @@ def read_source(path, root):
     return path.read_bytes()
 
 
-def packet(value, state_root):
+def candidate_manifest(value, state_root):
     roots = [Path(value['attemptsRoot']).resolve() / 'candidates',
              state_root / 'tmp/issue19-native-windows-20261023/candidates']
     number = value['executorPasses']
@@ -71,6 +71,11 @@ def packet(value, state_root):
             or manifest.get('authorizationId') != 'issue19-native-windows-20261023'
             or not isinstance(manifest.get('files'), dict) or not 1 <= len(manifest['files']) <= 150):
         raise ValueError('unbound-candidate-manifest')
+    return manifest_path, root, raw, manifest
+
+
+def packet(value, state_root):
+    manifest_path, root, raw, manifest = candidate_manifest(value, state_root)
     sources = {'manifest': dict(content=raw.decode(), sha256=sha(raw))}
     executable = []
     total = 0
