@@ -20,12 +20,17 @@ recovery_notice() {
 }
 
 recover_campaign_failure() {
-  local result=0
+  local result=0 phase
   recovery_notice || return $?
   python3 "$SCRIPT_DIR/recovery.py" supervise "$STATE_ROOT" --repository "$REPOSITORY_PATH" \
     --model "$MODEL" --effort "$REASONING_EFFORT" || result=$?
   recovery_flush_notice || return $?
-  log "Campaign recovery turn completed with status $result; preserved task resumes on the next timer activation"
+  phase=$(python3 "$SCRIPT_DIR/recovery.py" phase "$STATE_ROOT") || return $?
+  case $phase in
+    recovered) log "Reviewed repair installed; preserved task resumes on the next timer activation" ;;
+    unrepairable|external_action) log "Campaign recovery stopped with phase $phase; preserved task is not resuming" ;;
+    *) log "Campaign recovery turn ended with phase $phase and status $result; original task remains gated" ;;
+  esac
   return "$result"
 }
 

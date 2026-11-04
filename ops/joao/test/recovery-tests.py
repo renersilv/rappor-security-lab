@@ -206,6 +206,26 @@ class RecoveryTests(unittest.TestCase):
         self.assertNotIn('/host/path', json.dumps(diagnostic))
         self.assertNotIn('token=', json.dumps(diagnostic))
 
+    def test_terminal_recovery_does_not_announce_automatic_resume(self):
+        script = r'''
+set -euo pipefail
+source "$1/recovery.sh"
+SCRIPT_DIR=$1 STATE_ROOT=fixture REPOSITORY_PATH=fixture MODEL=fixture REASONING_EFFORT=fixture
+recovery_notice() { :; }
+recovery_flush_notice() { :; }
+python3() { if [[ $2 == phase ]]; then printf '%s\n' "$RECOVERY_PHASE"; fi; }
+log() { printf '%s\n' "$*"; }
+recover_campaign_failure
+'''
+        for phase in ['unrepairable', 'external_action', 'failed', 'recovered']:
+            result = subprocess.run(['bash', '-c', script, 'fixture', str(HERE.parent)],
+                                    env=dict(os.environ, RECOVERY_PHASE=phase), capture_output=True, text=True, check=True)
+            if phase == 'recovered':
+                self.assertIn('task resumes on the next timer', result.stdout)
+            else:
+                self.assertNotIn('task resumes on the next timer', result.stdout)
+                self.assertIn(phase, result.stdout)
+
     def ready(self):
         folder = self.root / 'ready-repair'
         folder.mkdir(mode=0o700)

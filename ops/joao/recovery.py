@@ -534,7 +534,7 @@ def notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['supervise', 'status', 'notice', 'review-limit', 'notice-pending', 'notice-done'])
+    parser.add_argument('action', choices=['supervise', 'status', 'phase', 'notice', 'review-limit', 'notice-pending', 'notice-done'])
     parser.add_argument('root', type=Path)
     parser.add_argument('--repository', type=Path, default=HERE.parent.parent)
     parser.add_argument('--model', default='gpt-5.6-sol')
@@ -542,6 +542,8 @@ def main():
     args = parser.parse_args()
     if args.action == 'status':
         print(json.dumps(status(args.root)))
+    elif args.action == 'phase':
+        print(status(args.root)['phase'])
     elif args.action == 'notice':
         print(notice(args.root))
     elif args.action == 'review-limit':

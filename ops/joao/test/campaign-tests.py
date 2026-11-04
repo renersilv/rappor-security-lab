@@ -63,6 +63,25 @@ class CampaignTests(unittest.TestCase):
         MODULE.activate(self.state, self.auth_path, self.attempts, self.candidate)
         return MODULE.private(self.state / 'campaign.json')
 
+    def candidate_packet(self, number, *, artifacts_only=False):
+        folder = self.attempts / 'candidates' / f'pass{number}'
+        manifest = folder / f'manifest-pass{number}.json'
+        if manifest.exists():
+            return manifest
+        folder.mkdir(parents=True)
+        source = folder / 'fixture.py'
+        source.write_text('def bounded_fixture():\n    return True\n')
+        source.chmod(0o600)
+        value = dict(issue=19, executorPass=number,
+                     candidate=MODULE.private(self.state / 'campaign.json')['candidate'],
+                     authorizationId=self.auth['authorizationId'])
+        if artifacts_only:
+            value['artifacts'] = [dict(path=source.name, sha256=MODULE.digest(source))]
+        else:
+            value['files'] = {source.name: MODULE.digest(source)}
+        MODULE.save(manifest, value)
+        return manifest
+
     def command(self, action, expected=0):
         # Replace only the operator directory in an isolated process, never HOME or live state.
         driver = """import importlib.util,sys
@@ -212,11 +231,13 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
         self.command('finish', 65)
         result['executorPass'] = 1
         MODULE.save(self.state / 'campaign-result.json', result)
+        self.candidate_packet(1)
         self.assertEqual(self.command('finish').strip(), 'review_pending')
         self.assertIs(MODULE.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
 
     def test_existing_wrapper_routes_authorized_resume_before_old_stage(self):
         self.activate()
+        self.candidate_packet(1)
         wrapper = r'''
 set -euo pipefail
 SCRIPT_DIR=$1
@@ -268,6 +289,7 @@ execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
 
     def test_real_cycle_resumes_existing_session_and_cannot_integrate(self):
         self.activate()
+        self.candidate_packet(1)
         handoff = 'REVIEWED_NEXT_STEP_24: inspect actual console evidence; do not repeat the obsolete probe.'
         self.independent_review(handoff)
         # Exercise the real wrapper with only its operator-directory constant isolated.
@@ -340,9 +362,77 @@ run_cycle
         self.assertLess(rollout.index('--remove-label blocked --add-label doing'),
                         rollout.index('systemctl --user start'))
 
-    def result(self, number, phase='active'):
+    def result(self, number, phase='active', *, candidate=True):
+        if candidate:
+            self.candidate_packet(number)
         MODULE.save(self.state / 'campaign-result.json', dict(schema=1, issue=19, executorPass=number,
                     authorizationId=self.auth['authorizationId'], phase=phase, summary='Offline continuation.'))
+
+    def test_invalid_packet_resumes_offline_with_new_candidate_and_preserved_quota(self):
+        self.activate()
+        protected = [self.state / 'stage.json', self.state / 'session', self.auth_path,
+                     self.attempts / 'attempt-1/receipt.json']
+        original = {path: path.read_bytes() for path in protected}
+        self.command('begin')
+        invalid = self.candidate_packet(1, artifacts_only=True)
+        historical = {path: path.read_bytes() for path in invalid.parent.iterdir()}
+        self.result(1, 'review_pending', candidate=False)
+        before = MODULE.private(self.state / 'campaign.json')
+        self.command('finish', 65)
+        after = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual(after, before)
+        self.assertEqual(after['phase'], 'active')
+        self.assertEqual(after['lastFinishedPass'], 0)
+        failure = MODULE.private(self.state / 'candidate-packet-error.json')
+        self.assertEqual(failure, dict(executorPass=1, reason='invalid-candidate-files'))
+        self.assertNotIn('invalid-candidate-files', self.command('prompt'))
+        self.command('begin')
+        self.assertIn('invalid-candidate-files', self.command('prompt'))
+        self.result(2, 'review_pending')
+        self.assertEqual(self.command('finish').strip(), 'review_pending')
+        value = MODULE.private(self.state / 'campaign.json')
+        self.assertEqual(value['executorPasses'], 2)
+        self.assertEqual(value['lastFinishedPass'], 2)
+        self.assertIsNone(value['reviewCheckpoint'])
+        self.assertFalse(value['allowsFinalDelivery'])
+        self.assertIn('campaign_remaining=9', self.command('status'))
+        self.assertEqual(original, {path: path.read_bytes() for path in original})
+        self.assertEqual(historical, {path: path.read_bytes() for path in historical})
+        self.assertNotIn('files', MODULE.private(invalid))
+
+    def test_invalid_packets_cannot_renew_three_launch_window(self):
+        self.activate()
+        for number in range(1, 4):
+            self.command('begin')
+            self.candidate_packet(number, artifacts_only=True)
+            self.result(number, 'review_pending', candidate=False)
+            self.command('finish', 65)
+            value = MODULE.private(self.state / 'campaign.json')
+            self.assertEqual(value['phase'], 'active')
+            self.assertEqual(value['executorPasses'], number)
+            self.assertEqual(value['lastFinishedPass'], 0)
+        self.command('begin', 65)
+        self.assertEqual(MODULE.private(self.state / 'campaign.json')['executorPasses'], 3)
+        self.assertIn('campaign_remaining=9', self.command('status'))
+        self.assertIn('campaign_unreviewed_passes=3', self.command('status'))
+
+    def test_limit_imposed_review_validates_packet_before_committing_finish(self):
+        self.activate()
+        for number in (1, 2):
+            self.command('begin')
+            self.result(number)
+            self.assertEqual(self.command('finish').strip(), 'active')
+        self.command('begin')
+        self.candidate_packet(3, artifacts_only=True)
+        self.result(3, 'active', candidate=False)
+        before = MODULE.private(self.state / 'campaign.json')
+        self.command('finish', 65)
+        self.assertEqual(MODULE.private(self.state / 'campaign.json'), before)
+        self.assertEqual(before['lastFinishedPass'], 2)
+        self.assertEqual(MODULE.private(self.state / 'candidate-packet-error.json'),
+                         dict(executorPass=3, reason='invalid-candidate-files'))
+        self.command('begin', 65)
+        self.assertEqual(MODULE.private(self.state / 'campaign.json')['executorPasses'], 3)
 
     def test_candidate_and_counter_validation_on_every_use(self):
         original = self.activate()

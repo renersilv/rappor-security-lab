@@ -277,6 +277,46 @@ def activate(state_root, auth_path, attempts_root, candidate_path):
     save(path, value)
 
 
+def validate_review_candidate(root, value):
+    spec = importlib.util.spec_from_file_location('candidate_admission', Path(__file__).with_name('campaign-review.py'))
+    review = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(review)
+    try:
+        review.packet(value, root)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        reason = str(error)
+        if not re.fullmatch('[a-z-]{1,100}', reason):
+            reason = 'invalid-or-unavailable-candidate'
+        # This is the latest producer diagnostic, not an acceptance receipt.
+        save(root / 'candidate-packet-error.json', dict(executorPass=value['executorPasses'], reason=reason))
+        raise ValueError(reason) from error
+
+
+def manifest_prompt(root, value):
+    print('\nREQUIRED REVIEW PACKET CONTRACT:')
+    print('Before delivering review_pending, create exactly one fresh manifest-pass<N>.json for the current executorPass '
+          'in a new candidate directory under the existing candidates root. Required JSON fields: '
+          'issue:19, executorPass:<current integer>, authorizationId:<supplied exact identifier>, '
+          'candidate:<supplied exact object>, files:{"relative-source-name":"sha256"}. '
+          'files is a map of 1 to 150 relative filenames to exact SHA-256 strings. '
+          'An artifacts array is not this contract and cannot replace files. '
+          'Include the actual source, tests and sanitized receipts; preserve old manifests and results unchanged. '
+          'Files must be regular UTF-8 text, mode0600, canonical paths without symlinks; '
+          'the same reader used by the independent reviewer validates this packet before finish can accept it.')
+    print('Read-only pre-delivery validation command: python3 ' + str(Path(__file__).with_name('campaign-review.py')) +
+          ' validate-candidate ' + str(root))
+    path = root / 'candidate-packet-error.json'
+    if path.exists():
+        error = private(path)
+        through, _ = reviewed_checkpoint(value)
+        if (type(error.get('executorPass')) is int and through < error['executorPass'] < value['executorPasses']
+                and isinstance(error.get('reason'), str) and re.fullmatch('[a-z-]{1,100}', error['reason'])):
+            print('PREVIOUS DELIVERY REJECTED: ' + json.dumps(error, sort_keys=True))
+            print('Correct the packet in a fresh current-pass candidate. The previous artifact is evidence, '
+                  'not permission to repeat live work. Preserve every previous source, receipt and manifest. '
+                  'This correction uses only the existing continuation window; no counter or quota is renewed.')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['activate', 'status', 'phase', 'prompt', 'begin', 'finish'])
@@ -309,6 +349,7 @@ def main():
         print(value['phase'])
     elif args.action == 'prompt':
         print(Path(__file__).with_name('campaign-contract.md').read_text())
+        manifest_prompt(root, value)
         objective_spec = importlib.util.spec_from_file_location('objective_prompt', Path(__file__).with_name('objectives.py'))
         objective_module = importlib.util.module_from_spec(objective_spec)
         objective_spec.loader.exec_module(objective_module)
@@ -339,6 +380,8 @@ def main():
             raise ValueError('invalid-campaign-result')
         value['phase'] = result['phase']
         enforce_review_limit(value, used)
+        if value['phase'] == 'review_pending':
+            validate_review_candidate(root, value)
         value['lastSummary'] = result['summary']
         value['lastFinishedPass'] = value['executorPasses']
         save(path, value)

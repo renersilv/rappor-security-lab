@@ -64,6 +64,15 @@ bounded, and notification/crash recovery cannot buy another model or checkpoint.
 The preserved contract still forbids remediation inference and final #19/#17 delivery.
 See CAMPAIGN-ROLLOUT.md for packet and operational recovery requirements.
 
+The executor prompt includes the canonical manifest contract and the read-only
+`campaign-review.py validate-candidate` command. Before accepting review_pending,
+finish validates the exact packet with the reviewer's reader. A malformed packet
+leaves the active pass unfinished and records a closed diagnostic for the next
+executor turn within the existing three-launch window. That turn must create a
+fresh candidate; historical manifests are never rewritten or converted from an
+`artifacts` alias. Invalid identity, authorization, hashes or permissions remain
+failures. This pre-delivery validation grants no new checkpoint or test budget.
+
 Issue #19 is governed by `contracts/19.json` and `contracts/issue-19.md` (ADR-0001).
 The installed runner appends this single current contract instead of accumulating old
 Issue instructions. A preparation return in `doing` triggers deterministic checks and

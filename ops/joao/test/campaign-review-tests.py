@@ -126,6 +126,27 @@ class ReviewTests(unittest.TestCase):
         self.finish()
         self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
 
+    def test_manifest_diagnostic_names_exact_binding_failure_without_aliases(self):
+        state = C.private(self.state / 'campaign.json')
+        original = C.private(self.manifest)
+        cases = [('issue', 20, 'candidate-issue-mismatch'),
+                 ('executorPass', 9, 'candidate-pass-mismatch'),
+                 ('executorPass', True, 'candidate-pass-mismatch'),
+                 ('candidate', {}, 'candidate-identity-mismatch'),
+                 ('authorizationId', 'wrong', 'candidate-authorization-mismatch'),
+                 ('files', [], 'invalid-candidate-files')]
+        for field, invalid, reason in cases:
+            C.save(self.manifest, dict(original, **{field: invalid}))
+            with self.subTest(field=field, value=invalid):
+                with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                    R.packet(state, self.state)
+        changed = dict(original)
+        changed['artifacts'] = [dict(path=name, sha256=digest) for name, digest in changed.pop('files').items()]
+        C.save(self.manifest, changed)
+        with self.assertRaisesRegex(ValueError, '^invalid-candidate-files$'):
+            R.packet(state, self.state)
+        self.assertEqual(C.private(self.manifest), changed)
+
     def test_c_evidence_preserves_binary_hash_and_permission_rejection(self):
         state = C.private(self.state / 'campaign.json')
         source = self.candidate_dir / 'disposable-check.c'

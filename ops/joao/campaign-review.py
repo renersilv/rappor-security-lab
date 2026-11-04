@@ -66,11 +66,16 @@ def candidate_manifest(value, state_root):
     manifest_path, root = matches[0]
     raw = read_source(manifest_path, root)
     manifest = json.loads(raw)
-    if (not isinstance(manifest, dict) or manifest.get('issue') != 19 or manifest.get('executorPass') != number
-            or manifest.get('candidate') != value['candidate']
-            or manifest.get('authorizationId') != 'issue19-native-windows-20261023'
-            or not isinstance(manifest.get('files'), dict) or not 1 <= len(manifest['files']) <= 150):
-        raise ValueError('unbound-candidate-manifest')
+    if not isinstance(manifest, dict):
+        raise ValueError('invalid-candidate-manifest-object')
+    for valid, reason in (
+            (type(manifest.get('issue')) is int and manifest['issue'] == 19, 'candidate-issue-mismatch'),
+            (type(manifest.get('executorPass')) is int and manifest['executorPass'] == number, 'candidate-pass-mismatch'),
+            (manifest.get('candidate') == value['candidate'], 'candidate-identity-mismatch'),
+            (manifest.get('authorizationId') == 'issue19-native-windows-20261023', 'candidate-authorization-mismatch'),
+            (isinstance(manifest.get('files'), dict) and 1 <= len(manifest['files']) <= 150, 'invalid-candidate-files')):
+        if not valid:
+            raise ValueError(reason)
     return manifest_path, root, raw, manifest
 
 
@@ -357,10 +362,15 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'prepare':
+    if args.action == 'validate-candidate':
+        value = C.private(args.root / 'campaign.json')
+        C.bound(args.root, value)
+        packet(value, args.root)
+        print('candidate_packet_valid=true')
+    elif args.action == 'prepare':
         prepare(args.root)
     elif args.action == 'finish':
         finish(args.root)
