@@ -25,14 +25,36 @@ through the common adapter and its revision checks. A real owner block must be
 returned to To Do by the configured authorized actor; campaign review cannot
 silently clear it. Technical failures remain doing and retain bounded recovery.
 
-Internal done means laboratory integration and validation, awaiting the configured
-acceptor. It does not set Azure Done or accept the product. Models receive only the
+The owner's 2026-11-06 delivery/retest decision supersedes the original manual-Done
+rule: the wrapper sets real Azure Done after laboratory integration and validation.
+Done means technical delivery, available for later human validation; it does not
+accept a beta or production release. Models receive only the
 current sanitized item and cannot select the queue. Product defect creation uses only the reviewed common adapter's bounded
 report-finding operation. The current authorized João Task and stable finding key
 bind an idempotent Issue with origin joao, agent raimundo and explicit priority;
 existing owner authorization permits its To Do creation without repeated chat
 approval. The caller cannot choose another origin, executor or acceptor. Never
 create GitHub Issues or invent an alternate queue.
+
+Product implementation likewise reaches real Done after its verified publication.
+João's finding Issues keep their implementing Agent and immutable origin. Retest
+ownership derives from the authenticated source Task/report linkage, not arbitrary
+cross-executor routing. At each execution the wrapper captures `list-retests` once
+for its current owner-authorized Task, snapshots only its eligible delivered
+findings, and appends sanitized reports to the prompt. The model cannot discover
+or expand that list. The laboratory adapter binds result submission to the current
+Task/branch, captured finding and exact delivery revision before the common
+adapter revalidates current Azure state and report linkage.
+
+The `retest-result` operation records a conclusive pass without reopening Done,
+or returns the same failed finding to To Do for its original implementer. Summary
+and evidence are sanitized; invalid, stale or foreign deliveries fail closed.
+Retries submit the same result instead of repeating a real test. Technical test
+failures stay within the Task and never manufacture pass/fail. Completion of the
+source Task is prevented while any linked finding is unpassed, including findings
+still being corrected. This adds no queue, task, implementation lane, experiment
+budget or remediation inference. The active campaign keeps its session, candidate,
+authorization, counters and review constraints unchanged.
 
 ## Installation and verification
 

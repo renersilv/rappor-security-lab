@@ -330,7 +330,7 @@ run_campaign_review() { printf 'review boundary reached\n'; }
 preflight() { :; }
 issue_operational_state() { printf doing; }
 list_with_phase() { [[ $1 != doing ]] || printf '19\n'; }
-azure_queue() { case $1 in id) printf 305 ;; campaign) printf 19 ;; show) printf '{"id":305,"executor":"joao","origin":"owner","workItemType":"Task","phase":"doing"}' ;; *) return 65 ;; esac; }
+azure_queue() { case $1 in id) printf 305 ;; campaign) printf 19 ;; show) printf '{"id":305,"executor":"joao","origin":"owner","workItemType":"Task","phase":"doing"}' ;; list-retests) printf '[{"id":401,"deliveryRevision":9,"origin":"joao","executor":"raimundo"}]' ;; *) return 65 ;; esac; }
 integrate_batch() { printf forbidden > "$STATE_ROOT/forbidden-integration"; return 1; }
 finalize_batch() { printf forbidden > "$STATE_ROOT/forbidden-finalization"; return 1; }
 run_cycle
@@ -342,6 +342,7 @@ run_cycle
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         args = json.loads((self.state / 'fake-model-args.json').read_text())
         self.assertIn(handoff, (self.state / 'fake-model-prompt.txt').read_text())
+        self.assertIn('"deliveryRevision":9', (self.state / 'fake-model-prompt.txt').read_text())
         self.assertIn('resume', args)
         self.assertIn(self.session, args)
         self.assertEqual((self.state / 'stage.json').read_bytes(), before)

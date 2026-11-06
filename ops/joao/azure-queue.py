@@ -9,6 +9,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 
 PROJECT = '5d25148a-14fb-4bc8-8f5b-29441281d84e'
 
@@ -88,20 +89,74 @@ def invoke(value, args):
     return result.stdout.strip()
 
 
+def current_task(root, item):
+    if (root / 'current_issue').read_text().strip() != str(item):
+        raise ValueError('retest-source-is-not-current-task')
+    branch = (root / 'branch').read_text().strip()
+    if not re.fullmatch(r'joao/batch-[0-9TZ-]+-[0-9]+-[0-9]+', branch):
+        raise ValueError('invalid-retest-task-branch')
+    return branch
+
+
+def capture_retests(root, work_id, branch, output):
+    rows = json.loads(output)
+    if not isinstance(rows, list):
+        raise ValueError('invalid-retest-list')
+    captured = {}
+    for row in rows:
+        if (not isinstance(row, dict) or type(row.get('id')) is not int or row['id'] <= 0 or
+                type(row.get('deliveryRevision')) is not int or row['deliveryRevision'] <= 0 or
+                row.get('origin') != 'joao' or row.get('executor') not in {'raimundo', 'zeca'} or
+                str(row['id']) in captured):
+            raise ValueError('invalid-retest-entry')
+        captured[str(row['id'])] = row['deliveryRevision']
+    path = root / 'current-retests.json'
+    if path.is_symlink():
+        raise ValueError('invalid-retest-snapshot')
+    snapshot = dict(version=1, sourceWorkItemId=work_id, branch=branch, findings=captured)
+    with tempfile.NamedTemporaryFile(mode='w', dir=root, prefix='.retests-', delete=False) as out:
+        temporary = Path(out.name)
+        os.fchmod(out.fileno(), 0o600)
+        json.dump(snapshot, out)
+        out.flush()
+        os.fsync(out.fileno())
+    os.replace(temporary, path)
+    return output
+
+
+def validate_retest_result(root, work_id, branch, finding, result_file):
+    if type(finding) is not int or finding <= 0:
+        raise ValueError('invalid-retest-finding')
+    snapshot = private(root / 'current-retests.json')
+    result = private(result_file)
+    if (set(snapshot) != {'version', 'sourceWorkItemId', 'branch', 'findings'} or
+            snapshot['version'] != 1 or snapshot['sourceWorkItemId'] != work_id or
+            snapshot['branch'] != branch or not isinstance(snapshot['findings'], dict)):
+        raise ValueError('retest-snapshot-mismatch')
+    if (set(result) != {'deliveryRevision', 'outcome', 'summary', 'evidence'} or
+            type(result['deliveryRevision']) is not int or result['deliveryRevision'] <= 0 or
+            snapshot['findings'].get(str(finding)) != result['deliveryRevision'] or
+            result['outcome'] not in {'passed', 'failed'}):
+        raise ValueError('retest-result-outside-captured-delivery')
+    # Common adapter validates sanitized evidence and current delivery revision.
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root', type=Path)
-    parser.add_argument('command', choices=['preflight', 'capture', 'list', 'show', 'state', 'phase', 'comment', 'id', 'campaign', 'report-finding'])
+    parser.add_argument('command', choices=['preflight', 'capture', 'list', 'show', 'state', 'phase', 'comment', 'id', 'campaign', 'report-finding', 'list-retests', 'retest-result'])
     parser.add_argument('--item', type=int)
     parser.add_argument('--phase')
     parser.add_argument('--body-file')
     parser.add_argument('--marker')
     parser.add_argument('--report-file')
+    parser.add_argument('--finding', type=int)
+    parser.add_argument('--result-file')
     args = parser.parse_args()
     try:
         value = binding(args.root)
         mapping = active_mapping(args.root, value)
-        if args.command in {'id', 'campaign', 'show', 'state', 'phase', 'comment', 'report-finding'}:
+        if args.command in {'id', 'campaign', 'show', 'state', 'phase', 'comment', 'report-finding', 'list-retests', 'retest-result'}:
             if args.item is None or args.item <= 0:
                 raise ValueError('invalid-work-item')
             work_id = operational_id(args.root, value, args.item)
@@ -123,6 +178,15 @@ def main():
                     raise ValueError('ambiguous-preserved-campaign-number')
                 ids = [19 if item == mapping['azureWorkItemId'] else item for item in ids]
             print('\n'.join(str(item) for item in ids))
+        elif args.command in {'list-retests', 'retest-result'}:
+            branch = current_task(args.root, args.item)
+            arguments = [args.command, '--work-item', str(work_id)]
+            if args.command == 'list-retests':
+                print(capture_retests(args.root, work_id, branch, invoke(value, arguments)))
+            else:
+                validate_retest_result(args.root, work_id, branch, args.finding, args.result_file)
+                arguments += ['--finding', str(args.finding), '--result-file', args.result_file]
+                print(invoke(value, arguments))
         else:
             command = {'phase': 'set-phase', 'state': 'show'}.get(args.command, args.command)
             arguments = [command, '--work-item', str(work_id)]

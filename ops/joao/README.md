@@ -19,6 +19,19 @@ digests and the exact pending-work mapping; source tests do not activate anythin
 resumes the saved doing Task first; otherwise it captures eligible Tasks in
 explicit priority and ID order. Failed API access never means an empty queue.
 
+Before each Task execution, the host calls the common `list-retests --work-item`
+once and appends the closed set of its delivered product findings to the prompt.
+`current-retests.json` binds the Task, batch branch, finding IDs and delivery
+revisions; the next execution archives it alongside the previous prompt/events.
+João submits `retest-result --item KEY --finding AZURE_ID --result-file PATH`
+through the installed laboratory adapter. Only captured deliveries are eligible;
+the common boundary rechecks current linkage, revision and sanitized evidence.
+Retests run inside the source Task, without a second worktree, new Task or separate
+commit. A pass leaves the finding Done, while a demonstrated failure returns the
+same finding to To Do for its implementer. Inconclusive technical failures are not
+verdicts. The Task cannot finish with unpassed linked findings, and no retest
+changes an active campaign's authorization, candidate, budgets or review scope.
+
 The captured list does not change during the cycle. A private `joao/batch-*` branch
 and worktree are created from `origin/main`. Codex runs as `gpt-5.6-sol` with
 `xhigh` reasoning, one Issue at a time, and has three hours per Issue. A timeout
@@ -117,8 +130,9 @@ After every Issue is delivered as `validating`, the wrapper acquires its private
 main-integration lock, incorporates current `origin/main` into the batch branch,
 resolves ordinary conflicts only in that worktree, and runs both `npm test` and
 `npm run check`. The wrapper then fast-forwards and pushes `main` without rewriting
-history. Only after that does it move the batch from `validating` to `done`; it
-never closes Issues. Integration and finalization read only the private delivered
+history. Only after that does it move the batch from `validating` to real Azure
+`Done`, meaning technical delivery available for the owner's later manual test.
+This is not beta or production acceptance. Integration and finalization read only the private delivered
 list. The wrapper rejects a delivered Issue that was returned or blocked, and
 removes an integrated remote batch branch with an exact SHA lease.
 

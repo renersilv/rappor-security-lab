@@ -27,6 +27,7 @@ Path(__file__).with_suffix('.args').write_text(json.dumps(args))
 command=args[args.index('--state-dir')+2]
 if command == 'list': print('[305]')
 elif command == 'capture': print('[307, 302]')
+elif command == 'list-retests': print(Path(__file__).with_suffix('.retests').read_text())
 elif command == 'show': print(json.dumps({'id':int(args[args.index('--work-item')+1]), 'phase':'doing'}))
 else: print('{}')
 ''')
@@ -143,6 +144,94 @@ else: print('{}')
         args = json.loads(self.adapter.with_suffix('.args').read_text())
         self.assertIn('list', args)
         self.assertNotIn('capture', args)
+
+    def retests(self):
+        self.mapped()
+        self.rows = [dict(id=401, revision=8, deliveryRevision=7, executor='raimundo',
+                         origin='joao', priority=1, title='Synthetic retest', report={}, comments=[])]
+        self.adapter.with_suffix('.retests').write_text(json.dumps(self.rows))
+        result = self.call('list-retests', '--item', '19')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), self.rows)
+        result_file = self.root / 'retest-result.json'
+        self.save(result_file, dict(deliveryRevision=7, outcome='passed',
+                                    summary='Controlled scenario passed.', evidence=['Synthetic fixture observation.']))
+        return result_file
+
+    def test_retest_capture_preserves_campaign_and_maps_source_task(self):
+        self.mapped()
+        protected = {name: (self.root / name).read_bytes() for name in
+                     ['campaign.json', 'authorization.json', 'session', 'batch', 'branch']}
+        self.retests()
+        self.assertEqual(protected, {name: (self.root / name).read_bytes() for name in protected})
+        snapshot = QUEUE.private(self.root / 'current-retests.json')
+        self.assertEqual(snapshot['sourceWorkItemId'], 305)
+        self.assertEqual(snapshot['findings'], {'401': 7})
+        args = json.loads(self.adapter.with_suffix('.args').read_text())
+        self.assertEqual(args[args.index('--work-item') + 1], '305')
+        self.assertNotIn('--executor', args)
+
+    def test_retest_result_uses_captured_revision_and_replays_without_recapture(self):
+        result_file = self.retests()
+        for _ in range(2):
+            result = self.call('retest-result', '--item', '19', '--finding', '401', '--result-file', str(result_file))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            args = json.loads(self.adapter.with_suffix('.args').read_text())
+            self.assertIn('retest-result', args)
+            self.assertEqual(args[args.index('--work-item') + 1], '305')
+            self.assertEqual(args[args.index('--finding') + 1], '401')
+            self.assertNotIn('--executor', args)
+
+    def test_uncaptured_finding_or_revision_cannot_reach_common_adapter(self):
+        result_file = self.retests()
+        original = self.adapter.with_suffix('.args').read_bytes()
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '402',
+                                  '--result-file', str(result_file)).returncode, 65)
+        result = json.loads(result_file.read_text())
+        result['deliveryRevision'] = 8
+        self.save(result_file, result)
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '401',
+                                  '--result-file', str(result_file)).returncode, 65)
+        self.assertEqual(original, self.adapter.with_suffix('.args').read_bytes())
+
+    def test_retest_requires_current_task_and_branch(self):
+        result_file = self.retests()
+        original = self.adapter.with_suffix('.args').read_bytes()
+        (self.root / 'current_issue').write_text('20')
+        self.assertEqual(self.call('list-retests', '--item', '19').returncode, 65)
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '401',
+                                  '--result-file', str(result_file)).returncode, 65)
+        (self.root / 'current_issue').write_text('19')
+        snapshot = QUEUE.private(self.root / 'current-retests.json')
+        snapshot['branch'] = 'joao/batch-20261106T000000Z-305-305'
+        self.save(self.root / 'current-retests.json', snapshot)
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '401',
+                                  '--result-file', str(result_file)).returncode, 65)
+        self.assertEqual(original, self.adapter.with_suffix('.args').read_bytes())
+
+    def test_new_finding_does_not_expand_existing_retest_snapshot(self):
+        result_file = self.retests()
+        self.rows.append(dict(self.rows[0], id=402))
+        self.adapter.with_suffix('.retests').write_text(json.dumps(self.rows))
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '402',
+                                  '--result-file', str(result_file)).returncode, 65)
+        self.assertEqual(self.call('list-retests', '--item', '19').returncode, 0)
+        self.assertEqual(self.call('retest-result', '--item', '19', '--finding', '402',
+                                  '--result-file', str(result_file)).returncode, 0)
+
+    def test_retest_snapshot_transport_error_preserves_previous_evidence(self):
+        self.retests()
+        before = (self.root / 'current-retests.json').read_bytes()
+        self.adapter.with_suffix('.retests').write_text('not-json')
+        self.assertEqual(self.call('list-retests', '--item', '19').returncode, 65)
+        self.assertEqual(before, (self.root / 'current-retests.json').read_bytes())
+
+    def test_retest_capture_rejects_duplicate_foreign_or_invalid_deliveries(self):
+        self.retests()
+        for rows in ([self.rows[0], self.rows[0]], [dict(self.rows[0], origin='evener')],
+                     [dict(self.rows[0], executor='joao')], [dict(self.rows[0], deliveryRevision=True)]):
+            self.adapter.with_suffix('.retests').write_text(json.dumps(rows))
+            self.assertEqual(self.call('list-retests', '--item', '19').returncode, 65)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,13 @@
+# Delivery and linked finding retests
+
+The owner-approved Sebastião delivery model uses real Azure Done after verified
+technical delivery; human validation follows. João retests his own product findings
+inside the originating owner-authorized Task using a closed delivery-bound list.
+Passing keeps the Issue Done; a failed real scenario returns the same Issue to its
+implementer. Unpassed findings prevent Task completion. This source change does not
+install a new binding, change campaign evidence/budgets or prove a runtime retest.
+See ADR-0005.
+
 # Owner-action claim review correction
 
 Executor owner_required claims now require independent evidence review. A finished

@@ -58,7 +58,17 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
   preparations trigger diagnostic replanning, never inferred acceptance. Exhausted
   replanning, unverifiable authority and unsafe repairs remain explicit stops.
 - Use `blocked` only for a real owner decision, authorization, credential supplied through a secure channel or owner-controlled external change.
-- Deliver an implemented Issue open with `validating`. It moves to `done` only after the batch branch is integrated and its laboratory validation passes. The owner closes accepted work.
+- Deliver an implemented Task with `validating`. The wrapper sets real Azure `Done`
+  after batch integration and laboratory validation pass; this is technical delivery,
+  available for the owner's later manual test, not proof of manual acceptance.
+- João retests his own product findings within their originating owner-authorized
+  Task. The wrapper supplies a closed delivery-revision-bound list before each
+  execution. Product Issues keep their implementing Agent. A bounded retest result
+  keeps a passed finding Done or returns a failed finding to To Do for that same
+  implementer. Unconfirmed results and technical test failures are not verdicts.
+  The Task cannot finish while linked findings remain unpassed. Retesting grants
+  no additional inference, reset, target, budget or permission; the current
+  campaign and its independent-review boundaries remain authoritative.
 
 ## Safety rules
 
