@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "projectId": "5d25148a-14fb-4bc8-8f5b-29441281d84e",
+  "adapterPath": null,
+  "adapterSha256": null,
+  "runnerRevision": null,
+  "configPath": null,
+  "queueStateDirectory": null,
+  "campaign": {
+    "historicalId": 19,
+    "azureWorkItemId": null,
+    "branch": null
+  }
+}

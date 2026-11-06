@@ -1,3 +1,11 @@
+# Azure cutover addendum
+
+ADR-0005 supersedes historical GitHub queue instructions. Before starting this
+runner, install the reviewed common adapter and private exact Azure mapping under
+the existing shared/run/integration locks. Preserve historical campaign 19 state,
+receipt and authorization hashes. Only the mapped AB Task receives comments and
+phase transitions; never infer AB#19. The common cutover remains a prerequisite.
+
 # Native campaign bridge rollout
 
 ## Technical recovery and objective evidence — laboratory #26
@@ -136,12 +144,13 @@ Once #22 is validating or done, run with the existing protected paths:
 
     bash ops/joao/activate-campaign.sh AUTHORIZATION_JSON NATIVE_ATTEMPTS_ROOT CANDIDATE_JSON
     bash ops/joao/control.sh status
-    gh issue edit 19 --repo renersilv/rappor-security-lab --remove-label blocked --add-label doing
+    # The configured owner returns the explicitly mapped Azure Task to To Do.
+    # The wrapper revalidates authorization and enters doing; never edit GitHub Issues.
     systemctl --user start --no-block joao.service
 
 Keep the existing product release gate installed. It runs before the wrapper and
 selects doing/to-do/validating issues, so #19 must enter doing AFTER validated
-activation and BEFORE service start. Changing the label alone cannot authorize a
+activation and BEFORE service start. Changing a phase alone cannot authorize a
 campaign. Activation cannot bypass publication or resource locks. Confirm release
 gate success and actual worker progress instead of reporting service start alone.
 

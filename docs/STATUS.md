@@ -1,3 +1,12 @@
+# Current queue adaptation — ADR-0005
+
+The reviewed common Azure Security queue is the only operational source. Explicit
+Agent and Origin fields use the owner-approved shared account. The laboratory
+wrapper pins its common adapter and preserves historical campaign 19 under a
+separate exact Azure mapping. Source tests do not prove activation: installing the
+private binding and reviewed runner under existing locks remains a host operation.
+No campaign budget, receipt, session or product acceptance is changed by this work.
+
 # Current structural repair — laboratory #26
 
 The existing serialized worker now routes active-campaign operational suspensions

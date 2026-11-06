@@ -9,7 +9,7 @@ Build and maintain an independent, controlled validation laboratory for Rappor S
 Read in this order before changing the repository:
 
 1. `docs/STATUS.md`;
-2. the current approved GitHub Issue;
+2. the current approved Azure Task;
 3. `docs/BENCHMARK-CONTRACT.md`;
 4. `docs/SAFETY.md`;
 5. documents referenced by the Issue.
@@ -22,12 +22,15 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
 - João never changes, merges, publishes or deploys `rappor-security`.
 - Product unit, integration and architecture tests remain the responsibility of the product implementation Issue.
 - This repository owns black-box validation targets, ground truth, orchestration and sanitized reports.
-- A product discrepancy becomes a narrowly reproducible Issue in `renersilv/rappor-security`; João does not fix it here.
+- A product discrepancy becomes an Azure Issue in `rappor/Security`, declared origin `joao`, agent `raimundo`; João does not fix it here. Only the reviewed common report-finding operation may create it from the current owner-authorized João Task; no new per-finding approval or GitHub fallback is required or allowed.
 - Do not duplicate private product internals to make a benchmark pass. Exercise released or explicitly selected public contracts.
 
 ## Work queue
 
-- The operational labels are `to-do`, `doing`, `validating`, `done` and `blocked`.
+- Azure DevOps `rappor/Security` is the sole operational queue; GitHub hosts Git only.
+- `Custom.RapporAgent` selects the executor; `Custom.RapporOrigin` declares provenance. The shared Rener identity does not distinguish a human from automation.
+- João executes only owner-authorized Task items. Basic states remain `To Do`, `Doing`, `Done`; private managed phases are `to-do`, `doing`, `validating`, `done`, `blocked`.
+- ADR-0005 preserves historical campaign identifiers separately from explicit AB IDs. Never infer a campaign from a matching number or use GitHub Issue APIs.
 - Use one temporary branch per captured batch named `joao/batch-*`; never work directly on `main`.
 - Keep at most one open Issue in `doing`.
 - New Issues created after a batch starts wait for the next batch.
@@ -84,7 +87,7 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
 ## Language and data conventions
 
 - English is mandatory for source code, identifiers, comments, schemas, manifests, fixtures, logs, metrics and technical test output.
-- Portuguese is allowed in GitHub Issues and owner-facing operational messages.
+- Portuguese is allowed in Azure work items and owner-facing operational messages.
 - Persist instants in UTC and pin immutable revisions where possible.
 - Keep synthetic user-facing samples in both `pt-BR` and `en-US` only when localization behavior is under test.
 

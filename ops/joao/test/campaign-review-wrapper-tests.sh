@@ -7,39 +7,23 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 export TEST_ROOT
-export GH_BIN="$TEST_ROOT/gh" CODEX_BIN="$TEST_ROOT/codex" TIMEOUT_BIN="$TEST_ROOT/timeout"
+export CODEX_BIN="$TEST_ROOT/codex" TIMEOUT_BIN="$TEST_ROOT/timeout"
 MODEL=test-model REASONING_EFFORT=test REPOSITORY_SLUG=example/laboratory
 
-cat > "$GH_BIN" <<'PY'
-#!/usr/bin/env python3
-import json
-import os
-from pathlib import Path
-import sys
-
-root = Path(os.environ['STATE_ROOT'])
-args = sys.argv[1:]
-def event(value):
-    with (root / 'trace').open('a') as out:
-        out.write(value + '\n')
-if args[:2] == ['issue', 'edit']:
-    label = args[args.index('--add-label') + 1]
-    (root / 'operational').write_text(label)
-    event('label:' + label)
-elif args[:1] == ['api'] and '--method' not in args:
-    print('123')
-elif args[:1] == ['api'] and '--input' in args:
-    payload = json.loads(Path(args[args.index('--input') + 1]).read_text())
-    (root / 'last-notice.json').write_text(json.dumps(payload))
-    pending = (root / 'notice').read_text().strip()
-    event('notice:' + pending)
-    if pending == 'continued' and (root / 'fail-notice-once').exists():
-        (root / 'fail-notice-once').unlink()
-        sys.exit(23)
-else:
-    event('unexpected-github-command')
-    sys.exit(98)
-PY
+queue_comment() {
+  local pending
+  python3 -c 'import json,sys; from pathlib import Path; Path(sys.argv[1]).write_text(json.dumps({"body":sys.argv[2]}))' "$STATE_ROOT/last-notice.json" "$3"
+  pending=$(cat "$STATE_ROOT/notice")
+  record "notice:$pending"
+  if [[ $pending == continued && -f $STATE_ROOT/fail-notice-once ]]; then
+    rm "$STATE_ROOT/fail-notice-once"
+    return 23
+  fi
+}
+set_item_phase() {
+  printf '%s\n' "$2" > "$STATE_ROOT/operational"
+  record "label:$2"
+}
 
 cat > "$CODEX_BIN" <<'PY'
 #!/usr/bin/env python3
@@ -68,7 +52,7 @@ while [[ $# -gt 0 && $1 != "$CODEX_BIN" ]]; do shift; done
 [[ $# -gt 0 ]]
 exec "$@"
 SH
-chmod 700 "$GH_BIN" "$CODEX_BIN" "$TIMEOUT_BIN"
+chmod 700 "$CODEX_BIN" "$TIMEOUT_BIN"
 
 source "$SCRIPT_DIR/campaign.sh"
 

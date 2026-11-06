@@ -4,7 +4,7 @@
 source "$SCRIPT_DIR/campaign.sh"
 
 stage_enabled() {
-  [[ -f $SCRIPT_DIR/contracts/$1.json ]]
+  [[ $(azure_queue campaign --item "$1") == 19 && -f $SCRIPT_DIR/contracts/19.json ]]
 }
 
 stage_command() {
@@ -17,7 +17,7 @@ stage_prompt() {
     campaign_command prompt
     return $?
   fi
-  [[ ! -f $SCRIPT_DIR/contracts/$issue.json ]] || {
+  ! stage_enabled "$issue" || {
     printf '\nCURRENT OPT-IN STAGE: preparation, not final delivery.\n'
     cat "$SCRIPT_DIR/contracts/issue-$issue.md"
     printf '\nThe wrapper reviews this preparation automatically. Preserve doing and all changes; do not commit/push or request chat review. Do not reread superseded Issue instructions.\n'
@@ -33,12 +33,9 @@ stage_prompt() {
 }
 
 stage_notice() {
-  local issue=$1 phase=$2 marker existing body reason
+  local issue=$1 phase=$2 marker body reason
   reason=$(python3 "$SCRIPT_DIR/stage-control.py" status "$STATE_ROOT" | sed -n 's/^stage_reason=//p') || return $?
-  marker="<!-- joao-stage:$issue:$phase:$reason -->"
-  existing=$($GH_BIN api --paginate "repos/$REPOSITORY_SLUG/issues/$issue/comments" \
-    --jq ".[] | select(.body | contains(\"$marker\")) | .id") || return 1
-  [[ -z $existing ]] || return 0
+  marker="<!-- joao-stage:$issue.${phase//_/-}.${reason//_/-} -->"
   if [[ $phase == waiting_owner ]]; then
     if [[ $reason == campaign_authorization ]]; then
       body='@renersilv, a preparação passou pelos checks e pela revisão independente automática. A próxima etapa exige autorização de uma nova campanha: as quatro execuções CLI autorizadas já foram consumidas; as duas reservas IDE continuam preservadas. O trabalho foi salvo, sem falha operacional. O timer aguarda sem executar outro modelo. A jornada completa e o aceite final continuam pendentes; resume não aumenta a cota.'
@@ -48,9 +45,7 @@ stage_notice() {
   else
     body='@renersilv, a revisão atingiu o limite de três rodadas. O trabalho e os diagnósticos foram preservados; é necessária uma revisão assistida da causa antes de novas rodadas. Nenhum critério de aceite, limite de campanha ou controle de segurança foi removido.'
   fi
-  $GH_BIN issue comment "$issue" --repo "$REPOSITORY_SLUG" --body "$body
-
-$marker" >/dev/null
+  queue_comment "$issue" "$marker" "$body"
 }
 
 run_stage_review() {
@@ -93,7 +88,7 @@ run_stage_review() {
   (( result == 0 )) || return "$result"
   phase=$(stage_command finish-review "$issue" "$worktree") || return $?
   if [[ $phase == correction && $(issue_operational_state "$issue") == blocked ]]; then
-    $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label blocked --add-label doing >/dev/null
+    log "Owner-blocked item awaits an authorized Azure To Do transition"
   fi
 }
 
@@ -105,17 +100,17 @@ execute_stage() {
     waiting_owner|exhausted)
       stage_notice "$issue" "$phase" || return $?
       if [[ $operational == doing ]]; then
-        $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label doing --add-label blocked >/dev/null
+        set_item_phase "$issue" blocked
       fi
       return 0 ;;
     review_pending)
       run_stage_review "$issue" "$worktree" ;;
     implementation|correction)
       # Only this explicit stage contract authorizes resuming independent preparation.
-      # A block during implementation is not silently cleared: it receives bounded review first.
+      # An owner block requires an authorized Azure transition before more work.
       if [[ $operational == blocked ]]; then
-        run_stage_review "$issue" "$worktree"
-        return $?
+        log "Owner-blocked item awaits an authorized Azure To Do transition"
+        return 0
       fi
       [[ $operational == doing ]] || return 65
       if [[ $issue == 19 && ${INVOCATION_ID:-} =~ ^[a-f0-9]{32}$ ]]; then
@@ -154,12 +149,12 @@ execute_staged_item() {
   clear_issue_retry
   phase=$(stage_command phase "$issue" "$worktree") || return $?
   if [[ $phase == correction && $(issue_operational_state "$issue") == blocked ]]; then
-    $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label blocked --add-label doing >/dev/null
+    log "Owner-blocked item awaits an authorized Azure To Do transition"
   fi
   if [[ $phase == waiting_owner || $phase == exhausted ]]; then
     stage_notice "$issue" "$phase" || return $?
     if [[ $(issue_operational_state "$issue") == doing ]]; then
-      $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label doing --add-label blocked >/dev/null
+      set_item_phase "$issue" blocked
     fi
   fi
 }

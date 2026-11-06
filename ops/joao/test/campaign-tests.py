@@ -243,9 +243,8 @@ set -euo pipefail
 SCRIPT_DIR=$1
 STATE_ROOT=$2
 REPOSITORY_SLUG=fixture/lab
-GH_BIN=mock_gh
-printf blocked > "$STATE_ROOT/mock-label"
-mock_gh() { printf doing > "$STATE_ROOT/mock-label"; }
+azure_queue() { printf 19; }
+printf doing > "$STATE_ROOT/mock-label"
 issue_operational_state() { cat "$STATE_ROOT/mock-label"; }
 log() { printf '%s\n' "$*"; }
 clear_issue_retry() { :; }
@@ -330,7 +329,8 @@ campaign_review_flush_notice() { :; }
 run_campaign_review() { printf 'review boundary reached\n'; }
 preflight() { :; }
 issue_operational_state() { printf doing; }
-list_open_with_label() { [[ $1 != doing ]] || printf '19\n'; }
+list_with_phase() { [[ $1 != doing ]] || printf '19\n'; }
+azure_queue() { case $1 in id) printf 305 ;; campaign) printf 19 ;; show) printf '{"id":305,"executor":"joao","origin":"owner","workItemType":"Task","phase":"doing"}' ;; *) return 65 ;; esac; }
 integrate_batch() { printf forbidden > "$STATE_ROOT/forbidden-integration"; return 1; }
 finalize_batch() { printf forbidden > "$STATE_ROOT/forbidden-finalization"; return 1; }
 run_cycle
@@ -356,10 +356,10 @@ run_cycle
     def test_rollout_keeps_release_gate_and_sets_doing_before_service_start(self):
         rollout = SCRIPT.with_name('CAMPAIGN-ROLLOUT.md').read_text()
         self.assertIn('release gate', rollout)
-        self.assertIn('--remove-label blocked --add-label doing', rollout)
+        self.assertIn('The configured owner returns the explicitly mapped Azure Task to To Do.', rollout)
         self.assertLess(rollout.index('activate-campaign.sh AUTHORIZATION_JSON'),
-                        rollout.index('--remove-label blocked --add-label doing'))
-        self.assertLess(rollout.index('--remove-label blocked --add-label doing'),
+                        rollout.index('The configured owner returns the explicitly mapped Azure Task to To Do.'))
+        self.assertLess(rollout.index('The configured owner returns the explicitly mapped Azure Task to To Do.'),
                         rollout.index('systemctl --user start'))
 
     def result(self, number, phase='active', *, candidate=True):
@@ -682,12 +682,8 @@ set -euo pipefail
 export JOAO_STATE_ROOT=$2
 export JOAO_REPOSITORY_PATH=$3
 source "$1/run.sh"
-GH_BIN=mock_gh
-mock_gh() {
-  if [[ $1 == api && $2 == --method ]]; then
-    printf notification >> "$STATE_ROOT/mock-notification"
-  fi
-}
+azure_queue() { printf 19; }
+queue_comment() { printf notification >> "$STATE_ROOT/mock-notification"; }
 run_codex() { printf forbidden > "$STATE_ROOT/forbidden-model"; return 1; }
 for attempt in 1 2 3; do
   result=0

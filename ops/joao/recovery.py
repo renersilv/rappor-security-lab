@@ -103,7 +103,7 @@ def protected(root):
     campaign = C.private(root / 'campaign.json')
     controller.bound(root, campaign)
     paths = [root / name for name in ('campaign.json', 'stage.json', 'session', 'batch',
-                                     'branch', 'worktree', 'current_issue', 'base_sha') if (root / name).exists()]
+                                     'branch', 'worktree', 'current_issue', 'base_sha', 'azure-binding.json') if (root / name).exists()]
     paths.append(Path(campaign['authorizationPath']))
     paths += sorted(Path(campaign['attemptsRoot']).glob('attempt-*/receipt.json'))
     return {str(path): C.digest(path) for path in paths}

@@ -25,6 +25,19 @@ new_sandbox() {
   mkdir -p "$JOAO_STATE_ROOT" "$JOAO_REPOSITORY_PATH"
   source "$RUNNER"
   chmod 700 "$JOAO_STATE_ROOT"
+  mkdir -p "$RUNTIME_TMP"
+  # The mocked runner scenarios use a declared campaign mapping, not an AB number.
+  azure_queue() {
+    case $1 in
+      id) printf '%s' "$3" ;;
+      campaign) [[ $3 == 19 ]] && printf '19' || printf 'none' ;;
+      show) printf '{"id":%s,"phase":"to-do","executor":"joao","origin":"owner","workItemType":"Task"}' "$3" ;;
+      *) return 65 ;;
+    esac
+  }
+  operational_id() { printf '%s' "$1"; }
+  capture_queue() { list_with_phase to-do; }
+  queue_comment() { return 0; }
 }
 
 remove_sandbox() {
@@ -40,7 +53,7 @@ test_fixed_batch_and_delivery() (
   declare -A OPS=([2]=to-do [3]=to-do [8]=to-do)
   : > "$TEST_SANDBOX/git.log"
 
-  list_open_with_label() {
+  list_with_phase() {
     if [[ $1 == doing ]]; then
       [[ -z $CURRENT_DOING ]] || printf '%s\n' "$CURRENT_DOING"
     else
@@ -61,13 +74,11 @@ test_fixed_batch_and_delivery() (
       mkdir -p "$(read_state worktree)"
     fi
   }
-  mock_gh() {
-    local issue=$3
-    OPS[$issue]=doing
-    CURRENT_DOING=$issue
+  set_item_phase() {
+    OPS[$1]=$2
+    CURRENT_DOING=$1
   }
   GIT_BIN=mock_git
-  GH_BIN=mock_gh
   capture_batch
   assert_equal $'2\n3' "$(cat "$(state_file batch)")" "capture stores the initial ordered batch"
   [[ $(cat "$TEST_SANDBOX/git.log") == *"worktree add -b joao/batch-20260907T000000Z-2-3"*"0000000000000000000000000000000000000000"* ]]
@@ -91,16 +102,11 @@ test_owner_or_explicit_approval() (
   trap remove_sandbox EXIT
   new_sandbox
   issue_operational_state() { printf 'to-do'; }
-  eligibility_gh() {
-    if [[ $1 == issue ]]; then
-      [[ $3 == 2 ]] && printf 'renersilv\n' || printf 'contributor\n'
-    elif [[ $2 == *"/issues/7/comments" ]]; then
-      printf 'true\n'
-    else
-      printf 'false\n'
-    fi
+  azure_queue() {
+    [[ $1 == show ]] || return 1
+    [[ $3 == 2 || $3 == 7 ]] || return 65
+    printf '{"phase":"to-do","executor":"joao","origin":"owner","workItemType":"Task"}'
   }
-  GH_BIN=eligibility_gh
   issue_is_eligible 2
   issue_is_eligible 7
   if issue_is_eligible 8; then
@@ -131,7 +137,7 @@ test_session_resume() (
   write_state current_issue 5
   write_state session 11111111-1111-1111-1111-111111111111
   OP_STATE=doing
-  list_open_with_label() { [[ $1 != doing || $OP_STATE != doing ]] || printf '5\n'; }
+  list_with_phase() { [[ $1 != doing || $OP_STATE != doing ]] || printf '5\n'; }
   issue_operational_state() { printf '%s' "$OP_STATE"; }
   verify_delivery() { return 0; }
   run_codex() {
@@ -148,7 +154,7 @@ test_doing_uniqueness() (
   new_sandbox
   prepare_resumable_issue 6
   issue_operational_state() { printf 'doing'; }
-  list_open_with_label() { [[ $1 != doing ]] || printf '6\n9\n'; }
+  list_with_phase() { [[ $1 != doing ]] || printf '6\n9\n'; }
   set +e
   execute_issues >/dev/null 2>&1
   result=$?
@@ -161,13 +167,12 @@ test_doing_uniqueness() (
 test_label_listing_uses_direct_api() (
   trap remove_sandbox EXIT
   new_sandbox
-  api_gh() {
-    printf '%s\n' "$*" > "$TEST_SANDBOX/gh-arguments"
+  azure_queue() {
+    printf '%s\n' "$*" > "$TEST_SANDBOX/queue-arguments"
     printf '3\n'
   }
-  GH_BIN=api_gh
-  assert_equal 3 "$(list_open_with_label doing)" "direct API returns the matching Issue"
-  grep -Fq 'api --method GET --paginate repos/renersilv/rappor-security-lab/issues -f state=open -f labels=doing -f per_page=100' "$TEST_SANDBOX/gh-arguments"
+  assert_equal 3 "$(list_with_phase doing)" "validated Azure inventory returns the matching item"
+  grep -Fxq 'list --phase doing' "$TEST_SANDBOX/queue-arguments"
 )
 
 test_doing_transition_tolerates_delayed_listing() (
@@ -176,7 +181,7 @@ test_doing_transition_tolerates_delayed_listing() (
   printf '0\n' > "$TEST_SANDBOX/list-attempt"
   STATE_SETTLE_ATTEMPTS=3
   STATE_SETTLE_DELAY_SECONDS=0
-  list_open_with_label() {
+  list_with_phase() {
     local attempt
     attempt=$(<"$TEST_SANDBOX/list-attempt")
     attempt=$((attempt + 1))
@@ -192,7 +197,7 @@ test_timeout_preserves_resume() (
   new_sandbox
   prepare_resumable_issue 6
   issue_operational_state() { printf 'doing'; }
-  list_open_with_label() { [[ $1 != doing ]] || printf '6\n'; }
+  list_with_phase() { [[ $1 != doing ]] || printf '6\n'; }
   run_codex() { return 124; }
   set +e
   execute_issues >/dev/null 2>&1
@@ -310,7 +315,7 @@ test_codex_diagnostics_survive_until_verified_delivery() (
   diagnostics="$JOAO_STATE_ROOT/diagnostics/issue-7"
   grep -Fq '"attempt":1' "$diagnostics/attempt-1.events.jsonl"
   grep -Fq 'private diagnostic attempt 1' "$diagnostics/attempt-1.errors.log"
-  grep -Fq 'Current Issue: #7' "$diagnostics/attempt-1.prompt.md"
+  grep -Fq 'Current Azure item: AB#7' "$diagnostics/attempt-1.prompt.md"
   grep -Fq '"attempt":2' "$(state_file codex-events.jsonl)"
   clear_item_state 7
   [[ ! -e $diagnostics ]]
@@ -325,7 +330,7 @@ test_equivalent_undelivered_results_suspend_after_three_attempts() (
   printf '0\n' > "$TEST_SANDBOX/run-count"
   printf '0\n' > "$TEST_SANDBOX/attention-count"
   issue_operational_state() { printf '%s' "$OP_STATE"; }
-  list_open_with_label() { [[ $1 != doing ]] || printf '18\n'; }
+  list_with_phase() { [[ $1 != doing ]] || printf '18\n'; }
   run_codex() {
     local count
     count=$(<"$TEST_SANDBOX/run-count")
@@ -385,7 +390,7 @@ test_verified_delivery_clears_retry_and_private_diagnostics() (
   printf 'current\n' > "$(state_file codex-errors.log)"
   chmod 600 "$(state_file codex-errors.log)"
   issue_operational_state() { printf 'validating'; }
-  list_open_with_label() { return 0; }
+  list_with_phase() { return 0; }
   verify_delivery() { return 0; }
   execute_issues
   [[ ! -e $(state_file issue-retry) ]]
@@ -400,16 +405,10 @@ test_issue_retry_attention_is_sanitized() (
   ISSUE_RETRY_ISSUE=18
   ISSUE_RETRY_FINGERPRINT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   : > "$TEST_SANDBOX/comment"
-  retry_gh() {
-    if [[ $1 == api ]]; then
-      return 0
-    fi
-    printf '%s\n' "$*" > "$TEST_SANDBOX/comment"
-  }
-  GH_BIN=retry_gh
+  queue_comment() { printf '%s\n' "$3" > "$TEST_SANDBOX/comment"; }
   notify_issue_retry_attention
   grep -Fq '@renersilv' "$TEST_SANDBOX/comment"
-  grep -Fq 'Issue #18' "$TEST_SANDBOX/comment"
+  grep -Fq 'AB#18' "$TEST_SANDBOX/comment"
   if grep -Eq 'aaaaaaaa|44444444|/tmp/|session|token|secret' "$TEST_SANDBOX/comment"; then
     printf 'not ok - retry attention exposed private diagnostic detail\n' >&2
     return 1
@@ -423,7 +422,7 @@ test_validating_crash_recovery_skips_codex() (
   : > "$(state_file delivered)"
   : > "$(state_file not_delivered)"
   issue_operational_state() { printf 'validating'; }
-  list_open_with_label() { return 0; }
+  list_with_phase() { return 0; }
   verify_delivery() { return 0; }
   run_codex() {
     printf 'not ok - validating recovery reexecuted Codex\n' >&2
@@ -455,7 +454,7 @@ test_issue_boundary_recovery_is_idempotent() (
   VERIFY_COUNT=0
   CODEX_COUNT=0
   issue_operational_state() { printf '%s' "$OP_STATE"; }
-  list_open_with_label() { return 0; }
+  list_with_phase() { return 0; }
   verify_delivery() { VERIFY_COUNT=$((VERIFY_COUNT + 1)); }
   run_codex() { CODEX_COUNT=$((CODEX_COUNT + 1)); }
   boundary_git() {
@@ -481,7 +480,7 @@ test_recorded_cursor_after_cleanup_skips_validation() (
   write_state issue_base_sha 1111111111111111111111111111111111111111
   write_state session 11111111-1111-1111-1111-111111111111
   issue_operational_state() { printf 'not ok - recorded cursor was revalidated\n' >&2; return 1; }
-  list_open_with_label() { return 0; }
+  list_with_phase() { return 0; }
   run_codex() { printf 'not ok - recorded cursor reran Codex\n' >&2; return 1; }
   execute_issues
   [[ ! -e $(state_file issue_base_sha) ]]
@@ -510,7 +509,7 @@ test_blocked_issue_does_not_stop_independent_delivery() (
   CURRENT_DOING=
   PROCESSED=
   issue_operational_state() { printf '%s' "${OPS[$1]}"; }
-  list_open_with_label() { [[ $1 != doing || -z $CURRENT_DOING ]] || printf '%s\n' "$CURRENT_DOING"; }
+  list_with_phase() { [[ $1 != doing || -z $CURRENT_DOING ]] || printf '%s\n' "$CURRENT_DOING"; }
   validate_worktree() { return 0; }
   mock_git() {
     case "$*" in
@@ -518,9 +517,9 @@ test_blocked_issue_does_not_stop_independent_delivery() (
       *"rev-parse HEAD"*) printf '%040d\n' 0 ;;
     esac
   }
-  mock_gh() {
-    OPS[$3]=doing
-    CURRENT_DOING=$3
+  set_item_phase() {
+    OPS[$1]=$2
+    CURRENT_DOING=$1
   }
   run_codex() {
     PROCESSED+=" $1"
@@ -529,7 +528,6 @@ test_blocked_issue_does_not_stop_independent_delivery() (
   }
   verify_delivery() { return 0; }
   GIT_BIN=mock_git
-  GH_BIN=mock_gh
   execute_issues
   assert_equal 4 "$(cat "$(state_file not_delivered)")" "blocked Issue is recorded as not delivered"
   assert_equal 5 "$(cat "$(state_file delivered)")" "independent Issue is delivered"
@@ -566,7 +564,7 @@ test_preparation_does_not_become_invalid_delivery() (
   prepare_resumable_issue 19
   OP_STATE=doing
   issue_operational_state() { printf '%s' "$OP_STATE"; }
-  list_open_with_label() { [[ $1 != doing ]] || printf '19\n'; }
+  list_with_phase() { [[ $1 != doing ]] || printf '19\n'; }
   run_codex() { printf 'implemented\n' > "$TEST_SANDBOX/implementation"; }
   stage_command() { printf 'implementation\n'; }
   run_stage_review() { printf 'reviewed\n' > "$TEST_SANDBOX/review"; }
@@ -586,13 +584,9 @@ test_failed_preparation_checks_resume_correction_without_owner() (
   issue_operational_state() { printf '%s' "$OP_STATE"; }
   execute_stage() { return 0; }
   stage_command() { printf 'correction\n'; }
-  mock_stage_gh() {
-    [[ $* == *"--remove-label blocked --add-label doing"* ]] || return 1
-    OP_STATE=doing
-  }
-  GH_BIN=mock_stage_gh
+  set_item_phase() { return 99; }
   execute_staged_item 19 "$(read_state worktree)" "$(read_state branch)"
-  assert_equal doing "$OP_STATE" "failed checks schedule corrective implementation"
+  assert_equal blocked "$OP_STATE" "review cannot clear a real owner block"
   [[ ! -e $(state_file suspended) && ! -e $(state_file issue-retry) ]]
 )
 
@@ -602,7 +596,7 @@ test_preparation_wait_does_not_run_or_discard_work() (
   prepare_resumable_issue 19
   OP_STATE=blocked
   issue_operational_state() { printf '%s' "$OP_STATE"; }
-  list_open_with_label() { return 0; }
+  list_with_phase() { return 0; }
   stage_command() { printf 'waiting_owner\n'; }
   stage_notice() { return 0; }
   run_codex() { return 99; }
@@ -620,8 +614,7 @@ test_preparation_wait_does_not_run_or_discard_work() (
 test_conflicting_labels_and_closed_issue_are_rejected() (
   trap remove_sandbox EXIT
   new_sandbox
-  state_gh() { printf '%s\n' "$SNAPSHOT"; }
-  GH_BIN=state_gh
+  azure_queue() { printf '%s\n' "$SNAPSHOT"; }
   SNAPSHOT=$'OPEN\t2\tdoing'
   if issue_operational_state 7 >/dev/null 2>&1; then
     printf 'not ok - conflicting operational labels were accepted\n' >&2
@@ -768,16 +761,14 @@ test_wrapper_integration_and_final_states() (
     HEAD_SHA=$integrated_sha
     MERGE_ACTIVE=0
   }
-  mock_gh() {
-    if [[ $* == *"--add-label done"* ]]; then
-      printf '%s\n' "$3" >> "$TEST_SANDBOX/done.log"
-      OPS[$3]="done"
-    fi
+  set_item_phase() {
+    [[ $2 == "done" ]] || return 1
+    printf '%s\n' "$1" >> "$TEST_SANDBOX/done.log"
+    OPS[$1]="done"
   }
   issue_operational_state() { printf '%s' "${OPS[$1]}"; }
   GIT_BIN=mock_git
   NPM_BIN=mock_npm
-  GH_BIN=mock_gh
   integrate_batch
   assert_equal $'2\n3' "$(cat "$TEST_SANDBOX/done.log")" "wrapper finalizes delivered Issues"
   [[ $(cat "$TEST_SANDBOX/git.log") == *"push origin main"* ]]
@@ -840,8 +831,7 @@ test_returned_delivery_is_not_finalized() (
   write_state worktree "$worktree"
   write_state integrated_head 4444444444444444444444444444444444444444
   issue_operational_state() { printf 'to-do'; }
-  mock_gh() { printf 'edited\n' > "$TEST_SANDBOX/edited"; }
-  GH_BIN=mock_gh
+  set_item_phase() { printf 'edited\n' > "$TEST_SANDBOX/edited"; }
   set +e
   finalize_batch >/dev/null 2>&1
   result=$?
@@ -931,6 +921,43 @@ test_control_reports_and_releases_only_suspended_issue_retry() (
   assert_equal "--user start --no-block joao.service" "$(cat "$TEST_SANDBOX/systemctl.log")" "retry resume starts only the preserved executor"
 )
 
+test_stage_notice_uses_azure_marker_contract() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  stage_command() { printf waiting_owner; }
+  python3() { printf 'stage_reason=campaign_authorization\n'; }
+  queue_comment() {
+    [[ $2 == '<!-- joao-stage:19.waiting-owner.campaign-authorization -->' ]]
+  }
+  stage_notice 19 waiting_owner
+)
+
+test_azure_failure_is_not_empty_queue() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  list_with_phase() { return 65; }
+  result=0
+  capture_batch || result=$?
+  assert_equal 65 "$result" "failed Azure inventory cannot mean no work"
+  [[ ! -e $(state_file batch) ]]
+  result=0
+  wait_for_doing_state || result=$?
+  assert_equal 65 "$result" "failed inventory cannot satisfy no-doing check"
+)
+
+test_campaign_owner_block_is_not_silently_cleared() (
+  trap remove_sandbox EXIT
+  new_sandbox
+  campaign_review_flush_notice() { return 0; }
+  campaign_review_command() { printf continued; }
+  campaign_command() { [[ $1 == phase ]] || return 99; printf active; }
+  issue_operational_state() { printf blocked; }
+  run_codex() { printf forbidden > "$TEST_SANDBOX/model-called"; }
+  set_item_phase() { printf forbidden > "$TEST_SANDBOX/phase-changed"; }
+  execute_campaign_item 19 /tmp/unused joao/batch-20261016T173531Z-19-19
+  [[ ! -e $TEST_SANDBOX/model-called && ! -e $TEST_SANDBOX/phase-changed ]]
+)
+
 test_fixed_batch_and_delivery
 test_owner_or_explicit_approval
 test_session_resume
@@ -967,4 +994,7 @@ test_service_uses_closed_path_and_preflight
 test_runner_uses_private_temporary_directory
 test_control_status_and_resume
 test_control_reports_and_releases_only_suspended_issue_retry
+test_stage_notice_uses_azure_marker_contract
+test_azure_failure_is_not_empty_queue
+test_campaign_owner_block_is_not_silently_cleared
 printf 'ok - joao runner scenarios\n'

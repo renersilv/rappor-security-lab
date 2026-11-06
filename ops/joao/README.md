@@ -1,15 +1,23 @@
-# João autonomous runner
+# Azure operation
 
-The runner executes fixed laboratory Issue batches without an interactive terminal.
-It never deploys targets and has no path to the Rappor Security product repository.
+The runner executes one fixed Azure Task batch at a time. ADR-0005 and the common
+adapter define authorization: explicit Agent `joao`, declared Origin `owner`,
+configured owner transition to To Do, exact project/type/priority/revision.
+Comments, titles, AssignedTo display names and GitHub labels grant no authority.
 
-## Lifecycle
+Install a private 0600 `azure-binding.json` under the existing state root only after
+the common queue cutover is active. Fields: version 1, Security projectId, absolute
+adapterPath/configPath/queueStateDirectory, adapterSha256, common runnerRevision,
+and optional campaign mapping {historicalId:19, azureWorkItemId:ACTUAL_ID,
+branch:PRESERVED_BRANCH}. No source default guesses an Azure ID. The common
+adapter must expose read-only `list`. Its bytes are pinned separately from the
+laboratory revision. Keep the service stopped until binding and preflight pass
+under shared/run/integration locks. Activation requires preserved state/budget
+digests and the exact pending-work mapping; source tests do not activate anything.
 
-`run.sh cycle` validates the repository and remote before reading the queue. It
-resumes the single saved `doing` Issue first. Otherwise it captures every eligible
-open `to-do` Issue in numeric order. Eligibility means the Issue was opened by
-`renersilv`, or a comment by that account contains the explicit marker
-`/joao approve`.
+`run.sh cycle` validates the repository, pinned adapter and Azure metadata. It
+resumes the saved doing Task first; otherwise it captures eligible Tasks in
+explicit priority and ID order. Failed API access never means an empty queue.
 
 The captured list does not change during the cycle. A private `joao/batch-*` branch
 and worktree are created from `origin/main`. Codex runs as `gpt-5.6-sol` with
@@ -127,12 +135,10 @@ boundary: Codex uses the operator's existing `CODEX_HOME` authentication and ses
 store.
 
 Every fetch and push URL configured for `origin` must resolve exactly to
-`renersilv/rappor-security-lab`. This prevents repository confusion, but `gh` still
-uses the operator's existing credential. That credential is a residual operational
-risk: the wrapper does not create or store a replacement credential, validates the
-repository slug strictly, and the versioned prompt explicitly prohibits access to
-the product repository. The existing Codex and GitHub credentials therefore remain
-residual risks rather than physically isolated capabilities.
+`renersilv/rappor-security-lab`. Git authentication remains the existing operator
+credential. Azure access uses only the protected common helper. The versioned
+prompt prohibits product source changes; these logical controls do not create
+physical credential isolation.
 
 ## Control
 
@@ -177,10 +183,10 @@ credentials or other secrets in the optional João environment file.
 
 ## Local validation
 
-The deterministic test harness replaces GitHub, Codex, timeout and integration
-effects with local functions. It covers closed-batch capture, owner approval,
+The deterministic test harness replaces Azure, Codex, timeout and integration
+effects with local functions. It covers closed-batch capture, authenticated authorization,
 reboot/session recovery, timeout artifacts, validating recovery, blocked
-continuation, conflicting labels, repository URL rejection, stale worktrees,
+continuation, invalid phases, repository URL rejection, stale worktrees,
 atomic capture recovery, Issue-boundary recovery, staged merge recovery,
 delivered-head preservation, wrapper-only integration, leased branch deletion,
 final states, real lock contention and sanitized controls.

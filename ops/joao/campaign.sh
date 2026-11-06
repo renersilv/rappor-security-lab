@@ -2,7 +2,7 @@
 # Sourced by stages.sh; no experiment or final delivery is started by this adapter.
 
 campaign_enabled() {
-  [[ $1 == 19 && -e $STATE_ROOT/campaign.json ]]
+  [[ $1 == 19 && -e $STATE_ROOT/campaign.json && $(azure_queue campaign --item "$1") == 19 ]]
 }
 
 campaign_command() {
@@ -14,7 +14,7 @@ campaign_review_command() {
 }
 
 campaign_review_notice() {
-  local phase=$1 marker='<!-- joao-campaign-review:19 -->' existing message payload
+  local phase=$1 marker='<!-- joao-campaign-review:19 -->' message
   case $phase in
     reviewing) message='A revisão independente automática está em execução, limitada a 20 minutos. O próprio serviço entregará o diagnóstico ao João. Nenhuma ação sua é necessária nesta etapa.' ;;
     continued) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
@@ -23,19 +23,7 @@ campaign_review_notice() {
     *) return 65 ;;
   esac
   message+=$'\n\n'$(python3 "$SCRIPT_DIR/objectives.py" public "$STATE_ROOT") || return $?
-  existing=$($GH_BIN api --paginate "repos/$REPOSITORY_SLUG/issues/19/comments" \
-    --jq ".[] | select(.body | contains(\"$marker\")) | .id") || return $?
-  [[ $existing != *$'\n'* ]] || return 65
-  payload=$(state_file campaign-review-notice.json)
-  python3 -c 'import json,sys; print(json.dumps({"body": sys.argv[1]+"\n\n"+sys.argv[2]}))' \
-    "$message" "$marker" > "$payload"
-  chmod 600 "$payload"
-  if [[ -n $existing ]]; then
-    [[ $existing =~ ^[0-9]+$ ]] || return 65
-    $GH_BIN api --method PATCH "repos/$REPOSITORY_SLUG/issues/comments/$existing" --input "$payload" >/dev/null
-  else
-    $GH_BIN api --method POST "repos/$REPOSITORY_SLUG/issues/19/comments" --input "$payload" >/dev/null
-  fi
+  queue_comment 19 "$marker" "$message"
 }
 
 campaign_review_flush_notice() {
@@ -47,7 +35,7 @@ campaign_review_flush_notice() {
   if [[ $phase == owner_required ]]; then
     operational=$(issue_operational_state 19) || return $?
     if [[ $operational == doing ]]; then
-      $GH_BIN issue edit 19 --repo "$REPOSITORY_SLUG" --remove-label doing --add-label blocked >/dev/null || return $?
+      set_item_phase 19 blocked || return $?
     else
       [[ $operational == blocked ]] || return 65
     fi
@@ -144,7 +132,8 @@ execute_campaign_item() {
   fi
   operational=$(issue_operational_state "$issue") || return $?
   if [[ $operational == blocked ]]; then
-    $GH_BIN issue edit "$issue" --repo "$REPOSITORY_SLUG" --remove-label blocked --add-label doing >/dev/null || return $?
+    log "Owner-blocked campaign awaits an authorized Azure To Do transition"
+    return 0
   elif [[ $operational != doing ]]; then
     return 65
   fi
