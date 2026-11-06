@@ -117,11 +117,20 @@ run_campaign_review() {
 }
 
 execute_campaign_item() {
-  local issue=$1 worktree=$2 branch=$3 phase operational result=0
+  local issue=$1 worktree=$2 branch=$3 phase operational owner_claim result=0
   campaign_review_flush_notice || return $?
   phase=$(campaign_review_command phase) || return $?
   [[ $phase != stalled ]] || return 70
   phase=$(campaign_command phase) || return $?
+  if [[ $phase == owner_required ]]; then
+    owner_claim=$(campaign_review_command owner-claim-pending) || return $?
+    if [[ $owner_claim == yes ]]; then
+      run_campaign_review "$worktree" || return $?
+      phase=$(campaign_command phase) || return $?
+    elif [[ $owner_claim != no ]]; then
+      return 65
+    fi
+  fi
   if [[ $phase == review_pending ]]; then
     run_campaign_review "$worktree" || return $?
     phase=$(campaign_command phase) || return $?
@@ -148,6 +157,9 @@ execute_campaign_item() {
   operational=$(issue_operational_state "$issue") || return $?
   if [[ $phase == owner_required ]]; then
     [[ $operational == blocked ]] || return 65
+  elif [[ $phase == review_pending ]]; then
+    # A premature executor block cannot suppress review, but review never clears it.
+    [[ $operational == doing || $operational == blocked ]] || return 65
   else
     [[ $operational == doing ]] || return 65
   fi

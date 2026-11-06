@@ -39,3 +39,27 @@ the current worker is inactive. Preserve the #19 worktree, session, candidate,
 contract digest, counters and all historical evidence. No private-state migration
 or contract rebinding is necessary. Verify real review/continuation after offline
 tests; mocked transport tests are not evidence of a successful real review.
+
+
+## Executor owner-action claims require independent review
+
+An executor result requesting owner_required is a claim, not an accepted owner
+block. Finish preserves that exact result and routes the valid current manifest
+to review_pending. Only the independent reviewer can confirm the typed action and
+location after checking why remaining authorized work cannot continue.
+
+An already finished unreviewed owner claim may enter the same review without a
+pre-review state rewrite: require the exact current bound result, completed pass,
+unchanged candidate and all existing authorization/receipt checks. A review of
+that same pass already confirmed as owner_required cannot be silently reassessed.
+Preparation remains bounded by existing review transport and no-progress limits.
+The host never grants another experiment start, resets a counter, rewrites the
+original result or clears an Azure owner block through this change. A confirmed
+technical correction yields only the existing offline reviewed continuation;
+any historically posted Azure block requires the authorized transition separately.
+
+Readiness decisions must use typed runtime fields, exact enabled MCP endpoint,
+correct Appx identity and evidence from the actual interactive session. Missing
+substring matches, SSH window handles and local auth file presence cannot prove
+an owner action. Renderer readiness timeout remains a technical failure. Fresh
+observations must use corrected code and a new manifest; old evidence is immutable.

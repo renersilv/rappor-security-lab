@@ -73,6 +73,8 @@ campaign_command() {
 
 campaign_review_command() {
   case $1 in
+    owner-claim-pending)
+      if [[ -f $STATE_ROOT/unreviewed-owner ]]; then printf yes; else printf no; fi ;;
     validate-response)
       if [[ -f $STATE_ROOT/invalid-response ]]; then printf 'regenerate\n'; else printf 'valid\n'; fi ;;
     reconcile)
@@ -245,5 +247,34 @@ fresh_case exhausted-active
 printf 'active\n' > "$STATE_ROOT/phase"
 printf 'stalled\n' > "$STATE_ROOT/review-phase"
 dispatch 70
-! grep -Eq '^(begin|executor|prepare|review-finish)$' "$STATE_ROOT/trace"
+if grep -Eq '^(begin|executor|prepare|review-finish)$' "$STATE_ROOT/trace"; then
+  printf 'Unexpected execution after the exhausted boundary\n' >&2
+  exit 1
+fi
 printf 'PASS exhausted active campaign does not launch executor or review\n'
+
+
+fresh_case unreviewed_owner_claim
+printf 'owner_required\n' > "$STATE_ROOT/phase"
+printf 'continued\n' > "$STATE_ROOT/review-phase"
+touch "$STATE_ROOT/unreviewed-owner"
+dispatch 0
+assert_trace 'review-model=1' 'executor=1' 'review-finish<executor'
+printf 'PASS unreviewed owner claim receives independent review before continuation\n'
+
+(
+  fresh_case premature_azure_block
+  printf 'active\n' > "$STATE_ROOT/phase"
+  printf 'continued\n' > "$STATE_ROOT/review-phase"
+  run_codex() {
+    record executor
+    printf 'review_pending\n' > "$STATE_ROOT/phase"
+    printf 'blocked\n' > "$STATE_ROOT/operational"
+  }
+  dispatch 0
+  assert_trace 'review-model=1' 'executor=1'
+  [[ $(cat "$STATE_ROOT/operational") == blocked ]]
+  dispatch 0
+  assert_trace 'review-model=1' 'executor=1'
+  printf 'PASS premature block cannot skip review or be silently cleared\n'
+)

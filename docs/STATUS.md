@@ -1,3 +1,13 @@
+# Owner-action claim review correction
+
+Executor owner_required claims now require independent evidence review. A finished
+unreviewed claim can be reassessed without rewriting its original result, while
+confirmed owner requirements and existing retry/evidence limits remain enforced.
+Typed IDE readiness checks distinguish exact enabled MCP configuration, auth state,
+Appx identity, interactive visibility and renderer failure. These source changes
+are not new runtime evidence or product acceptance; the next pass needs a fresh
+manifest-bound observation. See ADR-0003's owner-claim addendum.
+
 # Current queue adaptation — ADR-0005
 
 The reviewed common Azure Security queue is the only operational source. Explicit

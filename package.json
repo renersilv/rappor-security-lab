@@ -14,6 +14,6 @@
     "connected:lifecycle": "node src/run-connected-service-lifecycle.mjs",
     "connected:verify": "node src/verify-connected-service-lifecycle-report.mjs",
     "windows:agent": "node src/run-windows-agent-lab.mjs",
-    "test:joao": "python3 -B ops/joao/test/publication-gate-tests.py && python3 -B ops/joao/test/azure-queue-tests.py && python3 -B ops/joao/test/campaign-tests.py && python3 -B ops/joao/test/campaign-review-tests.py && python3 -B ops/joao/test/stage-tests.py && python3 -B ops/joao/test/objectives-tests.py && python3 -B ops/joao/test/recovery-tests.py && bash ops/joao/test/run-tests.sh && bash ops/joao/test/campaign-review-wrapper-tests.sh"
+    "test:joao": "python3 -B ops/joao/test/ide-readiness-tests.py && python3 -B ops/joao/test/publication-gate-tests.py && python3 -B ops/joao/test/azure-queue-tests.py && python3 -B ops/joao/test/campaign-tests.py && python3 -B ops/joao/test/campaign-review-tests.py && python3 -B ops/joao/test/stage-tests.py && python3 -B ops/joao/test/objectives-tests.py && python3 -B ops/joao/test/recovery-tests.py && bash ops/joao/test/run-tests.sh && bash ops/joao/test/campaign-review-wrapper-tests.sh"
   }
 }

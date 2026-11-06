@@ -378,7 +378,8 @@ def main():
             raise ValueError('stale-campaign-result')
         if result['phase'] not in {'active', 'review_pending', 'owner_required'} or not isinstance(result['summary'], str) or not 1 <= len(result['summary']) <= 2000:
             raise ValueError('invalid-campaign-result')
-        value['phase'] = result['phase']
+        # An executor may propose an owner action; only independent review confirms it.
+        value['phase'] = 'review_pending' if result['phase'] == 'owner_required' else result['phase']
         enforce_review_limit(value, used)
         if value['phase'] == 'review_pending':
             validate_review_candidate(root, value)

@@ -72,6 +72,91 @@ class ReviewTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             R.finish(self.state)
 
+    def unreviewed_owner_claim(self):
+        value = C.private(self.state / 'campaign.json')
+        value['phase'] = 'owner_required'
+        C.save(self.state / 'campaign.json', value)
+        result = C.private(self.state / 'campaign-result.json')
+        result['phase'] = 'owner_required'
+        result['summary'] = 'The executor claims a missing MCP connection.'
+        C.save(self.state / 'campaign-result.json', result)
+
+    def test_unreviewed_owner_claim_is_reviewed_without_pre_review_rewrite(self):
+        self.unreviewed_owner_claim()
+        before = (self.state / 'campaign.json').read_bytes()
+        result_before = (self.state / 'campaign-result.json').read_bytes()
+        self.assertTrue(R.owner_claim_pending(self.state))
+        directory = self.response()
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), before)
+        self.finish()
+        after = C.private(self.state / 'campaign.json')
+        self.assertEqual(after['phase'], 'active')
+        self.assertEqual(after['executorPasses'], 1)
+        self.assertEqual(after['lastFinishedPass'], 1)
+        self.assertEqual((self.state / 'campaign-result.json').read_bytes(), result_before)
+        self.assertEqual((directory / 'before.json').read_bytes(), before)
+        self.assertFalse(after['allowsFinalDelivery'])
+
+    def test_confirmed_owner_requirement_cannot_be_reassessed_automatically(self):
+        self.unreviewed_owner_claim()
+        self.response(verdict='owner_required', ownerRequest=dict(action='interactive_login', location='windows_ide'))
+        self.finish()
+        self.assertFalse(R.owner_claim_pending(self.state))
+        with self.assertRaisesRegex(ValueError, 'campaign-not-awaiting-review'):
+            R.prepare(self.state)
+
+    def test_standard_confirmed_owner_review_is_not_mistaken_for_unreviewed_claim(self):
+        self.response(verdict='owner_required', ownerRequest=dict(action='interactive_login', location='windows_ide'))
+        self.finish()
+        self.assertFalse(R.owner_claim_pending(self.state))
+
+    def test_owner_claim_with_wrong_result_pass_is_rejected(self):
+        self.unreviewed_owner_claim()
+        value = C.private(self.state / 'campaign-result.json')
+        value['executorPass'] = 0
+        C.save(self.state / 'campaign-result.json', value)
+        with self.assertRaisesRegex(ValueError, 'unbound-owner-claim'):
+            R.prepare(self.state)
+
+    def test_owner_claim_result_cannot_change_during_review(self):
+        self.unreviewed_owner_claim()
+        self.response()
+        value = C.private(self.state / 'campaign-result.json')
+        value['summary'] = 'A different unsupported claim.'
+        C.save(self.state / 'campaign-result.json', value)
+        with self.assertRaisesRegex(ValueError, 'owner-claim-result-changed-during-review'):
+            self.finish()
+
+    def test_exhausted_historical_owner_claim_finish_replay_preserves_stop(self):
+        for number in range(1, 6):
+            self.changed_preparation_pass(number)
+        value = C.private(self.state / 'campaign.json')
+        value.update(phase='owner_required', executorPasses=6, lastFinishedPass=6)
+        C.save(self.state / 'campaign.json', value)
+        C.save(self.state / 'campaign-result.json', dict(schema=1, issue=19, executorPass=6,
+               authorizationId=self.auth['authorizationId'], phase='owner_required', summary='An unsupported owner claim.'))
+        self.manifest = self.candidate_dir / 'manifest-pass6.json'
+        C.save(self.manifest, dict(issue=19, executorPass=6, candidate=value['candidate'],
+               authorizationId=self.auth['authorizationId'], files={'worker.ps1': C.digest(self.source)}))
+        self.response(objectiveId='ide-mcp', evidenceLevel='preparation')
+        self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'owner_required')
+        paths = [self.state / name for name in ('campaign.json', 'campaign-result.json', 'campaign-auto-review.json')]
+        before = [p.read_bytes() for p in paths]
+        history = R.OBJECTIVES._history(self.state)
+        self.finish()
+        self.assertEqual(before, [p.read_bytes() for p in paths])
+        self.assertEqual(history, R.OBJECTIVES._history(self.state))
+        with self.assertRaisesRegex(ValueError, 'campaign-not-awaiting-review'):
+            R.prepare(self.state)
+
+    def test_owner_claim_missing_current_manifest_cannot_start_review(self):
+        self.unreviewed_owner_claim()
+        self.manifest.unlink()
+        with self.assertRaisesRegex(ValueError, 'exact-current-candidate-manifest-required'):
+            R.prepare(self.state)
+
     def test_review_resumes_preserving_all_bindings_and_counters(self):
         before = C.private(self.state / 'campaign.json')
         preserved = [self.state / 'stage.json', self.state / 'session', self.auth_path, self.attempts / 'attempt-1/receipt.json']

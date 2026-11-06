@@ -60,3 +60,12 @@ creates only an Azure Issue declared origin joao and agent raimundo, and returns
 its AB ID. Reusing a findingKey is idempotent. Never create another queue, choose
 an acceptance identity, create GitHub Issues or alter product source. A failed
 report operation remains an explicit operational error, never a successful report.
+
+
+For the active preparation campaign, owner_required is only a proposed diagnosis
+in the exact result and manifest. Do not publish an Azure block or ask the owner
+before independent review confirms that all remaining authorized work requires
+that action. Preserve doing; the wrapper routes the proposal to its reviewer.
+Use the installed `ide-readiness.py` and `IDE-READINESS.md` typed selector contract for fresh IDE/MCP
+observations. Bind corrected source and results in the next manifest; never reuse
+an old false-negative selector or rewrite its historical receipt.

@@ -65,3 +65,22 @@ in that context. After three preparations without product evidence, formulate a
 different causal hypothesis and one discriminating permitted check, or move to
 independent authorized work. Do not merely repeat the same harness exercise or
 ask for chat review. The installed budget and prior safety boundaries still apply.
+
+
+An executor owner_required result is an untrusted proposal. Confirm it only from
+bound actual runtime evidence after checking enabled exact MCP endpoint, supported
+authentication state, correct installed package identity and interactive-session
+visibility. The server alias is not endpoint identity; oauth means configured, not
+verified authenticated, and unauthenticated is never authenticated. SSH process
+MainWindowHandle zero cannot prove no window in the interactive session. A renderer
+readiness timeout is a technical failure, not proof that the owner must reconnect.
+Reject incorrect selectors or insufficient evidence as changes_requested/offline;
+require corrected parser tests and a new immutable runtime manifest before a new
+claim. Never rewrite old observations to manufacture a successful result.
+
+Official app-server authStatus values may be oAuth, bearerToken, notLoggedIn,
+unknown or unsupported. Use the installed client's generated schema, not an
+invented authenticated enum. Exact configuration plus a matching discovered server
+name, runtimeStatus connected, toolsError null and an actual tool catalog can
+prove client discovery without an AI turn. OAuth configuration alone cannot.
+Unknown schema fields remain unconfirmed; do not force reauthorization from that.

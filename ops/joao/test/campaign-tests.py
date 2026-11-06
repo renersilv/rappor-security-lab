@@ -630,15 +630,15 @@ run_cycle
         for action in ('status', 'phase', 'prompt', 'begin'):
             self.command(action, 65)
 
-    def test_owner_required_keeps_priority_at_review_and_native_ceiling(self):
+    def test_executor_owner_claim_requires_review_at_native_ceiling(self):
         self.activate()
         for number in range(1,4):
             self.command('begin')
             if number == 3:
                 for attempt in range(2,11): self.attempt(attempt)
             self.result(number, 'owner_required' if number == 3 else 'active')
-            self.assertEqual(self.command('finish').strip(), 'owner_required' if number == 3 else 'active')
-        self.assertEqual(self.command('phase').strip(), 'owner_required')
+            self.assertEqual(self.command('finish').strip(), 'review_pending' if number == 3 else 'active')
+        self.assertEqual(self.command('phase').strip(), 'review_pending')
         self.command('begin',65)
 
     def test_repeated_finish_does_not_create_another_pass(self):

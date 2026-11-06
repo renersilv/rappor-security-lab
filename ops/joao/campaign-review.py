@@ -115,10 +115,35 @@ def packet(value, state_root):
                 sourceFingerprint=sha(encoded(sorted(executable))))
 
 
-def current(root):
+def owner_claim_pending(root, value=None, *, allow_stalled_replay=False):
+    value = value or C.private(root / 'campaign.json')
+    auth, _used = C.bound(root, value)
+    if value['phase'] != 'owner_required':
+        return False
+    number = value['executorPasses']
+    if number <= 0 or value['lastFinishedPass'] != number:
+        return False
+    if (root / 'campaign-auto-review.json').exists():
+        _directory, marker = job(root)
+        if marker['executorPass'] > number:
+            raise ValueError('owner-claim-review-ahead')
+        if marker['executorPass'] == number and marker['phase'] not in ({'review_pending', 'stalled'} if allow_stalled_replay else {'review_pending'}):
+            return False
+    result_value = C.private(root / 'campaign-result.json')
+    if (set(result_value) != {'schema', 'issue', 'executorPass', 'authorizationId', 'phase', 'summary'} or
+            result_value.get('schema') != 1 or result_value.get('issue') != 19 or
+            result_value.get('executorPass') != number or result_value.get('phase') != 'owner_required' or
+            result_value.get('authorizationId') != auth['authorizationId'] or
+            not isinstance(result_value.get('summary'), str) or not 1 <= len(result_value['summary']) <= 2000):
+        raise ValueError('unbound-owner-claim')
+    through, _ = C.reviewed_checkpoint(value)
+    return through < number
+
+
+def current(root, *, stalled_replay=False):
     value = C.private(root / 'campaign.json')
     C.bound(root, value)
-    if value['phase'] != 'review_pending':
+    if value['phase'] != 'review_pending' and not owner_claim_pending(root, value, allow_stalled_replay=stalled_replay):
         raise ValueError('campaign-not-awaiting-review')
     return value
 
@@ -172,6 +197,7 @@ def prepare(root):
                   sourceFingerprint=selected['sourceFingerprint'], unchangedReviews=same,
                   phase='review_pending', noticePending=False,
                   previousSourceFingerprint=previous['sourceFingerprint'] if previous else None,
+                  ownerClaimResultSha256=C.digest(root / 'campaign-result.json') if result.get('phase') == 'owner_required' else None,
                   bundleSha256=C.digest(directory / 'bundle.json'),
                   promptSha256=C.digest(directory / 'prompt.md'))
     C.save(marker_path, marker)
@@ -267,11 +293,14 @@ def finish(root):
             reconcile(root)
             print(job(root)[1]['phase'])
             return
-    value = current(root)
+    value = current(root, stalled_replay=marker['phase'] == 'stalled')
     if (C.digest(root / 'campaign.json') != marker['beforeSha256'] or
             C.digest(directory / 'bundle.json') != marker['bundleSha256'] or
             C.digest(directory / 'prompt.md') != marker['promptSha256']):
         raise ValueError('review-snapshot-changed')
+    if (marker.get('ownerClaimResultSha256') is not None and
+            C.digest(root / 'campaign-result.json') != marker['ownerClaimResultSha256']):
+        raise ValueError('owner-claim-result-changed-during-review')
     selected = packet(value, root)
     if selected['manifest'] != marker['manifest'] or selected['sourceFingerprint'] != marker['sourceFingerprint']:
         raise ValueError('candidate-changed-during-review')
@@ -384,10 +413,12 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'validate-candidate':
+    if args.action == 'owner-claim-pending':
+        print('yes' if owner_claim_pending(args.root) else 'no')
+    elif args.action == 'validate-candidate':
         value = C.private(args.root / 'campaign.json')
         C.bound(args.root, value)
         packet(value, args.root)
