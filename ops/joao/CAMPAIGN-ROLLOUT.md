@@ -49,8 +49,13 @@ these checks is another live product or remediation-model test.
 The versioned objective matrix records documented acceptance only. An independent
 review classifies each pass; bound current-pass runtime artifacts can establish a
 candidate, but mocks, notes, source edits and stale receipts cannot. Three
-preparations invoke diagnostic replanning; six unchanged reviews including replan
-still stop explicitly. Historical unclassified reviews retain the old bound.
+preparations invoke diagnostic replanning; six reviews without new validated runtime
+evidence, including replan, stop explicitly even when harness source changes and
+offline tests pass. The immutable objective history prevents earlier marker resets
+from hiding accumulated preparation. Reconciliation stops an already exhausted
+continued checkpoint before another executor launch. Its original after-state and
+review receipt remain unchanged; replay cannot restore continuation. Replaying the
+stopped finish is idempotent. Historical unclassified reviews retain the old bound.
 Existing pending review results without objective fields are recorded conservatively
 as unclassified preparation; later requests use the new schema. No historical
 result is rewritten or retrospectively promoted. Inspect control.sh status and the

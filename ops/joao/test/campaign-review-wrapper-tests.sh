@@ -255,3 +255,11 @@ assert_trace 'review-model=3' 'review-finish=0' 'executor=0'
 [[ ! -e $STATE_ROOT/job/model-completed ]]
 [[ $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
 printf 'PASS invalid responses cannot consume more than three transports per job\n'
+
+# A historical continued campaign cannot bypass the reconciled evidence stop.
+fresh_case exhausted-active
+printf 'active\n' > "$STATE_ROOT/phase"
+printf 'stalled\n' > "$STATE_ROOT/review-phase"
+dispatch 70
+! grep -Eq '^(begin|executor|prepare|review-finish)$' "$STATE_ROOT/trace"
+printf 'PASS exhausted active campaign does not launch executor or review\n'

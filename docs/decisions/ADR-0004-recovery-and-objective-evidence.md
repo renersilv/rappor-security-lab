@@ -55,8 +55,11 @@ notes cannot advance product evidence. After three preparations without material
 runtime evidence, direct a diagnostic replan towards the smallest missing proof,
 without suspending for chat review or creating another test budget. Keep accepted
 Windows CLI, technical-only Linux evidence, IDE, managed, negatives and Web distinct.
-After six unchanged reviews including that replan, stop visibly rather than reset
-the semantic gate through an unrelated code repair. Unverifiable protected state
+After six reviews without new validated runtime evidence including that replan,
+stop visibly. Harness behavior changes and passing offline tests do not reset this
+bound. Use the append-only objective preparation streak as a lower bound, including
+when an older review marker incorrectly reset its counter. Replaying a stopped
+finish is idempotent and preserves all evidence, authorization and acceptance. Unverifiable protected state
 also fails closed before any repair-model call.
 
 ## Verification and rollout

@@ -131,6 +131,8 @@ run_campaign_review() {
 execute_campaign_item() {
   local issue=$1 worktree=$2 branch=$3 phase operational result=0
   campaign_review_flush_notice || return $?
+  phase=$(campaign_review_command phase) || return $?
+  [[ $phase != stalled ]] || return 70
   phase=$(campaign_command phase) || return $?
   if [[ $phase == review_pending ]]; then
     run_campaign_review "$worktree" || return $?

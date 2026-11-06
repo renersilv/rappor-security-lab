@@ -257,11 +257,15 @@ def finish(root):
                 if selected['manifest'] != marker['manifest']:
                     raise ValueError('candidate-changed-before-recovery')
             C.bound(root, after)
+            if marker['phase'] == 'stalled':
+                print('stalled')
+                return
             marker = C.private(directory / 'marker-after.json')
             if now != after:
                 C.save(root / 'campaign.json', after)
             C.save(root / 'campaign-auto-review.json', marker)
-            print(marker['phase'])
+            reconcile(root)
+            print(job(root)[1]['phase'])
             return
     value = current(root)
     if (C.digest(root / 'campaign.json') != marker['beforeSha256'] or
@@ -275,12 +279,15 @@ def finish(root):
     verdict = result(directory / 'events.jsonl', bundle)
     objective = OBJECTIVES.record_review(root, directory, verdict)
     put(directory / 'result.json', encoded(verdict))
-    # The reviewer must establish semantic progress; renamed files/notes do not.
-    progressed = (verdict['progress'] == 'behavior_change' and
-                  marker['sourceFingerprint'] != marker['previousSourceFingerprint'])
-    if verdict['progress'] == 'new_runtime_evidence':
-        progressed = objective['materialProgress']
-    rounds = 0 if progressed else marker['unchangedReviews'] + 1
+    # Harness changes cannot renew a product-evidence budget. The immutable
+    # objective history also retains preparation hidden by older marker resets.
+    progressed = verdict['progress'] == 'new_runtime_evidence' and objective['materialProgress']
+    # Revalidate the immutable result above, but never count a finish replay twice.
+    if marker['phase'] == 'stalled':
+        print('stalled')
+        return
+    rounds = 0 if progressed else max(marker['unchangedReviews'] + 1,
+                                     objective['preparationStreak'])
     replanning = 'objectiveId' in verdict and objective['diagnosticReplanning']
     if verdict['verdict'] != 'owner_required' and rounds >= (6 if replanning else 3):
         marker['unchangedReviews'] = rounds
@@ -340,6 +347,21 @@ def reconcile(root):
             C.bound(root, after)
             marker = C.private(directory / 'marker-after.json')
             C.save(root / 'campaign-auto-review.json', marker)
+
+
+    # An installed repair must stop an already exhausted continued checkpoint
+    # before another executor/model launch, without rewriting its old receipt.
+    if marker['phase'] == 'continued':
+        history = OBJECTIVES._history(root)
+        if history:
+            last = history[-1]
+            limit = 3 if last['objectiveId'] == 'unclassified' else 6
+            if (last['executorPass'] == marker['executorPass']
+                    and last['manifestSha256'] == marker['manifest']['sha256']
+                    and last['preparationStreak'] >= limit):
+                marker.update(phase='stalled', noticePending=True,
+                              unchangedReviews=max(marker['unchangedReviews'], last['preparationStreak']))
+                C.save(root / 'campaign-auto-review.json', marker)
 
 
 def owner_notice(root):

@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import unittest
+from unittest import mock
 
 
 def module(name, path):
@@ -310,6 +311,102 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
         self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 5)
         self.assertIs(C.private(self.state / 'campaign.json')['allowsFinalDelivery'], False)
+
+    def changed_preparation_pass(self, number, classified=True):
+        value = C.private(self.state / 'campaign.json')
+        value.update(phase='review_pending', executorPasses=number, lastFinishedPass=number)
+        C.save(self.state / 'campaign.json', value)
+        self.source.write_text(f'function Invoke-Worker {{ return {number} }}\n')
+        checks = self.candidate_dir / f'offline-checks-{number}.json'
+        C.save(checks, dict(passed=True, tests=number, preparationOnly=True))
+        self.manifest = self.candidate_dir / f'manifest-pass{number}.json'
+        C.save(self.manifest, dict(issue=19, executorPass=number, candidate=value['candidate'],
+               authorizationId=self.auth['authorizationId'], newLiveActivity=False,
+               files={'worker.ps1': C.digest(self.source), checks.name: C.digest(checks)}))
+        fields = dict(objectiveId='ide-mcp', evidenceLevel='preparation') if classified else {}
+        self.response(progress='behavior_change', evidence=['worker.ps1', checks.name], **fields)
+        self.finish()
+
+    def test_changed_harness_and_green_offline_checks_cannot_renew_preparation(self):
+        protected = [self.state / 'session', self.auth_path, self.attempts / 'attempt-1/receipt.json']
+        original = [C.digest(path) for path in protected]
+        for number in range(1, 7):
+            self.changed_preparation_pass(number)
+            marker = R.job(self.state)[1]
+            self.assertEqual(marker['unchangedReviews'], number)
+            self.assertEqual(marker['phase'], 'stalled' if number == 6 else 'continued')
+        self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 5)
+        self.assertEqual(original, [C.digest(path) for path in protected])
+        self.assertFalse(R.OBJECTIVES._history(self.state)[-1]['acceptanceChanged'])
+        exact = (self.state / 'campaign.json').read_bytes()
+        history = R.OBJECTIVES._history(self.state)
+        stopped_marker = C.private(self.state / 'campaign-auto-review.json')
+        self.finish()
+        self.assertEqual(exact, (self.state / 'campaign.json').read_bytes())
+        self.assertEqual(history, R.OBJECTIVES._history(self.state))
+        self.assertEqual(stopped_marker, C.private(self.state / 'campaign-auto-review.json'))
+
+    def test_unclassified_behavior_change_cannot_bypass_short_bound(self):
+        for number in range(1, 4):
+            self.changed_preparation_pass(number, classified=False)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 2)
+
+    def test_existing_preparation_history_survives_previously_reset_marker(self):
+        for number in range(1, 6):
+            self.changed_preparation_pass(number)
+        marker = C.private(self.state / 'campaign-auto-review.json')
+        marker['unchangedReviews'] = 0
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        self.changed_preparation_pass(6)
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 6)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+
+    def test_reconcile_stops_previously_continued_exhausted_history_without_rewrite(self):
+        for number in range(1, 7):
+            self.changed_preparation_pass(number)
+        marker = C.private(self.state / 'campaign-auto-review.json')
+        marker.update(phase='continued', unchangedReviews=0, noticePending=False)
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        protected = [self.state / 'campaign.json', self.state / 'session', self.auth_path]
+        before = [C.digest(path) for path in protected]
+        history = R.OBJECTIVES._history(self.state)
+        R.reconcile(self.state)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 6)
+        self.assertTrue(R.job(self.state)[1]['noticePending'])
+        self.assertEqual(before, [C.digest(path) for path in protected])
+        self.assertEqual(history, R.OBJECTIVES._history(self.state))
+        stopped = C.private(self.state / 'campaign-auto-review.json')
+        R.reconcile(self.state)
+        self.assertEqual(stopped, C.private(self.state / 'campaign-auto-review.json'))
+
+    def test_old_completed_transition_replay_cannot_restore_exhausted_continuation(self):
+        for number in range(1, 6):
+            self.changed_preparation_pass(number)
+        marker = C.private(self.state / 'campaign-auto-review.json')
+        marker['unchangedReviews'] = 0
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        original_record = R.OBJECTIVES.record_review
+
+        def old_counter_visibility(*args):
+            # Reproduce the old completed checkpoint, retaining its real history.
+            return dict(original_record(*args), preparationStreak=0)
+
+        with mock.patch.object(R.OBJECTIVES, 'record_review', side_effect=old_counter_visibility):
+            self.changed_preparation_pass(6)
+        directory, marker = R.job(self.state)
+        self.assertEqual(marker['phase'], 'continued')
+        self.assertTrue((directory / 'after.json').exists())
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'active')
+        preserved = [self.state / 'campaign.json', directory / 'after.json', directory / 'marker-after.json']
+        before = [C.digest(path) for path in preserved]
+        R.reconcile(self.state)
+        stopped = C.private(self.state / 'campaign-auto-review.json')
+        self.assertEqual(stopped['phase'], 'stalled')
+        self.finish()
+        self.assertEqual(stopped, C.private(self.state / 'campaign-auto-review.json'))
+        self.assertEqual(before, [C.digest(path) for path in preserved])
 
     def runtime_observation_pass(self, number, identity=None):
         """Create immutable synthetic runtime files through the real review path."""
