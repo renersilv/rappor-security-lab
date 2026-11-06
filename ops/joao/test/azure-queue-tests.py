@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('lab_azure', HERE / 'azure-queue.py')
@@ -232,6 +233,49 @@ else: print('{}')
                      [dict(self.rows[0], executor='joao')], [dict(self.rows[0], deliveryRevision=True)]):
             self.adapter.with_suffix('.retests').write_text(json.dumps(rows))
             self.assertEqual(self.call('list-retests', '--item', '19').returncode, 65)
+
+    def test_replaced_caller_result_cannot_change_validated_submission(self):
+        result_file = self.retests()
+        original = json.loads(result_file.read_text())
+        snapshot = (self.root / 'current-retests.json').read_bytes()
+        submitted = []
+
+        def replace_during_invoke(_value, arguments):
+            self.save(result_file, dict(original, deliveryRevision=99, outcome='failed'))
+            transmitted = Path(arguments[arguments.index('--result-file') + 1])
+            self.assertNotEqual(transmitted, result_file)
+            submitted.append(transmitted)
+            self.assertEqual(QUEUE.private(transmitted), original)
+            return '{"outcome":"passed"}'
+
+        with mock.patch.object(QUEUE, 'invoke', side_effect=replace_during_invoke):
+            output = QUEUE.submit_retest_result(self.root, self.value, 305,
+                                               self.value['campaign']['branch'], 401, result_file)
+        self.assertEqual(json.loads(output)['outcome'], 'passed')
+        self.assertEqual((self.root / 'current-retests.json').read_bytes(), snapshot)
+        self.assertFalse(submitted[0].exists())
+        self.assertEqual(json.loads(result_file.read_text())['deliveryRevision'], 99)
+
+    def test_failed_submission_cleans_private_copy_and_preserves_caller(self):
+        result_file = self.retests()
+        original = result_file.read_bytes()
+        with mock.patch.object(QUEUE, 'invoke', side_effect=ValueError('synthetic-transport-error')):
+            with self.assertRaises(ValueError):
+                QUEUE.submit_retest_result(self.root, self.value, 305,
+                                          self.value['campaign']['branch'], 401, result_file)
+        self.assertEqual(result_file.read_bytes(), original)
+        self.assertEqual(list(self.root.glob('.retest-result-*')), [])
+
+    def test_oversized_result_fails_before_transport(self):
+        result_file = self.retests()
+        self.save(result_file, dict(deliveryRevision=7, outcome='passed', summary='x' * 65536,
+                                    evidence=['Synthetic observation.']))
+        with mock.patch.object(QUEUE, 'invoke') as transport:
+            with self.assertRaisesRegex(ValueError, 'private-input-too-large'):
+                QUEUE.submit_retest_result(self.root, self.value, 305,
+                                          self.value['campaign']['branch'], 401, result_file)
+        transport.assert_not_called()
+        self.assertEqual(list(self.root.glob('.retest-result-*')), [])
 
 
 if __name__ == '__main__':

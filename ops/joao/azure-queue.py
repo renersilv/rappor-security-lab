@@ -14,14 +14,22 @@ import tempfile
 PROJECT = '5d25148a-14fb-4bc8-8f5b-29441281d84e'
 
 
-def private(path):
+def private(path, maximum=None):
     path = Path(path)
     if not path.is_absolute() or path.is_symlink() or not path.is_file():
         raise ValueError('invalid-private-binding')
-    info = path.stat()
-    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
-        raise ValueError('invalid-private-binding-permissions')
-    return json.loads(path.read_text())
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'r', encoding='utf-8') as source:
+        info = os.fstat(source.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                stat.S_IMODE(info.st_mode) != 0o600):
+            raise ValueError('invalid-private-binding-permissions')
+        if maximum is not None and info.st_size > maximum:
+            raise ValueError('private-input-too-large')
+        data = source.read(maximum + 1 if maximum is not None else -1)
+        if maximum is not None and len(data.encode('utf-8')) > maximum:
+            raise ValueError('private-input-too-large')
+        return json.loads(data)
 
 
 def binding(root):
@@ -128,7 +136,7 @@ def validate_retest_result(root, work_id, branch, finding, result_file):
     if type(finding) is not int or finding <= 0:
         raise ValueError('invalid-retest-finding')
     snapshot = private(root / 'current-retests.json')
-    result = private(result_file)
+    result = private(result_file, maximum=65536)
     if (set(snapshot) != {'version', 'sourceWorkItemId', 'branch', 'findings'} or
             snapshot['version'] != 1 or snapshot['sourceWorkItemId'] != work_id or
             snapshot['branch'] != branch or not isinstance(snapshot['findings'], dict)):
@@ -139,6 +147,24 @@ def validate_retest_result(root, work_id, branch, finding, result_file):
             result['outcome'] not in {'passed', 'failed'}):
         raise ValueError('retest-result-outside-captured-delivery')
     # Common adapter validates sanitized evidence and current delivery revision.
+    return result
+
+
+def submit_retest_result(root, value, work_id, branch, finding, result_file):
+    result = validate_retest_result(root, work_id, branch, finding, result_file)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', dir=root, prefix='.retest-result-', delete=False) as out:
+            temporary = Path(out.name)
+            os.fchmod(out.fileno(), 0o600)
+            json.dump(result, out)
+            out.flush()
+            os.fsync(out.fileno())
+        return invoke(value, ['retest-result', '--work-item', str(work_id),
+                              '--finding', str(finding), '--result-file', str(temporary)])
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def main():
@@ -184,9 +210,8 @@ def main():
             if args.command == 'list-retests':
                 print(capture_retests(args.root, work_id, branch, invoke(value, arguments)))
             else:
-                validate_retest_result(args.root, work_id, branch, args.finding, args.result_file)
-                arguments += ['--finding', str(args.finding), '--result-file', args.result_file]
-                print(invoke(value, arguments))
+                print(submit_retest_result(args.root, value, work_id, branch,
+                                           args.finding, args.result_file))
         else:
             command = {'phase': 'set-phase', 'state': 'show'}.get(args.command, args.command)
             arguments = [command, '--work-item', str(work_id)]
