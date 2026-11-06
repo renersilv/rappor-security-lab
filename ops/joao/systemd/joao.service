@@ -8,6 +8,7 @@ Type=oneshot
 WorkingDirectory=%h/rappor-security-lab
 EnvironmentFile=-%h/.config/rappor-security-lab/joao.env
 Environment=PATH=%h/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecCondition=/usr/bin/python3 -B %h/rappor-security-lab/ops/joao/publication-gate.py
 ExecStartPre=%h/rappor-security-lab/ops/joao/run.sh preflight
 ExecStart=%h/rappor-security-lab/ops/joao/run.sh cycle
 TimeoutStartSec=infinity

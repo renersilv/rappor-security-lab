@@ -152,6 +152,21 @@ closed failure class and attempt count when an Issue retry exists. `resume` remo
 only the applicable suspension gate and starts the service; it does not erase the
 fixed batch, session, worktree or private diagnostics.
 
+## Publication condition
+
+`publication-gate.py` is a read-only service condition. It checks the campaign's
+hashed candidate against the protected review current/build-version markers while
+holding a shared integration lock, and refuses any publication reservation. It
+does not require the product main branch to equal the deployed candidate, inspect
+GitHub or Azure work items, release dependencies or grant final acceptance. A
+non-campaign task requires an explicit private candidate file; it cannot override
+an active campaign. The wrapper and tests still verify authorization and runtime
+health independently.
+
+Remove the old host-specific GitHub release-gate drop-in during the reviewed
+installation; merely adding the new condition does not remove an old condition.
+No host services or private state are changed by committing this source.
+
 ## Review and installation
 
 The versioned user units assume the repository is checked out at

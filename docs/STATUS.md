@@ -5,6 +5,8 @@ Agent and Origin fields use the owner-approved shared account. The laboratory
 wrapper pins its common adapter and preserves historical campaign 19 under a
 separate exact Azure mapping. Source tests do not prove activation: installing the
 private binding and reviewed runner under existing locks remains a host operation.
+The versioned publication condition checks the selected candidate and publication
+reservation without GitHub calls or requiring product main to equal deployed SHA.
 No campaign budget, receipt, session or product acceptance is changed by this work.
 
 # Current structural repair — laboratory #26

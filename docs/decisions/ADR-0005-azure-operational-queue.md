@@ -42,3 +42,16 @@ private binding and pinned adapter on every operation. No source default guesses
 an Azure ID. Verify API failure, wrong role/type/project/revision, mapping tampering,
 new AB#19, fixed order, notification replay and preservation of campaign balances.
 This source change does not activate services or authorize any remediation inference.
+
+## Publication readiness condition
+
+The versioned read-only publication gate replaces the old host-specific GitHub
+handoff gate. Under a shared main-integration lock it requires no publication
+reservation and exact deployed current/build-version markers for the explicitly
+selected candidate. The active campaign's candidate hash is checked; a future
+non-campaign task may supply the same private explicit candidate format. Missing
+or changed markers fail closed. Product Git main may contain newer operations-only
+commits and is not the deployed-candidate identity. This gate never queries a work
+queue, releases dependencies, mutates a phase, accepts work or grants a test budget.
+It is a local readiness observation; public health/runtime checks still belong to
+the test contract and must be rechecked before external actions.
