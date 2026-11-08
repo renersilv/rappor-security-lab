@@ -307,6 +307,92 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(C.private(directory / 'result.json')['evidence'], ['worker.ps1', 'manifest'])
         self.assertEqual(events, (directory / 'events.jsonl').read_bytes())
 
+    def context_review(self, **changes):
+        self.response()
+        self.finish()
+        value = C.private(self.state / 'campaign.json')
+        value.update(phase='review_pending', executorPasses=2, lastFinishedPass=2)
+        C.save(self.state / 'campaign.json', value)
+        manifest = C.private(self.manifest)
+        manifest['executorPass'] = 2
+        self.manifest = self.candidate_dir / 'manifest-pass2.json'
+        C.save(self.manifest, manifest)
+        return self.response(evidence=['previousHandoff', 'worker.ps1'], **changes)
+
+    def test_bound_handoff_citation_finishes_cached_review_with_exact_context_hash(self):
+        directory = self.context_review()
+        bundle = C.private(directory / 'bundle.json')
+        before = {name: (directory / name).read_bytes() for name in ['bundle.json', 'events.jsonl']}
+        response = R.result(directory / 'events.jsonl', bundle)
+        self.finish()
+        cleanup = C.private(directory / 'cleanup.json')
+        self.assertEqual(cleanup['evidence'], {
+            'previousHandoff': R.sha(bundle['previousHandoff'].encode('utf-8')),
+            'worker.ps1': bundle['sources']['worker.ps1']['sha256']})
+        self.assertEqual(C.private(directory / 'result.json'), response)
+        self.assertEqual(response['verdict'], 'changes_requested')
+        self.assertTrue(response['findings'])
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'active')
+        for name, content in before.items():
+            self.assertEqual((directory / name).read_bytes(), content)
+
+    def test_bound_handoff_citation_rejects_empty_malformed_and_ambiguous_context(self):
+        directory = self.context_review()
+        bundle = C.private(directory / 'bundle.json')
+        invalid = []
+        for text in [None, '', '  \n', 1, {}, [], 'x' * 32769, 'text\0tail', '\ud800']:
+            item = copy.deepcopy(bundle)
+            item['previousHandoff'] = text
+            invalid.append(item)
+        item = copy.deepcopy(bundle)
+        del item['previousHandoff']
+        invalid.append(item)
+        item = copy.deepcopy(bundle)
+        item['sources']['previousHandoff'] = dict(content='source collision', sha256='0' * 64)
+        invalid.append(item)
+        for item in invalid:
+            with self.subTest(context=repr(item.get('previousHandoff'))[:60]):
+                with self.assertRaises(ValueError):
+                    R.result(directory / 'events.jsonl', item)
+
+    def test_context_does_not_enable_arbitrary_fields_or_omitted_sources(self):
+        directory = self.context_review()
+        bundle = C.private(directory / 'bundle.json')
+        for name in ['result', 'candidate', 'executorPass', 'priorReviewedPass', 'previousHandoff.content']:
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, 'invalid-review-evidence-citation'):
+                    R.evidence_sha256(bundle, name)
+        bundle['sources']['worker.ps1']['omitted'] = True
+        with self.assertRaisesRegex(ValueError, 'invalid-review-evidence-citation'):
+            R.result(directory / 'events.jsonl', bundle)
+
+    def test_handoff_context_cannot_promote_runtime_evidence(self):
+        self.context_review(objectiveId='ide-mcp', evidenceLevel='runtime_observation',
+                            progress='new_runtime_evidence')
+        self.finish()
+        record = R.OBJECTIVES._history(self.state)[-1]
+        self.assertEqual(record['validatedEvidenceLevel'], 'preparation')
+        self.assertFalse(record['materialProgress'])
+        self.assertEqual(record['runtimeEvidenceHashes'], [])
+        self.assertFalse(record['acceptanceChanged'])
+
+    def test_changed_handoff_bundle_cannot_finish_saved_review(self):
+        directory = self.context_review()
+        bundle = C.private(directory / 'bundle.json')
+        bundle['previousHandoff'] += 'Altered after review.'
+        C.save(directory / 'bundle.json', bundle)
+        before = (self.state / 'campaign.json').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'review-snapshot-changed'):
+            self.finish()
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), before)
+
+    def test_context_hash_uses_exact_utf8_bytes_without_json_encoding_or_trimming(self):
+        text = '  Reviewed context: \u00e7\n'
+        bundle = dict(previousHandoff=text, sources={})
+        self.assertEqual(R.evidence_sha256(bundle, 'previousHandoff'), R.sha(text.encode('utf-8')))
+        self.assertNotEqual(R.evidence_sha256(bundle, 'previousHandoff'), R.sha(R.encoded(text)))
+        self.assertNotEqual(R.evidence_sha256(bundle, 'previousHandoff'), R.sha(text.strip().encode('utf-8')))
+
     def test_pass_with_findings_is_rejected_without_modifying_evidence_or_state(self):
         directory = self.response(verdict='pass', findings=['The correction is complete.'])
         before = (self.state / 'campaign.json').read_bytes()

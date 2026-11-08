@@ -204,6 +204,25 @@ def prepare(root):
     print(directory)
 
 
+def evidence_sha256(bundle, name):
+    """Resolve an exact source citation or the one supported bound context field."""
+    sources = bundle['sources']
+    if name == 'previousHandoff':
+        if name in sources:
+            raise ValueError('ambiguous-review-context-citation')
+        handoff = bundle.get(name)
+        if (not isinstance(handoff, str) or not handoff.strip() or
+                len(handoff) > 32768 or '\0' in handoff):
+            raise ValueError('invalid-review-evidence-citation')
+        try:
+            return sha(handoff.encode('utf-8'))
+        except UnicodeError as error:
+            raise ValueError('invalid-review-evidence-citation') from error
+    if name not in sources or sources[name].get('omitted'):
+        raise ValueError('invalid-review-evidence-citation')
+    return sources[name]['sha256']
+
+
 def result(path, bundle):
     last = None
     if path.is_symlink() or stat.S_IMODE(path.stat().st_mode) != 0o600:
@@ -255,9 +274,10 @@ def result(path, bundle):
         refs = ['manifest' if name == manifest_name else name for name in refs]
         parsed['evidence'] = refs
     if (not isinstance(refs, list) or not 1 <= len(refs) <= 12 or
-            any(not isinstance(name, str) or name not in bundle['sources'] for name in refs) or
-            len(set(refs)) != len(refs) or any(bundle['sources'][name].get('omitted') for name in refs)):
+            any(not isinstance(name, str) for name in refs) or len(set(refs)) != len(refs)):
         raise ValueError('invalid-review-evidence-citation')
+    for name in refs:
+        evidence_sha256(bundle, name)
     if parsed['progress'] not in {'behavior_change', 'new_runtime_evidence', 'none'}:
         raise ValueError('invalid-reviewed-progress')
     request = parsed['ownerRequest']
@@ -349,7 +369,7 @@ def finish(root):
                            nextAction=verdict['nextAction'], scope=verdict['scope']))),
                        cleanup=put(directory / 'cleanup.json', encoded(dict(
                            executorPass=value['executorPasses'], assessment=verdict['cleanupAssessment'],
-                           evidence={name: bundle['sources'][name]['sha256'] for name in verdict['evidence']},
+                           evidence={name: evidence_sha256(bundle, name) for name in verdict['evidence']},
                            scope=verdict['scope'], limitation='Static assessment; live preflight remains required.'))),
                        failureFingerprint=sha(encoded(verdict['findings'])) if verdict['findings'] else None)
         for key in ('authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256', 'contractSha256'):

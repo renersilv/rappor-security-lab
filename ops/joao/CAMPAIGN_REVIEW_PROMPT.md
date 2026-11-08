@@ -40,7 +40,9 @@ Never request or include credentials. Technical failures stay doing.
 
 Supply evidence as 1–12 exact source/evidence names from the bundle that support
 your diagnosis. Cite the manifest as "manifest" or its exact bound filename;
-these identify the same evidence and must not both be cited.
+these identify the same evidence and must not both be cited. You may also cite
+previousHandoff exactly when its bound text supports a finding. It is review
+context, never current runtime evidence; do not cite other top-level fields.
 cleanupAssessment is verified, not_required or unresolved; only
 verified can accompany bounded_no_model, and must cite an actual cleanup receipt
 and relevant implementation, not a mocked test. A failed local cleanup is not
