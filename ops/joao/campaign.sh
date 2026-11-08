@@ -17,7 +17,7 @@ campaign_review_notice() {
   local phase=$1 marker='<!-- joao-campaign-review:19 -->' message
   case $phase in
     reviewing) message='A revisão independente automática está em execução, limitada a 20 minutos. O próprio serviço entregará o diagnóstico ao João. Nenhuma ação sua é necessária nesta etapa.' ;;
-    continued) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
+    continued|operator_reviewed) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
     stalled) message='A continuação automática esgotou as revisões sem progresso relevante confirmado, incluindo o replanejamento quando aplicável. A issue permanece em andamento: é uma falha técnica, não falta de autorização. O diagnóstico foi preservado; a recuperação não pode declarar uma retomada enquanto essa condição persistir.' ;;
     owner_required) message=$(campaign_review_command notice-body) || return $? ;;
     *) return 65 ;;

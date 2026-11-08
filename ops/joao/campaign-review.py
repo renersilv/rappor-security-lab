@@ -366,6 +366,55 @@ def finish(root):
     print(marker['phase'])
 
 
+def operator_checkpoint(root, marker, value, *, replay=False):
+    """Bind an assisted amendment to the exact exhausted automatic snapshot."""
+    C.bound(root, value)
+    checkpoint = value.get('reviewCheckpoint')
+    if checkpoint is None:
+        raise ValueError('operator-review-checkpoint-required')
+    receipt = C.artifact(checkpoint, protected=True)
+    directory = Path(checkpoint['path']).parent
+    metadata = directory.lstat()
+    if (directory.parent != C.REVIEW_ROOT or directory == Path(marker['directory'])
+            or directory.is_symlink() or directory.resolve() != directory
+            or not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o700
+            or metadata.st_uid != os.getuid()):
+        raise ValueError('invalid-operator-review-directory')
+    snapshot = reference(directory / 'automatic-marker-before.json')
+    original = C.artifact(snapshot, protected=True)
+    if replay:
+        if marker.get('operatorReview') != dict(checkpoint=checkpoint, stalledMarker=snapshot):
+            raise ValueError('operator-review-binding-changed')
+        restored = {key: item for key, item in marker.items() if key != 'operatorReview'}
+        restored.update(phase='stalled', noticePending=original.get('noticePending'))
+    else:
+        restored = marker
+    if original != restored or original.get('phase') != 'stalled':
+        raise ValueError('operator-review-stalled-marker-mismatch')
+    before = C.artifact(receipt['beforeState'], protected=True)
+    through, _handoff = C.reviewed_checkpoint(value)
+    if (through != marker['executorPass'] or receipt['reviewedThroughPass'] != through
+            or receipt['beforeState']['sha256'] != marker['beforeSha256']
+            or before.get('phase') != 'review_pending'
+            or before.get('executorPasses') != through or before.get('lastFinishedPass') != through
+            or receipt['previousReview'] != before.get('reviewCheckpoint')):
+        raise ValueError('operator-review-before-state-mismatch')
+    if not replay:
+        expected = dict(before, phase='active', reviewCheckpoint=checkpoint)
+        if value != expected or value['executorPasses'] != through or value['lastFinishedPass'] != through:
+            raise ValueError('operator-review-amendment-mismatch')
+    elif value['executorPasses'] < through or value['lastFinishedPass'] < through:
+        raise ValueError('operator-review-pass-rewound')
+    diagnosis = C.artifact(receipt['diagnosis'], protected=True)
+    correction = C.artifact(receipt['correction'], protected=True)
+    if (diagnosis.get('verdict') != 'pass' or diagnosis.get('findings') != []
+            or diagnosis.get('ownerRequest') is not None
+            or diagnosis.get('scope') not in {'offline', 'read_only_preflight', 'bounded_no_model'}
+            or correction.get('scope') != diagnosis['scope']):
+        raise ValueError('operator-review-not-approved')
+    return dict(checkpoint=checkpoint, stalledMarker=snapshot)
+
+
 def reconcile(root):
     if not (root / 'campaign-auto-review.json').exists():
         return
@@ -377,6 +426,14 @@ def reconcile(root):
             marker = C.private(directory / 'marker-after.json')
             C.save(root / 'campaign-auto-review.json', marker)
 
+    if marker['phase'] in {'stalled', 'operator_reviewed'}:
+        value = C.private(root / 'campaign.json')
+        if marker['phase'] == 'operator_reviewed':
+            operator_checkpoint(root, marker, value, replay=True)
+        elif value.get('phase') == 'active':
+            binding = operator_checkpoint(root, marker, value)
+            marker.update(phase='operator_reviewed', operatorReview=binding, noticePending=True)
+            C.save(root / 'campaign-auto-review.json', marker)
 
     # An installed repair must stop an already exhausted continued checkpoint
     # before another executor/model launch, without rewriting its old receipt.

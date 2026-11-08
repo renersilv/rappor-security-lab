@@ -172,6 +172,15 @@ dispatch 0
 assert_trace 'review-model=0' 'review-finish=0' 'notice:continued<executor' 'executor=1'
 printf 'PASS committed transition reconciled before executor\n'
 
+fresh_case assisted_operator_checkpoint
+printf 'active\n' > "$STATE_ROOT/phase"
+printf 'operator_reviewed\n' > "$STATE_ROOT/transition-intent"
+dispatch 0
+assert_trace 'review-model=0' 'review-finish=0' 'notice:operator_reviewed<executor' 'executor=1'
+dispatch 0
+assert_trace 'review-model=0' 'notice:operator_reviewed=1' 'executor=2'
+printf 'PASS assisted checkpoint dispatches and retains its acknowledged marker\n'
+
 fresh_case owner_action
 touch "$STATE_ROOT/require-owner"
 dispatch 0

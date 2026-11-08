@@ -63,3 +63,21 @@ correct Appx identity and evidence from the actual interactive session. Missing
 substring matches, SSH window handles and local auth file presence cannot prove
 an owner action. Renderer readiness timeout remains a technical failure. Fresh
 observations must use corrected code and a new manifest; old evidence is immutable.
+
+## Reconcile an explicitly assisted review after exhaustion
+
+AB#305 repairs the stale automatic stop after an operator has installed a passing
+independent checkpoint under ADR-0002. Reconciliation does not create or approve
+that checkpoint. It requires the complete current campaign binding, an exact
+completed-pass match, the receipt's before-state hash matching the stalled marker,
+the previous-review chain, and a protected copy of the original automatic marker
+alongside the operator receipt. The initial campaign amendment may change only
+the phase to active and the review checkpoint. An owner-required or unbound review
+cannot release exhaustion.
+
+The automatic marker records a distinct `operator_reviewed` phase with immutable
+references to that receipt and the original stalled marker. Replays revalidate
+these bindings, including after the next pass begins. Counters and objective
+history remain unchanged: the next automatic preparation can exhaust the same
+limit again, while only fresh validated runtime evidence can reset it. Automatic
+review cannot manufacture the required operator snapshot to renew itself.

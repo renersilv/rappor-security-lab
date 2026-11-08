@@ -678,6 +678,139 @@ execute_campaign_item 19 "$4" "$5"
         self.assertEqual((self.state / 'notices').read_text().splitlines(), ['reviewing', 'continued'])
         self.assertEqual((self.state / 'session').read_text().strip(), self.session)
 
+    def assisted_amendment(self):
+        for number in range(1, 7):
+            self.changed_preparation_pass(number)
+        marker = C.private(self.state / 'campaign-auto-review.json')
+        before = C.private(self.state / 'campaign.json')
+        folder = self.operator / 'assisted-current-pass'
+        folder.mkdir(mode=0o700)
+        before_ref = R.put(folder / 'before.json', (self.state / 'campaign.json').read_bytes())
+        R.put(folder / 'automatic-marker-before.json', (self.state / 'campaign-auto-review.json').read_bytes())
+        receipt = dict(schema=1, issue=24, targetIssue=19, reviewedThroughPass=6,
+                       previousReview=before['reviewCheckpoint'], beforeState=before_ref,
+                       handoff=R.put(folder / 'handoff.md', b'Perform the reviewed read-only observation once.\n'),
+                       diagnosis=R.put(folder / 'diagnosis.json', R.encoded(dict(
+                           verdict='pass', findings=[], ownerRequest=None, scope='read_only_preflight'))),
+                       correction=R.put(folder / 'correction.json', R.encoded(dict(scope='read_only_preflight'))),
+                       cleanup=R.put(folder / 'cleanup.json', R.encoded(dict(offlineCheckPassed=True, passNumber=6))),
+                       failureFingerprint='f' * 64)
+        for key in ('authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256', 'contractSha256'):
+            receipt[key] = before[key]
+        checkpoint = R.put(folder / 'review.json', R.encoded(receipt))
+        after = dict(before, phase='active', reviewCheckpoint=checkpoint)
+        C.bound(self.state, after)
+        C.save(self.state / 'campaign.json', after)
+        return folder, marker, after
+
+    def rewrite_assisted_receipt(self, folder, **changes):
+        receipt = C.private(folder / 'review.json')
+        receipt.update(changes)
+        C.save(folder / 'review.json', receipt)
+        value = C.private(self.state / 'campaign.json')
+        value['reviewCheckpoint'] = R.reference(folder / 'review.json')
+        C.save(self.state / 'campaign.json', value)
+
+    def test_assisted_checkpoint_reconciles_exact_stop_without_resetting_history(self):
+        folder, original, active = self.assisted_amendment()
+        history = R.OBJECTIVES._history(self.state)
+        preserved = {path: C.digest(path) for path in (
+            self.state / 'campaign.json', self.auth_path, self.state / 'session',
+            folder / 'automatic-marker-before.json', folder / 'before.json')}
+        R.reconcile(self.state)
+        marker = R.job(self.state)[1]
+        self.assertEqual(marker['phase'], 'operator_reviewed')
+        self.assertEqual(marker['unchangedReviews'], original['unchangedReviews'])
+        self.assertEqual(marker['operatorReview']['checkpoint'], active['reviewCheckpoint'])
+        self.assertEqual(C.artifact(marker['operatorReview']['stalledMarker'], protected=True), original)
+        self.assertTrue(marker['noticePending'])
+        self.assertEqual(history, R.OBJECTIVES._history(self.state))
+        self.assertEqual(preserved, {path: C.digest(path) for path in preserved})
+        R.reconcile(self.state)
+        self.assertEqual(marker, R.job(self.state)[1])
+
+    def test_assisted_binding_survives_begin_and_notice_ack_without_another_release(self):
+        _folder, _original, _active = self.assisted_amendment()
+        R.reconcile(self.state)
+        marker = R.job(self.state)[1]
+        marker['noticePending'] = False
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        with mock.patch.object(C.sys, 'argv', ['campaign-control.py', 'begin', str(self.state)]):
+            C.main()
+        self.assertEqual(C.private(self.state / 'campaign.json')['executorPasses'], 7)
+        R.reconcile(self.state)
+        self.assertEqual(marker, R.job(self.state)[1])
+
+    def test_assisted_release_does_not_renew_automatic_preparation_budget(self):
+        self.assisted_amendment()
+        R.reconcile(self.state)
+        self.changed_preparation_pass(7)
+        marker = R.job(self.state)[1]
+        self.assertEqual(marker['phase'], 'stalled')
+        self.assertEqual(marker['unchangedReviews'], 7)
+        self.assertNotIn('operatorReview', marker)
+        self.assertEqual(C.reviewed_checkpoint(C.private(self.state / 'campaign.json'))[0], 6)
+
+    def test_assisted_checkpoint_cannot_release_a_later_or_unfinished_pass(self):
+        _folder, original, active = self.assisted_amendment()
+        for updates in (dict(executorPasses=7), dict(lastFinishedPass=5)):
+            with self.subTest(updates=updates):
+                C.save(self.state / 'campaign.json', dict(active, **updates))
+                with self.assertRaises(ValueError):
+                    R.reconcile(self.state)
+                self.assertEqual(original, R.job(self.state)[1])
+
+    def test_assisted_checkpoint_requires_exact_prior_state_and_automatic_marker(self):
+        folder, original, active = self.assisted_amendment()
+        snapshot = folder / 'automatic-marker-before.json'
+        C.save(snapshot, dict(original, unchangedReviews=0))
+        with self.assertRaisesRegex(ValueError, 'stalled-marker-mismatch'):
+            R.reconcile(self.state)
+        C.save(snapshot, original)
+        before = C.private(folder / 'before.json')
+        C.save(folder / 'before.json', dict(before, lastSummary='Altered historical summary'))
+        self.rewrite_assisted_receipt(folder, beforeState=R.reference(folder / 'before.json'))
+        with self.assertRaisesRegex(ValueError, 'before-state-mismatch'):
+            R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_assisted_checkpoint_rejects_owner_required_verdict_or_state(self):
+        folder, original, active = self.assisted_amendment()
+        C.save(self.state / 'campaign.json', dict(active, phase='owner_required'))
+        R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+        C.save(self.state / 'campaign.json', active)
+        diagnosis = dict(verdict='owner_required', findings=['Owner input remains necessary.'],
+                         ownerRequest=dict(action='interactive_login', location='windows_ide'), scope='offline')
+        C.save(folder / 'diagnosis.json', diagnosis)
+        self.rewrite_assisted_receipt(folder, diagnosis=R.reference(folder / 'diagnosis.json'))
+        with self.assertRaisesRegex(ValueError, 'not-approved'):
+            R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_assisted_checkpoint_rejects_tampering_and_unprotected_review(self):
+        folder, original, active = self.assisted_amendment()
+        (folder / 'handoff.md').write_text('Changed without a newly reviewed hash.\n')
+        with self.assertRaisesRegex(ValueError, 'artifact-changed'):
+            R.reconcile(self.state)
+        outside = self.root / 'unprotected-review.json'
+        outside.write_bytes((folder / 'review.json').read_bytes())
+        outside.chmod(0o600)
+        C.save(self.state / 'campaign.json', dict(active, reviewCheckpoint=R.reference(outside)))
+        with self.assertRaisesRegex(ValueError, 'outside-operator-directory'):
+            R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_assisted_replay_rejects_replaced_bound_checkpoint(self):
+        folder, _original, _active = self.assisted_amendment()
+        R.reconcile(self.state)
+        marker = R.job(self.state)[1]
+        receipt = C.private(folder / 'review.json')
+        self.rewrite_assisted_receipt(folder, failureFingerprint='d' * 64)
+        with self.assertRaisesRegex(ValueError, 'binding-changed'):
+            R.reconcile(self.state)
+        self.assertEqual(marker, R.job(self.state)[1])
+
 
 if __name__ == '__main__':
     unittest.main()
