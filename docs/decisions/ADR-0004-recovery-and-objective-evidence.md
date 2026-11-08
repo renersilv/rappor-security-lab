@@ -37,7 +37,7 @@ Unrepairable evidence or scope violations stop visibly with concrete diagnosis,
 not a fictional request for authorization. A typed owner action remains distinct.
 No new daemon, infrastructure, remediation inference or product publication exists.
 
-Offline checks use a transient resource scope inside the existing user manager,
+Offline checks use a transient resource service inside the existing user manager,
 limited to 1 GiB, 64 tasks and one CPU; it is not another persistent service.
 A proven installed repair may grant three additional reviewer transports to the
 same bound review job when its initial three were exhausted. Preserve the cumulative
@@ -70,3 +70,21 @@ objective replay/tampering. Verify isolation in the actual host namespace. Insta
 the isolated #26 commit only between active worker invocations under shared, run
 and lab integration locks. Do not manufacture a failure in the live campaign;
 exercise recovery with an isolated test state and report that limit explicitly.
+
+## AB#305: Recovery sandbox launch boundary
+
+The hardened worker's inherited restrictions prevent bubblewrap from creating its
+namespaces when launched in a transient scope. The exact worker hardening was
+reproduced with harmless probes: the scope failed before execution, while a
+transient service launched by the existing user manager ran inside bubblewrap.
+The worker and host security policies remain unchanged. The manager executes only
+the fixed bubblewrap command; candidate code runs after its namespace isolation,
+read-only mounts, cleared environment and no-new-privileges boundary. There is no
+unsandboxed fallback. Resource and runtime limits remain enforced on the transient
+service, including bounded termination of its control group.
+
+A trusted sandbox preflight checks actual filesystem, process, network and
+no-new-privileges isolation before invoking any diagnosis model or consuming a
+repair candidate. Failures retain private diagnostics and existing retry/candidate
+history. This does not refund consumed candidates, renew an objective checkpoint
+or claim that a stalled campaign has made progress.

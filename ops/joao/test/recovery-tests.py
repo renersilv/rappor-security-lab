@@ -35,6 +35,9 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../campaign.sh"
 
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
+        self.preflight_patch = patch.object(R, 'sandbox_preflight')
+        self.preflight_patch.start()
+        self.addCleanup(self.preflight_patch.stop)
         self.temporary = tempfile.TemporaryDirectory(prefix='recovery-test-')
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
@@ -432,12 +435,39 @@ recover_campaign_failure
         for required in ['--property=MemoryMax=1G', '--property=TasksMax=64', '--property=CPUQuota=100%',
                          '--property=RuntimeMaxSec=310s', '--unshare-all', '--clearenv']:
             self.assertIn(required, observed)
+        self.assertNotIn('--scope', observed)
+        self.assertIn('--wait', observed)
+        self.assertIn('--pipe', observed)
+        self.assertIn('--service-type=exec', observed)
+        self.assertIn('/usr/bin/bwrap', observed)
         self.assertNotIn('/etc', observed)
         read_only_mounts = [observed[index + 1] for index, value in enumerate(observed)
                             if value == '--ro-bind']
         self.assertEqual(read_only_mounts, ['/usr', str(self.repo)])
         self.assertNotIn('JOAO_RECOVERY_E2E', observed)
         self.assertIn('JOAO_RECOVERY_SANDBOX', observed)
+
+    def test_preflight_failure_preserves_candidate_budget_and_never_calls_model(self):
+        with patch.object(R, 'sandbox_preflight', side_effect=ValueError('recovery-sandbox-preflight-failed')), \
+                patch.object(R, 'call_model') as model:
+            with self.assertRaisesRegex(ValueError, 'sandbox-preflight-failed'):
+                R.supervise(self.state, self.repo, 'fixture', 'fixture')
+        model.assert_not_called()
+        self.assertFalse((self.state / 'recovery.json').exists())
+        self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
+        self.assertEqual(self.git('rev-parse', 'HEAD'), self.base)
+
+    def test_preflight_failure_does_not_overwrite_previous_candidate(self):
+        previous = dict(fingerprint=FINGERPRINT, attempts=1, phase='failed', directory=str(self.root))
+        R.C.save(self.state / 'recovery.json', previous)
+        before = (self.state / 'recovery.json').read_bytes()
+        with patch.object(R, 'sandbox_preflight', side_effect=ValueError('recovery-sandbox-preflight-failed')), \
+                patch.object(R, 'call_model') as model:
+            with self.assertRaisesRegex(ValueError, 'sandbox-preflight-failed'):
+                R.supervise(self.state, self.repo, 'fixture', 'fixture')
+        model.assert_not_called()
+        self.assertEqual((self.state / 'recovery.json').read_bytes(), before)
+        self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
 
     def test_sandbox_startup_failure_is_not_a_failing_regression(self):
         def process(args, **kwargs):
@@ -491,6 +521,7 @@ recover_campaign_failure
                          os.environ.get('JOAO_RECOVERY_SANDBOX') != '1',
                          'Requires explicit real sandbox opt-in outside nested checks')
     def test_real_sandbox_synthetic_repair_end_to_end(self):
+        self.preflight_patch.stop()
         shutil.copytree(HERE.parent, self.ops, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
         original = (self.ops / 'campaign.sh').read_text()

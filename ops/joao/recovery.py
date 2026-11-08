@@ -181,7 +181,20 @@ def sandbox(repo, tests, log_path):
               ' p=subprocess.run(command)\n'
               ' print("recovery_case_finished="+str(p.returncode),flush=True)\n'
               ' if p.returncode: sys.exit(p.returncode)\n')
-    args = ['bwrap', '--unshare-all', '--die-with-parent', '--new-session',
+    if not tests:
+        driver += (
+            'import os,pathlib\n'
+            'assert not pathlib.Path("/home").exists()\n'
+            'assert not pathlib.Path("/run").exists()\n'
+            'assert os.environ.get("HOME") == "/tmp"\n'
+            'assert len(list(pathlib.Path("/proc").glob("[0-9]*"))) <= 2\n'
+            'assert len(pathlib.Path("/proc/net/route").read_text().splitlines()) == 1\n'
+            'mounts = pathlib.Path("/proc/mounts").read_text().splitlines()\n'
+            'assert any(line.split()[1] == "/workspace" and "ro" in line.split()[3].split(",") for line in mounts)\n'
+            'status = pathlib.Path("/proc/self/status").read_text()\n'
+            'assert "NoNewPrivs:\t1" in status\n'
+            'print("recovery_case_finished=0", flush=True)\n')
+    args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session',
             '--ro-bind', '/usr', '/usr', '--symlink', 'usr/bin', '/bin',
             '--symlink', 'usr/lib', '/lib', '--symlink', 'usr/lib64', '/lib64',
             '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
@@ -189,10 +202,13 @@ def sandbox(repo, tests, log_path):
             '--setenv', 'PATH', '/usr/bin:/bin', '--setenv', 'HOME', '/tmp',
             '--setenv', 'PYTHONDONTWRITEBYTECODE', '1',
             '--setenv', 'JOAO_RECOVERY_SANDBOX', '1', 'python3', '-c', driver]
-    unit = 'joao-recovery-check-' + uuid.uuid4().hex + '.scope'
-    args = ['systemd-run', '--user', '--scope', '--quiet', '--collect', '--unit=' + unit,
+    unit = 'joao-recovery-check-' + uuid.uuid4().hex + '.service'
+    # The manager launches the fixed sandbox without inherited worker restrictions.
+    # Bubblewrap isolates and drops privileges before running candidate code.
+    args = ['systemd-run', '--user', '--wait', '--pipe', '--service-type=exec',
+            '--quiet', '--collect', '--unit=' + unit,
             '--property=MemoryMax=1G', '--property=MemorySwapMax=0', '--property=TasksMax=64',
-            '--property=CPUQuota=100%', '--property=RuntimeMaxSec=310s', *args]
+            '--property=CPUQuota=100%', '--property=RuntimeMaxSec=310s', '--property=TimeoutStopSec=10s', *args]
     with log_path.open('wb') as output:
         os.fchmod(output.fileno(), 0o600)
         try:
@@ -344,6 +360,14 @@ def integrate(root, repo, state):
         (root / 'issue-retry').unlink()
 
 
+def sandbox_preflight(root, repo):
+    folder = root / 'diagnostics' / 'recovery-preflight'
+    folder.mkdir(parents=True, mode=0o700, exist_ok=True)
+    log = folder / (uuid.uuid4().hex + '.log')
+    if sandbox(repo, [], log):
+        raise ValueError('recovery-sandbox-preflight-failed')
+
+
 def supervise(root, repo, model, effort):
     incident = retry(root)
     old = C.private(root / 'recovery.json') if (root / 'recovery.json').exists() else None
@@ -365,6 +389,9 @@ def supervise(root, repo, model, effort):
     base = git(repo, 'rev-parse', 'HEAD')
     if git(repo, 'status', '--porcelain') or git(repo, 'symbolic-ref', '--short', 'HEAD') != 'main':
         raise ValueError('recovery-requires-clean-main')
+    # Host capability failures are not repair candidates: check before asking
+    # the model or reserving a candidate, preserving existing retry history.
+    sandbox_preflight(root, repo)
     folder = root / 'diagnostics' / 'recovery' / incident['fingerprint'] / str(attempts + 1)
     folder.mkdir(parents=True, mode=0o700, exist_ok=True)
     if any(folder.iterdir()):
