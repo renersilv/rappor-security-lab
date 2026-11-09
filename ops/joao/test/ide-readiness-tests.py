@@ -32,6 +32,41 @@ class ReadinessTests(unittest.TestCase):
         self.data['mcpRuntimeStatus']['data'][0]['name'] = 'user-selected-alias'
         self.assertEqual(R.classify(self.data)['diagnosis'], 'local_readiness_observed')
 
+    def test_missing_and_null_runtime_origin_use_exact_enabled_configuration(self):
+        row = self.data['mcpRuntimeStatus']['data'][0]
+        for missing in (False, True):
+            with self.subTest(missing=missing):
+                if missing:
+                    row.pop('httpOrigin', None)
+                else:
+                    row['httpOrigin'] = None
+                result = R.classify(self.data)
+                self.assertTrue(result['enabledExactEndpointSelected'])
+                self.assertTrue(result['mcpToolDiscoveryVerified'])
+                self.assertEqual(result['authenticationState'], 'authenticated_connection_observed')
+                self.assertFalse(result['mcpToolCallVerified'])
+                self.assertFalse(result['ownerActionVerified'])
+
+    def test_nullable_origin_cannot_override_wrong_configuration_or_runtime_identity(self):
+        for changed in ('url', 'enabled', 'name'):
+            with self.subTest(changed=changed):
+                observation = copy.deepcopy(self.data)
+                observation['mcpRuntimeStatus']['data'][0]['httpOrigin'] = None
+                if changed == 'url':
+                    observation['mcpStatus'][0]['transport']['url'] = 'https://unrelated.invalid/mcp'
+                elif changed == 'enabled':
+                    observation['mcpStatus'][0]['enabled'] = False
+                else:
+                    observation['mcpRuntimeStatus']['data'][0]['name'] = 'unrelated-server'
+                self.assertFalse(R.classify(observation)['mcpToolDiscoveryVerified'])
+
+    def test_non_null_runtime_origin_mismatch_remains_rejected(self):
+        row = self.data['mcpRuntimeStatus']['data'][0]
+        for value in ('https://unrelated.invalid', '', False, 1):
+            with self.subTest(value=value):
+                row['httpOrigin'] = value
+                self.assertFalse(R.classify(self.data)['mcpToolDiscoveryVerified'])
+
     def test_unauthenticated_never_matches_authenticated(self):
         self.data.pop('mcpRuntimeStatus')
         for value in ('notLoggedIn', 'unauthenticated', 'logged_out', 'login_required'):

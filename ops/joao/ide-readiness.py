@@ -66,7 +66,7 @@ def runtime_status(status, selected, origin):
     if len(matches) != 1:
         return 'unknown', False
     row = matches[0]
-    if row.get('httpOrigin', origin) != origin:
+    if row.get('httpOrigin') is not None and row['httpOrigin'] != origin:
         return 'unknown', False
     state = row.get('runtimeStatus')
     if state not in {'notStarted', 'starting', 'connected', 'authenticationRequired', 'failed', 'cancelled', 'disabled'}:
