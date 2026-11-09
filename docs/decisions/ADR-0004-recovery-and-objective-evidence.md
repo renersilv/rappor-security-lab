@@ -88,3 +88,25 @@ no-new-privileges isolation before invoking any diagnosis model or consuming a
 repair candidate. Failures retain private diagnostics and existing retry/candidate
 history. This does not refund consumed candidates, renew an objective checkpoint
 or claim that a stalled campaign has made progress.
+
+## AB#305: Fixed Windows host identity observation
+
+The exact hardened worker was observed under the `unprivileged_userns` profile,
+which denied reading the existing QEMU process executable. The same fixed
+read-only observation launched by the user manager succeeded. Preserve worker
+hardening and global policy; expose only the installed `windows-host-identity.py`
+command without arguments. It passes retained, hash-pinned probe bytes to a
+short-lived service (256 MiB, 32 tasks, one CPU, 40 seconds). The child verifies
+the pin before running. This boundary authorizes only two fixed domain queries
+and bounded `/proc` reads for the existing `joao-windows-x64` domain, UUID, QEMU
+process generation and ownership of `127.0.0.1:2222` forwarded to guest port22.
+It accepts no candidate code, arbitrary command, path, domain or transport option,
+and performs no SSH, guest command, VM mutation or inference.
+
+The installed reviewed source remains the trust boundary, not cryptographic
+separation from another process owned by the same OS user. The fixed payload pin
+rejects unintended changes and the child executes the same retained bytes rather
+than rereading a mutable path. The receipt is a fresh identity observation, never
+product acceptance, an experiment-budget grant or authorization for guest activity.
+Failures are sanitized and inconclusive. No persistent service or general host
+dispatch capability is introduced.

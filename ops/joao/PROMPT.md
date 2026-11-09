@@ -95,3 +95,13 @@ that action. Preserve doing; the wrapper routes the proposal to its reviewer.
 Use the installed `ide-readiness.py` and `IDE-READINESS.md` typed selector contract for fresh IDE/MCP
 observations. Bind corrected source and results in the next manifest; never reuse
 an old false-negative selector or rewrite its historical receipt.
+
+For the existing Windows laboratory domain, observe host identity with the fixed
+installed command `/usr/bin/python3 -I /home/linux/rappor-security-lab/ops/joao/windows-host-identity.py`
+without arguments. It is host-owned read-only infrastructure: do not copy, modify
+or replace its probe with a worktree script. Its temporary user-manager service
+checks only the current domain, process generation and exact loopback listener;
+it does not contact the guest or authorize a later command. Preserve its sanitized
+receipt in the current evidence. An inconclusive result remains a technical
+prerequisite failure; never infer identity, change host security policy, reuse an
+old successful observation or ask for login from that failure alone.
