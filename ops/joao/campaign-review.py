@@ -386,6 +386,43 @@ def finish(root):
     print(marker['phase'])
 
 
+def operator_ide_authorization(correction, receipt, before):
+    """Validate one owner-activated existing reservation, never a live ledger pin."""
+    grant = C.artifact(correction.get('ownerAuthorization'), protected=True)
+    if not isinstance(grant, dict):
+        raise ValueError('invalid-operator-ide-authorization')
+    expected = dict(schema=1, azureWorkItem=301, client='ide-windows', additionalStarts=1,
+                    maxSecondsPerRun=600, nextSequence=22, remainingIdeStartsAfter=1,
+                    consumeBeforeStart=True, countFailedStarts=True,
+                    sequentialOnly=True, requireCorrectionBeforeRetry=True,
+                    allowOpenAiApiKey=False, allowNewVm=False, allowBudgetReset=False,
+                    executorPass=receipt['reviewedThroughPass'] + 1,
+                    contractSha256=receipt['contractSha256'],
+                    candidateSha256=receipt['candidateSha256'],
+                    nativeAuthorizationSha256=receipt['authorizationSha256'])
+    if any(type(grant.get(key)) is not type(item) or grant[key] != item for key, item in expected.items()):
+        raise ValueError('invalid-operator-ide-authorization')
+    # Protected owner evidence and the unchanged starting ledger are retained. The
+    # existing reserve/finish implementation alone writes the live consumption file.
+    approval = C.artifact(grant.get('ownerApproval'), protected=True)
+    if (not isinstance(approval, dict) or approval.get('approved') is not True
+            or type(approval.get('azureWorkItem')) is not int or approval['azureWorkItem'] != 301):
+        raise ValueError('operator-ide-owner-approval-required')
+    ledger = C.artifact(grant.get('consumptionBefore'), protected=True)
+    if (not isinstance(ledger, dict) or ledger.get('schemaVersion') != 9 or ledger.get('authorizationId') != 'issue19-ai-20261016'
+            or ledger.get('maxStarts') != 23 or ledger.get('maxCliLinuxStarts') != 21
+            or ledger.get('reservedIdeWindowsStarts') != 2
+            or not isinstance(ledger.get('attempts'), list)):
+        raise ValueError('operator-ide-reservation-ledger-mismatch')
+    attempts = ledger['attempts']
+    if (len(attempts) != 21 or any(not isinstance(item, dict) or item.get('client') != 'cli-linux'
+                                 or item.get('outcome') not in {'completed', 'failed', 'refused', 'needs-owner-action', 'timed-out'}
+                                 for item in attempts)
+            or [item.get('sequence') for item in attempts] != list(range(1, 22))
+            or before['lastObservedConsumption'] != 2):
+        raise ValueError('operator-ide-reservation-unavailable')
+
+
 def operator_checkpoint(root, marker, value, *, replay=False):
     """Bind an assisted amendment to the exact exhausted automatic snapshot."""
     C.bound(root, value)
@@ -419,19 +456,29 @@ def operator_checkpoint(root, marker, value, *, replay=False):
             or before.get('executorPasses') != through or before.get('lastFinishedPass') != through
             or receipt['previousReview'] != before.get('reviewCheckpoint')):
         raise ValueError('operator-review-before-state-mismatch')
-    if not replay:
-        expected = dict(before, phase='active', reviewCheckpoint=checkpoint)
-        if value != expected or value['executorPasses'] != through or value['lastFinishedPass'] != through:
-            raise ValueError('operator-review-amendment-mismatch')
-    elif value['executorPasses'] < through or value['lastFinishedPass'] < through:
-        raise ValueError('operator-review-pass-rewound')
     diagnosis = C.artifact(receipt['diagnosis'], protected=True)
     correction = C.artifact(receipt['correction'], protected=True)
     if (diagnosis.get('verdict') != 'pass' or diagnosis.get('findings') != []
             or diagnosis.get('ownerRequest') is not None
-            or diagnosis.get('scope') not in {'offline', 'read_only_preflight', 'bounded_no_model'}
+            or diagnosis.get('scope') not in {'offline', 'read_only_preflight', 'bounded_no_model', 'bounded_ide_ai'}
             or correction.get('scope') != diagnosis['scope']):
         raise ValueError('operator-review-not-approved')
+    transition = correction.get('contractTransition')
+    if before['contractSha256'] != receipt['contractSha256']:
+        expected_transition = dict(before=before['contractSha256'], after=receipt['contractSha256'])
+        if transition != expected_transition or diagnosis.get('contractTransition') != expected_transition:
+            raise ValueError('operator-contract-transition-required')
+    elif transition is not None or diagnosis.get('contractTransition') is not None:
+        raise ValueError('operator-contract-transition-unexpected')
+    if diagnosis['scope'] == 'bounded_ide_ai':
+        operator_ide_authorization(correction, receipt, before)
+    if not replay:
+        expected = dict(before, phase='active', reviewCheckpoint=checkpoint,
+                        contractSha256=receipt['contractSha256'])
+        if value != expected or value['executorPasses'] != through or value['lastFinishedPass'] != through:
+            raise ValueError('operator-review-amendment-mismatch')
+    elif value['executorPasses'] < through or value['lastFinishedPass'] < through:
+        raise ValueError('operator-review-pass-rewound')
     return dict(checkpoint=checkpoint, stalledMarker=snapshot)
 
 

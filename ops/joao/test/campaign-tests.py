@@ -272,7 +272,9 @@ execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
         self.assertEqual(MODULE.private(self.state / 'campaign.json')['executorPasses'], 1)
         self.assertEqual((self.state / 'stage.json').read_bytes(), before)
         prompt = (self.state / 'mock-prompt').read_text()
-        self.assertIn('Current #19 continuation', prompt)
+        self.assertIn('Current AB#301 continuation', prompt)
+        self.assertIn('bounded_ide_ai', prompt)
+        self.assertNotIn('Both IDE reservations remain untouched.', prompt)
         self.assertNotIn('CURRENT OPT-IN STAGE: preparation', prompt)
         self.assertFalse((self.state / 'mock-failure').exists())
 

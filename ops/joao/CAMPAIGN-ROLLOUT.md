@@ -299,3 +299,47 @@ rollback-proof: restoring campaign state and all later results together is outsi
 this boundary and is forbidden. Never restore an old campaign as a recovery shortcut.
 Review-reference rollback with the current cumulative counter cannot buy launches;
 a checkpoint farther behind either closes the window or fails validation.
+
+## Activate the owner-approved IDE reservation — 2026-11-10
+
+This is the AB#301 owner scope change, not another automatic preparation release.
+First factually finish and independently review any interrupted pass using its
+actual interruption evidence; do not invent guest actions or success. Keep João's
+timer stopped and service idle during installation and amendment. Preserve the
+unfinished worktree/session, all counters, native receipts and the old contract.
+
+Install the reviewed lab commit on clean lab main under the existing sequential,
+run and integration locks. The runner reads campaign-contract.md, campaign-review.py
+and objectives from its installed SCRIPT_DIR; do not merge or overwrite the active
+unfinished worktree merely to update this contract. The product Azure adapter and
+its runnerRevision binding are unchanged by this laboratory-only commit. Record
+old/new lab Git revisions and source hashes; do not change service hardening or
+native authorization/stage bindings. Use python3 -B -I for assisted scripts to avoid
+creating an untracked __pycache__ in installed main.
+
+In a protected operator review directory, retain the exact stalled marker, campaign
+before-state, prior contract, existing consumption ledger snapshot and owner
+AB#301 authorization evidence. Both diagnosis and correction require identical
+contractTransition objects with before/after digests. Both scopes must be
+bounded_ide_ai. The correction's ownerAuthorization reference points to a protected
+receipt with schema1, azureWorkItem301, client ide-windows, additionalStarts1,
+maxSecondsPerRun600, consumeBeforeStart/countFailedStarts/sequentialOnly/
+requireCorrectionBeforeRetry true; allowOpenAiApiKey/allowNewVm/allowBudgetReset
+false; executorPass equal reviewedThroughPass+1; exact new contractSha256,
+candidateSha256 and nativeAuthorizationSha256; nextSequence22 and
+remainingIdeStartsAfter1. ownerApproval and consumptionBefore are protected
+path/hash references. Owner approval evidence must explicitly contain
+azureWorkItem301 and approved:true. The snapshot must show schema9, the original authorization,
+21 finished CLI starts and zero IDE starts, maxStarts23/maxCliLinuxStarts21 and
+reservedIdeWindowsStarts2. Never bind replay to the changing live ledger digest.
+
+Prepare the prospective state changing only contractSha256, reviewCheckpoint and
+phase. Validate C.bound and R.operator_checkpoint with installed sources before
+writing; preserve exact original-marker snapshot and unchangedReviews. Reconcile
+through the installed R.reconcile, preserving operator_reviewed history. Verify
+the effective generated prompt includes the new contract and reviewed one-attempt
+handoff without a stale no-inference instruction. Automatic review remains unable
+to return bounded_ide_ai. Use existing control resume/timer operations after the
+reviewed installation; no manual retry-state deletion. The next pass reserves the
+existing IDE sequence before its first real prompt and records its actual finish.
+A failed start consumes the activation; automatic continuation cannot renew it.

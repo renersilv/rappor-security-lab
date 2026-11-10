@@ -18,7 +18,7 @@ MAX_BYTES = 16 * 1024 * 1024
 REPLAN = ('Replan the current objective diagnostically: identify the missing observable, '
           'read the existing failure evidence, and choose one bounded discriminating check. '
           'Do not repeat harness preparation or an accepted cycle. Continue independent authorized work; '
-          'do not request chat review, renew quota, reset data or start test inference.')
+          'do not request chat review, renew quota or reset data; test inference requires the exact current protected owner activation.')
 
 
 def _encoded(value):

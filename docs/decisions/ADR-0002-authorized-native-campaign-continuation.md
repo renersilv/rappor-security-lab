@@ -110,3 +110,29 @@ There is no inferred checkpoint or silent migration. Keep the timer off through
 upgrade and the first single-pass verification. The same session, #19 worktree,
 branch, authorization, candidate and historical receipts remain bound. This adds
 no service, model-test authorization or #19/#17 acceptance shortcut.
+
+## Owner activation of one existing IDE reservation — 2026-11-10
+
+The owner updated AB#301 to prioritize the real Windows IDE/MCP/AI cycle before
+AWS HML. This supersedes the prior blanket no-inference continuation only for a
+single protected assisted `bounded_ide_ai` checkpoint. It activates one existing
+IDE reservation for the exact next executor pass, for at most 600 seconds, using
+the original ledger's reserve-before-start and finish operations. Preserve the
+other IDE reservation, two consumed native starts, exhausted Linux budget,
+historical failures and all acceptance criteria. No API key or new VM is allowed.
+
+An independently reviewed assisted contract amendment explicitly binds the old
+and new contract digests in both diagnosis and correction. The protected owner
+activation receipt binds that contract, candidate, pass and immutable starting
+consumption snapshot plus owner approval evidence. Replay validates the snapshot,
+not a stale digest of the live ledger that legitimate reserve/finish updates.
+Automatic review still cannot authorize inference. The operator transition changes
+only contractSha256, phase and reviewCheckpoint; every other state field and the
+stalled marker's counters/history remain exact. An interrupted pass must be
+factually closed and independently reviewed before this transition; its result
+must not claim an operation, test or success that never occurred.
+
+No new ledger, service, compatibility path or product capability is introduced.
+The existing IDE flow proves readiness through real public operations rather than
+another private cache/collector prerequisite. A failed or timed-out start consumes
+the reservation and cannot be retried under this activation.

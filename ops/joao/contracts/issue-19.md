@@ -5,7 +5,17 @@ Historical issue comments preserve decisions and evidence; superseded instructio
 in those comments do not override this contract. Portuguese below preserves the
 owner-approved acceptance criteria.
 
-## Current stage: consent preparation and independent review
+## Current campaign priority — owner-authorized AB#301, 2026-11-10
+
+For the already activated campaign, the installed campaign-contract.md and exact
+protected assisted handoff supersede the historical preparation stage below. One
+existing IDE reservation can be activated for one named pass and 600 seconds;
+there is no general inference permission. The original reserve/finish ledger,
+accepted CLI corpus and historical evidence remain authoritative. The wrapper
+prints the current contract and handoff after the current Azure item. Do not
+reconstruct a superseded no-model instruction from the saved session.
+
+## Historical stage: consent preparation and independent review
 
 - Work only in the existing João #19 worktree/session, preserving commit d46034c and
   every existing diff/receipt. Do not commit, push or deliver the entire issue during

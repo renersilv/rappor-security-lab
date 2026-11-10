@@ -1,4 +1,4 @@
-# Current #19 continuation: remaining checks after native CLI acceptance
+# Current AB#301 continuation: one existing Windows IDE reservation
 
 Laboratory #23 continues the existing ADR-0002 stage after root and João reviewed
 the native Windows CLI cycle. Attempt 2 passed: score 86.8324 to 97.4027, one issue
@@ -14,13 +14,25 @@ this stage. Preserve every existing change, historical result and review count.
 
 ## Authorization boundary for this continuation
 
-Do not start any new remediation-test model or turn, native CLI AI test, IDE AI
-test or Linux AI test. The executor may continue implementation and review; that
-is separate from a remediation experiment. Two native starts have been consumed;
-eight remain unused and must stay unused here because the cycle already passed
-and its stop-on-completion rule applies. Both IDE reservations remain untouched.
-The separate native authorization never renewed the exhausted Linux budget.
-Do not reset a ledger, counter, corpus, platform data or historical outcome.
+The owner re-prioritized AB#301 on 2026-11-10 to execute the real Windows IDE/MCP
+remediation cycle. Only a protected assisted checkpoint with scope `bounded_ide_ai`
+activates one of the two existing IDE reservations for its explicitly named next
+executor pass. Before the first real IDE prompt, use the existing
+`src/issue19-ai-consumption.mjs` reserve operation with client `ide-windows`, under
+its existing lock, against the original authorization and all eight extensions.
+The starting ledger has 21 total/CLI starts and zero IDE starts; reserve sequence
+22 before inference, count failures/timeouts, and finish that same reservation
+with the actual outcome. Limit the complete remediation-test AI session to 600
+seconds. Preserve the other IDE reservation; this checkpoint authorizes no retry
+or second start. A further attempt requires a verified correction and a separately
+bound owner activation, never an automatic review or a changed source hash.
+
+Two native starts remain consumed; the eight unused native starts stay unused
+because their accepted cycle's stop-on-completion rule applies. The exhausted
+Linux budget is not renewed. Never reset a ledger, counter, corpus, platform data
+or historical outcome. Executor implementation/review is distinct from the
+remediation-test model. Without the explicit assisted activation, continuation
+remains no-model; do not infer permission from this document alone.
 
 Use only the exact supplied candidate, existing authorized isolated accounts/scopes,
 official public clients and the existing Windows VM. No API key, new VM, alternate
@@ -30,30 +42,29 @@ zero findings. The remaining issue is not a reason to repeat the accepted cycle.
 
 ## Work to execute now
 
-1. Complete the managed-processing preparation and bounded technical checks that
-   need no test-model inference. Use the official client and authenticated public
-   UI/API/MCP on the existing synthetic project. Exercise the required local consent
-   for each upload, inspect the managed result and rendered Web, and verify that a
-   local change absent from Git is reflected in a later authorized snapshot when
-   the existing authorized fixture permits it. Preserve the accepted native corpus;
-   use a separate explicitly identified synthetic fixture where another input is
-   needed. Verify the existing Web ZIP and native-folder entry paths where supported.
-   Report these as technical evidence; they do not prove an AI-managed cycle.
-2. Execute the remaining bounded no-model negative/cancellation checks and their
-   deterministic coverage: refusal/cancellation, client/runtime unavailable, moved
-   fixture folder and revoked OAuth where the already authorized isolated scope
-   permits a reversible independent check. Use isolated fixtures/grants and preserve
-   the active shared connection. Do not revoke a shared grant or change account/
-   scopes to manufacture a negative result. Confirm useful public guidance, no
-   false configuration/result, no exposed credential and no persistent mount or
-   temporary upload. Restore the authorized runtime and perform finally cleanup.
-3. Prepare the outstanding real IDE path: inspect the existing host/client and
-   official installation/configuration, verify MCP discovery and public connection
-   readiness, and finish reversible preparation possible with existing access.
-   Prepare the exact remaining scenario and evidence capture without starting an
-   IDE inference or spending either reservation. Identify a genuinely necessary
-   interactive login or other user action precisely if it cannot be completed
-   using the existing authorized session. Continue independent checks before stopping.
+1. Execute the authorized real IDE cycle first in the existing Windows IDE and
+   official client, using the existing isolated synthetic fixture and connection.
+   Obtain the baseline through Rappor, ask the IDE AI to fix a specific reported
+   problem without detailed implementation instructions, run the unchanged
+   functional tests, reanalyze through the public MCP contract, and compare the
+   issue, score, coverage and rendered Web against that same configuration and
+   revision. Capture actual IDE tool calls/results and relevant changes; a CLI,
+   standalone app server, cache inspection or protocol probe cannot substitute for
+   this IDE acceptance. Use a separate identified synthetic fixture; do not modify
+   the accepted CLI corpus. Do not require Git, Docker or a private readiness collector unless the
+   actual selected flow needs that capability. Existing official UI/MCP operations
+   establish readiness as part of the real flow. If the client refuses or fails, record the real failure and
+   settle the consumed reservation; do not silently retry or manufacture success.
+2. Preserve the interrupted Web ZIP work and the accepted native baseline. After
+   the one IDE attempt and its independent review, resume useful no-model checks:
+   Web ZIP selection, consent, upload, one analysis and its rendered result remain
+   distinct from earlier observations of an empty picker. Use a separate identified
+   synthetic fixture and per-operation consent; preserve the accepted corpus.
+3. Continue bounded no-model negative/cancellation checks only within their existing
+   isolated authorization. Do not revoke the shared grant, change accounts/scopes,
+   start a new VM or manufacture a negative result by breaking the working IDE.
+   A real user-only action must be precise; routine repair with existing authorized
+   access is work. Keep unavailable runtime evidence explicit and perform cleanup.
 4. Maintain a concise evidence matrix by platform, processing mode and host type.
    Persist genuinely new sanitized observations and matrix updates in the existing
    #19 worktree; keep raw evidence and sensitive identifiers in private diagnostics.
@@ -63,6 +74,14 @@ zero findings. The remaining issue is not a reason to repeat the accepted cycle.
    provenance/autonomous-report limits; preparation does not retroactively pass it.
    A bounded reproducible product discrepancy is feedback for the product executor,
    not permission for João to change the product or to stop unrelated permitted work.
+
+The test prompt must be a normal user request, without internal IDs, tool schemas,
+implementation instructions or private protocol details. For example: "Analyze this
+project with Rappor Security using this computer. Show the initial score, fix one
+relevant problem while preserving functionality, run the tests and analyze it again
+to show what changed." Authorized fixture/tenant context belongs in the official
+setup; the AI must obtain actual remediation guidance from MCP. AWS work starts
+only after this MCP/AI test and is not part of this activation.
 
 ## Public contracts, resources and evidence
 

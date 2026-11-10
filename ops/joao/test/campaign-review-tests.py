@@ -797,6 +797,155 @@ execute_campaign_item 19 "$4" "$5"
         value['reviewCheckpoint'] = R.reference(folder / 'review.json')
         C.save(self.state / 'campaign.json', value)
 
+    def ide_amendment(self):
+        self.attempt(2)
+        initial = C.private(self.state / 'campaign.json')
+        C.checkpoint(initial, 2)
+        C.save(self.state / 'campaign.json', initial)
+        folder, marker, active = self.assisted_amendment()
+        # Earlier automatic passes have already observed the real second receipt.
+        before = C.private(folder / 'before.json')
+        self.assertEqual(before['lastObservedConsumption'], 2)
+        receipt = C.private(folder / 'review.json')
+        old_contract = before['contractSha256']
+        new_contract = 'e' * 64
+        receipt['contractSha256'] = new_contract
+        transition = dict(before=old_contract, after=new_contract)
+        ledger = dict(schemaVersion=9, authorizationId='issue19-ai-20261016', maxStarts=23,
+                      maxCliLinuxStarts=21, reservedIdeWindowsStarts=2,
+                      attempts=[dict(sequence=i, client='cli-linux', outcome='failed') for i in range(1, 22)])
+        grant = dict(schema=1, azureWorkItem=301, client='ide-windows', additionalStarts=1,
+                     maxSecondsPerRun=600, consumeBeforeStart=True, countFailedStarts=True,
+                     sequentialOnly=True, requireCorrectionBeforeRetry=True,
+                     allowOpenAiApiKey=False, allowNewVm=False, allowBudgetReset=False,
+                     executorPass=7, contractSha256=new_contract,
+                     candidateSha256=before['candidateSha256'],
+                     nativeAuthorizationSha256=before['authorizationSha256'],
+                     nextSequence=22, remainingIdeStartsAfter=1,
+                     ownerApproval=R.put(folder / 'owner-approval.json', R.encoded(dict(azureWorkItem=301, approved=True))),
+                     consumptionBefore=R.put(folder / 'consumption-before.json', R.encoded(ledger)))
+        C.save(folder / 'diagnosis.json', dict(
+            verdict='pass', findings=[], ownerRequest=None, scope='bounded_ide_ai', contractTransition=transition))
+        C.save(folder / 'correction.json', dict(
+            scope='bounded_ide_ai', contractTransition=transition,
+            ownerAuthorization=R.put(folder / 'owner-authorization.json', R.encoded(grant))))
+        receipt['diagnosis'] = R.reference(folder / 'diagnosis.json')
+        receipt['correction'] = R.reference(folder / 'correction.json')
+        C.save(folder / 'review.json', receipt)
+        checkpoint = R.reference(folder / 'review.json')
+        active.update(contractSha256=new_contract, reviewCheckpoint=checkpoint)
+        C.save(self.state / 'campaign.json', active)
+        original_digest = C.digest
+        contract = Path(C.__file__).with_name('campaign-contract.md')
+        patch = mock.patch.object(C, 'digest', side_effect=lambda path: new_contract if path == contract else original_digest(path))
+        patch.start()
+        self.addCleanup(patch.stop)
+        return folder, marker, active
+
+    def rewrite_ide_artifact(self, folder, name, changes):
+        path = folder / name
+        C.save(path, dict(C.private(path), **changes))
+        correction = C.private(folder / 'correction.json')
+        if name == 'owner-authorization.json':
+            correction['ownerAuthorization'] = R.reference(path)
+        elif name == 'consumption-before.json':
+            grant = C.private(folder / 'owner-authorization.json')
+            grant['consumptionBefore'] = R.reference(path)
+            C.save(folder / 'owner-authorization.json', grant)
+            correction['ownerAuthorization'] = R.reference(folder / 'owner-authorization.json')
+        elif name == 'correction.json':
+            correction = C.private(path)
+        C.save(folder / 'correction.json', correction)
+        self.rewrite_assisted_receipt(folder, correction=R.reference(folder / 'correction.json'))
+
+    def test_owner_ide_activation_changes_only_reviewed_contract_and_survives_live_consumption(self):
+        folder, original, active = self.ide_amendment()
+        R.reconcile(self.state)
+        marker = R.job(self.state)[1]
+        self.assertEqual(marker['unchangedReviews'], original['unchangedReviews'])
+        self.assertEqual(marker['phase'], 'operator_reviewed')
+        with mock.patch.object(C.sys, 'argv', ['campaign-control.py', 'begin', str(self.state)]):
+            C.main()
+        # The ordinary reserve operation changes its own live file, not the snapshot.
+        C.save(self.state / 'live-ide-ledger.json', dict(attempts=[dict(sequence=22, outcome='started')]))
+        R.reconcile(self.state)
+        self.assertEqual(marker, R.job(self.state)[1])
+        self.assertEqual(C.private(self.state / 'campaign.json')['lastObservedConsumption'], 2)
+
+    def test_owner_contract_transition_must_be_explicit_in_both_review_artifacts(self):
+        folder, original, _ = self.ide_amendment()
+        self.rewrite_ide_artifact(folder, 'correction.json', dict(contractTransition=None))
+        with self.assertRaisesRegex(ValueError, 'contract-transition-required'):
+            R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_owner_ide_activation_rejects_extra_start_deadline_wrong_pass_and_api_key(self):
+        folder, original, _ = self.ide_amendment()
+        initial = C.private(folder / 'owner-authorization.json')
+        for change in (dict(additionalStarts=2), dict(maxSecondsPerRun=601),
+                       dict(executorPass=8), dict(allowOpenAiApiKey=True), dict(remainingIdeStartsAfter=0),
+                       dict(remainingIdeStartsAfter=True), dict(nextSequence=True)):
+            with self.subTest(change=change):
+                self.rewrite_ide_artifact(folder, 'owner-authorization.json', dict(initial, **change))
+                with self.assertRaises(ValueError):
+                    R.reconcile(self.state)
+                self.assertEqual(original, R.job(self.state)[1])
+
+    def test_owner_ide_activation_rejects_spent_or_active_reservation_snapshot(self):
+        folder, original, _ = self.ide_amendment()
+        ledger = C.private(folder / 'consumption-before.json')
+        for item in (dict(sequence=22, client='ide-windows', outcome='failed'),
+                     dict(sequence=22, client='ide-windows', outcome='started')):
+            with self.subTest(item=item):
+                self.rewrite_ide_artifact(folder, 'consumption-before.json', dict(attempts=ledger['attempts'] + [item]))
+                with self.assertRaisesRegex(ValueError, 'reservation-unavailable'):
+                    R.reconcile(self.state)
+                self.assertEqual(original, R.job(self.state)[1])
+
+    def test_owner_ide_activation_requires_protected_owner_evidence(self):
+        folder, original, _ = self.ide_amendment()
+        outside = R.put(self.root / 'owner.json', R.encoded(dict(approved=True)))
+        self.rewrite_ide_artifact(folder, 'owner-authorization.json', dict(ownerApproval=outside))
+        with self.assertRaisesRegex(ValueError, 'outside-operator-directory'):
+            R.reconcile(self.state)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_owner_ide_activation_rejects_non_object_protected_artifacts(self):
+        folder, original, _ = self.ide_amendment()
+        receipt = C.private(folder / 'review.json')
+        correction = C.private(folder / 'correction.json')
+        before = C.private(folder / 'before.json')
+        grant = C.private(folder / 'owner-authorization.json')
+        bad = R.put(folder / 'wrong-shape.json', b'[]')
+        with self.assertRaisesRegex(ValueError, 'invalid-operator-ide-authorization'):
+            R.operator_ide_authorization(dict(correction, ownerAuthorization=bad), receipt, before)
+        C.save(folder / 'owner-authorization.json', dict(grant, consumptionBefore=bad))
+        correction['ownerAuthorization'] = R.reference(folder / 'owner-authorization.json')
+        with self.assertRaisesRegex(ValueError, 'reservation-ledger-mismatch'):
+            R.operator_ide_authorization(correction, receipt, before)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_owner_ide_activation_rejects_unapproved_or_wrong_item_evidence(self):
+        folder, original, _ = self.ide_amendment()
+        receipt = C.private(folder / 'review.json')
+        correction = C.private(folder / 'correction.json')
+        before = C.private(folder / 'before.json')
+        grant = C.private(folder / 'owner-authorization.json')
+        for approval in (dict(azureWorkItem=301, approved=False), dict(azureWorkItem=302, approved=True)):
+            C.save(folder / 'owner-approval.json', approval)
+            grant['ownerApproval'] = R.reference(folder / 'owner-approval.json')
+            C.save(folder / 'owner-authorization.json', grant)
+            correction['ownerAuthorization'] = R.reference(folder / 'owner-authorization.json')
+            with self.assertRaisesRegex(ValueError, 'owner-approval-required'):
+                R.operator_ide_authorization(correction, receipt, before)
+        self.assertEqual(original, R.job(self.state)[1])
+
+    def test_automatic_review_cannot_activate_ide_inference(self):
+        self.response(verdict='pass', findings=[], scope='bounded_ide_ai')
+        with self.assertRaises(ValueError):
+            self.finish()
+
+
     def test_assisted_checkpoint_reconciles_exact_stop_without_resetting_history(self):
         folder, original, active = self.assisted_amendment()
         history = R.OBJECTIVES._history(self.state)

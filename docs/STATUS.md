@@ -1,3 +1,17 @@
+# Current owner priority — AB#301 Windows IDE cycle
+
+On 2026-11-10 the owner authorized the real Windows IDE/MCP/AI remediation cycle
+before AWS HML delivery. One existing IDE reservation may be activated through an
+independently reviewed protected operator checkpoint for one named executor pass,
+up to 600 seconds. The existing consumption ledger remains authoritative; native
+starts remain two and Linux is not renewed. Preserve the second IDE reservation,
+all historical failures and incomplete Web ZIP work. No API key or new VM is allowed.
+
+This source change is authorization plumbing, not runtime success. Actual IDE
+analysis, AI correction, unchanged functional tests, comparable reanalysis and Web
+score/issue verification remain required. Automatic reviews cannot authorize a
+remediation model. See the dated ADR-0002 addendum and campaign rollout procedure.
+
 # Delivery and linked finding retests
 
 The owner-approved Sebastião delivery model uses real Azure Done after verified
@@ -67,7 +81,7 @@ budgets, product, Windows runtime or acceptance criteria. See ADR-0002 and
 ops/joao/CAMPAIGN-ROLLOUT.md for review evidence, protected bindings and rollout.
 The native result and remaining #19/#17 coverage below are unchanged.
 
-# Current work — remaining checks after native CLI acceptance
+# Previous continuation — remaining checks after native CLI acceptance
 
 Laboratory #23 continues the same ADR-0002 executor/worktree/session after root and
 João accepted native Windows CLI attempt 2. Its verified cycle changed the score

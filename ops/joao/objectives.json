@@ -28,9 +28,9 @@
       "title": "Real IDE and MCP remediation journey",
       "baseline": "unproven",
       "source": "docs/STATUS.md: remaining checks; ops/joao/contracts/issue-19.md: mandatory journey 2 and 6",
-      "evidence": "IDE reservations are distinct and untouched; CLI, host scripts and protocol probes are not IDE AI acceptance.",
+      "evidence": "IDE reservations are distinct; only an explicit owner activation may consume one. CLI, host scripts and protocol probes are not IDE AI acceptance.",
       "acceptance": "Real IDE discovery, official authorization, guidance, synthetic correction, comparable rerun, rendered Web and cleanup.",
-      "nextAction": "Complete reversible IDE/MCP preparation using existing access; retain the separate inference authorization boundary."
+      "nextAction": "Execute the real IDE cycle only for the single protected owner-activated reservation; otherwise complete no-model preparation. Preserve separate budgets and actual evidence."
     },
     {
       "id": "managed-ai",
