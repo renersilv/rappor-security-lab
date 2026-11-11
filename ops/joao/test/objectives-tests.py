@@ -82,6 +82,96 @@ class ObjectiveTests(unittest.TestCase):
                        nextAction='Continue the next bounded observation on the authorized synthetic fixture.')
         return directory, verdict
 
+    def nested_packet(self, number=207, mutate=None, outer_activity=None):
+        directory, verdict = self.packet(number)
+        bundle = json.loads((directory / 'bundle.json').read_text())
+        manifest_path = Path(bundle['manifest']['path'])
+        context = dict(issue=19, executorPass=number, candidate=self.candidate,
+                       authorizationId='issue19-native-windows-20261023', objectiveId='ide-mcp')
+        descriptor = encoded({'synthetic': 'public response material'})
+        operation = dict(context, observationType='public_contract', inferenceStarted=False, windowsAccessed=False,
+                         operationFingerprint=digest(b'unchanged-synthetic-descriptor'),
+                         artifacts={'public-descriptor.json': digest(descriptor)})
+        live_name = f'live-pass{number}-public-descriptor.json'
+        receipt = dict(operation, artifacts={'public-observation.json': digest(encoded(operation))})
+        files = {'public-descriptor.json': descriptor, 'public-observation.json': encoded(operation),
+                 live_name: encoded(receipt)}
+        runtime = dict(context, schema=1, observationType='public_contract', newLiveActivity=True,
+                       inferenceStarted=False, windowsAccessed=False, scanStarted=False, maxDurationMs=15000,
+                       files={name: digest(raw) for name, raw in files.items()})
+        if mutate:
+            mutate(runtime, files)
+        files['runtime-manifest.json'] = encoded(runtime)
+        manifest = {key: context[key] for key in ('issue', 'executorPass', 'candidate', 'authorizationId')}
+        manifest['files'] = {name: digest(raw) for name, raw in files.items()}
+        if outer_activity is not None:
+            manifest['newLiveActivity'] = outer_activity
+        for name, raw in files.items():
+            private(manifest_path.parent / name, raw)
+        private(manifest_path, manifest)
+        raw = manifest_path.read_bytes()
+        bundle['manifest']['sha256'] = digest(raw)
+        bundle['sources'] = {name: dict(content=data.decode(), sha256=digest(data)) for name, data in files.items()}
+        bundle['sources']['manifest'] = dict(content=raw.decode(), sha256=digest(raw))
+        private(directory / 'bundle.json', bundle)
+        verdict.update(objectiveId='ide-mcp', evidenceLevel='runtime_observation', evidence=[live_name])
+        return directory, verdict
+
+    def test_two_level_packet_records_bound_material_without_changing_acceptance(self):
+        directory, verdict = self.nested_packet()
+        campaign = (self.root / 'campaign.json').read_bytes()
+        record = O.record_review(self.root, directory, verdict)
+        self.assertTrue(record['materialProgress'])
+        self.assertEqual(record['validatedEvidenceLevel'], 'runtime_observation')
+        self.assertFalse(record['acceptanceChanged'])
+        self.assertEqual(campaign, (self.root / 'campaign.json').read_bytes())
+        self.assertEqual(O.record_review(self.root, directory, verdict), record)
+        directory, verdict = self.nested_packet(208)
+        repeated = O.record_review(self.root, directory, verdict)
+        self.assertFalse(repeated['materialProgress'])
+        self.assertEqual(repeated['runtimeIdentityHashes'], record['runtimeIdentityHashes'])
+
+    def test_nested_context_flags_and_material_hashes_cannot_claim_progress(self):
+        changes = [dict(schema=2), dict(executorPass=1), dict(candidate=dict(self.candidate, sha='b' * 40)),
+                   dict(authorizationId='other'), dict(issue=20), dict(objectiveId='web-entries'),
+                   dict(observationType='official_runtime'), dict(newLiveActivity=False),
+                   dict(inferenceStarted=True), dict(windowsAccessed=True), dict(scanStarted=True),
+                   dict(maxDurationMs=600000)]
+        mutations = [(lambda runtime, files, change=change: runtime.update(change)) for change in changes]
+        mutations += [lambda runtime, files: runtime['files'].update({'public-descriptor.json': '0' * 64}),
+                      lambda runtime, files: runtime['files'].pop('public-descriptor.json'),
+                      lambda runtime, files: files.update({'public-descriptor.json': b'changed material'})]
+        for number, mutate in enumerate(mutations, 207):
+            with self.subTest(number=number):
+                directory, verdict = self.nested_packet(number, mutate=mutate)
+                record = O.record_review(self.root, directory, verdict)
+                self.assertFalse(record['materialProgress'])
+                self.assertEqual(record['runtimeEvidenceHashes'], [])
+
+    def test_nested_artifact_links_and_context_are_checked_after_outer_hash_binding(self):
+        cases = [('public-observation.json', dict(artifacts={'public-descriptor.json': '0' * 64})),
+                 ('public-observation.json', dict(executorPass=1)),
+                 ('public-observation.json', dict(operationFingerprint='invalid')),
+                 ('live', dict(artifacts={'public-observation.json': '0' * 64})),
+                 ('live', dict(objectiveId='web-entries')),
+                 ('live', dict(operationFingerprint='e' * 64))]
+        for number, (target, change) in enumerate(cases, 207):
+            def mutate(runtime, files):
+                name = f'live-pass{number}-public-descriptor.json' if target == 'live' else target
+                value = json.loads(files[name]); value.update(change)
+                files[name] = encoded(value)
+                runtime['files'][name] = digest(files[name])
+            with self.subTest(target=target, change=change):
+                directory, verdict = self.nested_packet(number, mutate=mutate)
+                self.assertFalse(O.record_review(self.root, directory, verdict)['materialProgress'])
+
+    def test_nested_observation_does_not_override_outer_veto_or_preparation_review(self):
+        directory, verdict = self.nested_packet(207, outer_activity=False)
+        self.assertFalse(O.record_review(self.root, directory, verdict)['materialProgress'])
+        directory, verdict = self.nested_packet(208)
+        verdict['evidenceLevel'] = 'preparation'
+        self.assertFalse(O.record_review(self.root, directory, verdict)['materialProgress'])
+
     def test_claimed_pass_and_acceptance_flag_never_change_documented_baseline(self):
         before = O.status(self.root)
         directory, verdict = self.packet()

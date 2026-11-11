@@ -78,3 +78,16 @@ Recovery diagnosis receives the validated sanitized findings, next action, scope
 preparation count and technical history for the exact current review. A generic
 changes_requested label is insufficient to diagnose its failure. Historical review
 results, protected state and the exhausted two-candidate bound remain unchanged.
+
+## Bound public observation ingestion
+
+The review packet and the public observer's runtime manifest are two distinct
+materialized layers. Objective accounting validates the nested manifest's context,
+activity flags, exact artifact hashes and live-to-operation-to-descriptor links
+against the outer snapshot before considering runtime evidence. An absent outer
+activity field does not discard that validated observation; an explicit false
+field remains a veto. The real record_review boundary is regression-tested with
+the observer's generated files. Historical packets and review results are never
+rewritten, and an independent preparation verdict cannot be promoted by ingestion.
+Python bytecode caches are ignored as generated files; unexpected source remains
+visible to the unchanged clean-worktree gate.

@@ -203,10 +203,62 @@ def _bound_sources(root, directory, bundle):
     return manifest, actual
 
 
+def _public_runtime_sources(bundle, manifest, actual, verdict):
+    """Bind the current public observer's nested packet before accounting evidence."""
+    raw = actual.get('runtime-manifest.json')
+    if raw is None or manifest.get('newLiveActivity') is False:
+        return None
+    try:
+        runtime = json.loads(raw)
+        context = dict(issue=19, executorPass=bundle['executorPass'], candidate=bundle['candidate'],
+                       authorizationId=manifest['authorizationId'], objectiveId=verdict['objectiveId'])
+        if (not isinstance(runtime, dict) or runtime.get('schema') != 1
+                or any(runtime.get(key) != value for key, value in context.items())
+                or runtime.get('objectiveId') != 'ide-mcp'
+                or runtime.get('observationType') != 'public_contract'
+                or runtime.get('newLiveActivity') is not True
+                or any(runtime.get(key) is not False for key in ('inferenceStarted', 'windowsAccessed', 'scanStarted'))
+                or runtime.get('maxDurationMs') != 15000):
+            return None
+        live = f'live-pass{bundle["executorPass"]}-public-descriptor.json'
+        names = {'public-descriptor.json', 'public-observation.json', live}
+        files = runtime.get('files')
+        if (not isinstance(files, dict) or set(files) != names
+                or any(name not in actual or files[name] != manifest['files'].get(name)
+                       or files[name] != _hash(actual[name]) for name in names)):
+            return None
+        # Both links must refer to the materialized files, not nested hash claims.
+        operation = json.loads(actual['public-observation.json'])
+        receipt = json.loads(actual[live])
+        identity = operation.get('operationFingerprint') if isinstance(operation, dict) else None
+        if not isinstance(identity, str) or not HASH.fullmatch(identity):
+            return None
+        for artifact, links in ((operation, {'public-descriptor.json': files['public-descriptor.json']}),
+                                (receipt, {'public-observation.json': files['public-observation.json']})):
+            if (not isinstance(artifact, dict)
+                    or any(artifact.get(key) != value for key, value in context.items())
+                    or artifact.get('observationType') != 'public_contract'
+                    or artifact.get('operationFingerprint') != identity
+                    or artifact.get('artifacts') != links
+                    or any(artifact.get(key) is not False for key in ('inferenceStarted', 'windowsAccessed'))
+                    or any(artifact.get(key) is True for key in ('mock', 'simulated', 'preparationOnly'))):
+                return None
+        return runtime, {name: actual[name] for name in names}
+    except (ValueError, UnicodeError, KeyError, TypeError):
+        return None
+
+
 def _runtime_artifacts(bundle, manifest, actual, verdict):
     hashes = set()
     identities_seen = set()
-    if verdict['evidenceLevel'] == 'preparation' or manifest.get('newLiveActivity') is not True:
+    if verdict['evidenceLevel'] == 'preparation':
+        return hashes, identities_seen
+    if 'runtime-manifest.json' in actual:
+        nested = _public_runtime_sources(bundle, manifest, actual, verdict)
+        if nested is None:
+            return hashes, identities_seen
+        manifest, actual = nested
+    if manifest.get('newLiveActivity') is not True:
         return hashes, identities_seen
     for name in verdict.get('evidence', []):
         if name not in actual or not Path(name).name.startswith('live-') or not name.endswith('.json'):

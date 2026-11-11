@@ -11,3 +11,6 @@ reports/private/
 *.key
 *.pfx
 
+
+__pycache__/
+*.py[cod]

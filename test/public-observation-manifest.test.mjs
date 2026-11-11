@@ -20,7 +20,7 @@ async function fixture(t, { architectures = ["x64"], expiresAtUtc = "2026-01-01T
     outputDirectory: join(root, "observation"), policy: { revision: "a".repeat(40), protocolVersion: 7,
       runtimePlatform: "linux/amd64", hostArchitecture: "x64", trustedImageRepositories: ["ghcr.io/example/lab-agent"] },
     reviewBinding: { issue: 19, executorPass: 7, reviewSha256: "b".repeat(64), incident: "c".repeat(64) },
-    context: { issue: 19, executorPass: 8, objectiveId: "ide-mcp", authorizationId: "synthetic",
+    context: { issue: 19, executorPass: 8, objectiveId: "ide-mcp", authorizationId: "issue19-native-windows-20261023",
       candidate: { sha: "a".repeat(40), version: "v0.1.0", origin: "https://lab.example.invalid" } },
     sourceHashes: await publicObservationSources() };
   const requestPath = join(root, "request.json"), bytes = JSON.stringify(request);
@@ -101,19 +101,40 @@ test("projection-only or incorrect raw-body hashes never prove independent body 
 
 test("existing objective verifier recognizes only the linked public observation, without accepting the journey", async t => {
   const f = await fixture(t);
-  const program = `import importlib.util,json,pathlib,sys
+  const program = `import hashlib,importlib.util,json,pathlib,sys,tempfile
 spec=importlib.util.spec_from_file_location('objective_verifier',sys.argv[1]);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-root=pathlib.Path(sys.argv[2]);manifest=json.loads((root/'runtime-manifest.json').read_text())
-actual={name:(root/name).read_bytes() for name in manifest['files']}
-bundle={'executorPass':manifest['executorPass'],'candidate':manifest['candidate']}
-verdict={'evidenceLevel':'runtime_observation','objectiveId':'ide-mcp','evidence':[name for name in actual if name.startswith('live-')]}
-hashes,identities=module._runtime_artifacts(bundle,manifest,actual,verdict)
-print(json.dumps({'hashes':sorted(hashes),'identities':sorted(identities)}))`;
+source=pathlib.Path(sys.argv[2]);runtime=json.loads((source/'runtime-manifest.json').read_text())
+def digest(raw): return hashlib.sha256(raw).hexdigest()
+def put(path,value):
+ path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+ raw=value if isinstance(value,bytes) else (json.dumps(value)+'\\n').encode()
+ path.write_bytes(raw);path.chmod(0o600);return raw
+with tempfile.TemporaryDirectory() as temporary:
+ root=pathlib.Path(temporary);packet=root/'attempts/candidates/public';directory=root/'review'
+ actual={name:(source/name).read_bytes() for name in [*runtime['files'],'runtime-manifest.json']}
+ for name,raw in actual.items():put(packet/name,raw)
+ manifest={key:runtime[key] for key in ['issue','executorPass','candidate','authorizationId']}
+ manifest['files']={name:digest(raw) for name,raw in actual.items()}
+ manifestpath=packet/f"manifest-pass{runtime['executorPass']}.json";raw=put(manifestpath,manifest)
+ state={'candidate':runtime['candidate'],'executorPasses':runtime['executorPass'],'attemptsRoot':str(root/'attempts')}
+ put(root/'campaign.json',state);put(directory/'before.json',state)
+ sources={name:{'sha256':digest(data),'content':data.decode()} for name,data in actual.items()}
+ sources['manifest']={'sha256':digest(raw),'content':raw.decode()}
+ put(directory/'bundle.json',{'executorPass':runtime['executorPass'],'candidate':runtime['candidate'],
+  'manifest':{'path':str(manifestpath),'sha256':digest(raw)},'sources':sources})
+ verdict={'evidenceLevel':'runtime_observation','objectiveId':'ide-mcp','evidence':[name for name in actual if name.startswith('live-')]}
+ before=(root/'campaign.json').read_bytes();record=module.record_review(root,directory,verdict)
+ assert (root/'campaign.json').read_bytes()==before
+ assert module.record_review(root,directory,verdict)==record
+ print(json.dumps(record))`;
   const checked = JSON.parse(execFileSync("python3", ["-B", "-c", program,
     fileURLToPath(new URL("../ops/joao/objectives.py", import.meta.url)), f.request.outputDirectory], { encoding: "utf8" }));
-  assert.deepEqual(checked.hashes, [f.manifest.files["public-observation.json"]]);
+  assert.deepEqual(checked.runtimeEvidenceHashes, [f.manifest.files["public-observation.json"]]);
+  assert.equal(checked.validatedEvidenceLevel, "runtime_observation");
+  assert.equal(checked.materialProgress, true);
+  assert.equal(checked.acceptanceChanged, false);
   const operation = JSON.parse(await readFile(join(f.request.outputDirectory, "public-observation.json"), "utf8"));
-  assert.deepEqual(checked.identities, [operation.operationFingerprint]);
+  assert.deepEqual(checked.runtimeIdentityHashes, [operation.operationFingerprint]);
   const repeated = await fixture(t);
   const another = JSON.parse(await readFile(join(repeated.request.outputDirectory, "public-observation.json"), "utf8"));
   assert.equal(another.operationFingerprint, operation.operationFingerprint, "new request metadata cannot fabricate novel runtime identity");

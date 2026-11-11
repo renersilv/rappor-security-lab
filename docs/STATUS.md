@@ -1,3 +1,12 @@
+# Current correction — AB#301 public evidence ingestion
+
+The two-level public observation packet is now validated at the objective review
+boundary rather than losing its bound runtime activity flag. Regressions exercise
+record_review with generated observer files and reject broken context/hash links.
+Generated Python bytecode no longer dirties the worktree; unexpected source still
+does. This correction does not repeat observations, rewrite historical evidence,
+change counters, authorize inference or establish IDE/MCP acceptance.
+
 # Current structural repair — AB#301 reviewed technical continuation
 
 ADR-0006 separates bounded technical corrections from product preparation counts.
