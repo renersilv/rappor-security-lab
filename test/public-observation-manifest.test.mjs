@@ -11,7 +11,8 @@ import { publicObservationSources, observeReviewedPublicDescriptor, validatePubl
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 const legacy = process.env.RAPPOR_PUBLIC_MANIFEST_BASELINE
   ? await import(pathToFileURL(process.env.RAPPOR_PUBLIC_MANIFEST_BASELINE).href) : null;
-async function fixture(t) {
+async function fixture(t, { architectures = ["x64"], expiresAtUtc = "2026-01-01T00:05:00Z",
+  observedAtUtc = "2026-01-01T00:00:00Z" } = {}) {
   const root = await mkdtemp(join(tmpdir(), "public-runtime-manifest-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const request = { schema: 1, scope: "public_descriptor_only", maxDurationMs: 15000,
@@ -27,9 +28,9 @@ async function fixture(t) {
   const args = { requestPath, requestSha256: digest(bytes), protectedRoot: root };
   const body = { schemaVersion: 1, protocolVersion: 7, revision: request.policy.revision,
     imageRepository: "ghcr.io/example/lab-agent", imageDigest: `sha256:${"d".repeat(64)}`,
-    runtimePlatform: "linux/amd64", supportedHostArchitectures: ["x64"], expiresAtUtc: "2026-01-01T00:05:00Z" };
+    runtimePlatform: "linux/amd64", supportedHostArchitectures: architectures, expiresAtUtc };
   let calls = 0;
-  const dependencies = { observedAt: () => "2026-01-01T00:00:00Z", fetchImpl: async (_url, options) => {
+  const dependencies = { observedAt: () => observedAtUtc, fetchImpl: async (_url, options) => {
     calls++; assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit");
     assert.equal(options.redirect, "error"); assert.deepEqual(options.headers, { accept: "application/json" });
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
@@ -116,4 +117,12 @@ print(json.dumps({'hashes':sorted(hashes),'identities':sorted(identities)}))`;
   const repeated = await fixture(t);
   const another = JSON.parse(await readFile(join(repeated.request.outputDirectory, "public-observation.json"), "utf8"));
   assert.equal(another.operationFingerprint, operation.operationFingerprint, "new request metadata cannot fabricate novel runtime identity");
+});
+
+test("architecture order, expiry, and observation time cannot manufacture a new runtime identity", async t => {
+  const first = await fixture(t, { architectures: ["x64", "arm64"] });
+  const second = await fixture(t, { architectures: ["arm64", "x64"], expiresAtUtc: "2026-01-01T00:06:00Z",
+    observedAtUtc: "2026-01-01T00:01:00Z" });
+  const identity = async f => JSON.parse(await readFile(join(f.request.outputDirectory, "public-observation.json"), "utf8"));
+  assert.equal((await identity(first)).operationFingerprint, (await identity(second)).operationFingerprint);
 });

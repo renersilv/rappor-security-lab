@@ -13,7 +13,8 @@ const sourceNames = ["public-observation-manifest.mjs", "observe-public-descript
 const requireValue = (value, code) => { if (!value) throw new Error(code); };
 const operationIdentity = receipt => hash(Buffer.from(JSON.stringify(Object.fromEntries(
   ["revision", "protocolVersion", "imageRepository", "imageDigest", "runtimePlatform", "supportedHostArchitectures"]
-    .map(key => [key, receipt.sanitizedBody[key]])))));
+    .map(key => [key, key === "supportedHostArchitectures"
+      ? [...receipt.sanitizedBody[key]].sort() : receipt.sanitizedBody[key]])))));
 async function writeJson(path, value) {
   const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`), file = await open(path, "wx", 0o600);
   try { await file.writeFile(bytes); await file.sync(); } finally { await file.close(); }
