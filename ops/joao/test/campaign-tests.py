@@ -148,7 +148,8 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
                                 check=True, capture_output=True).stdout
         prompt = self.command('prompt')
         installed = SCRIPT.parents[2]
-        for name in ['protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor']:
+        for name in ['protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor',
+                     'public-observation-manifest']:
             path = installed / 'src' / f'{name}.mjs'
             self.assertIn(str(path), prompt)
             self.assertIn(MODULE.digest(path), prompt)
@@ -169,7 +170,7 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
         source = self.worktree / MODULE.SUPPORT_FILES[0]
         original = source.read_bytes()
         references = MODULE.installed_support(self.worktree)
-        self.assertEqual(len(references['files']), 8)
+        self.assertEqual(len(references['files']), 10)
         source.write_text('export const fixture = false;\n')
         with self.assertRaisesRegex(ValueError, 'differs-from-revision'):
             MODULE.installed_support(self.worktree)

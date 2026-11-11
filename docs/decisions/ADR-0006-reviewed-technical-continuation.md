@@ -43,6 +43,17 @@ changing source binding. Source-only transport repairs remain in ADR-0004's
 isolated repair pipeline; a review rejection is handled by this correction route,
 not by allowing a recovery model to rewrite a stopped campaign.
 
+The public-descriptor observation can use its own small versioned entrypoint,
+`src/public-observation-manifest.mjs`, without loading a Windows collector, SSH
+credential or inference ledger. Its reviewed request binds the installed source
+hashes, candidate, review and existing 15-second single-request limit. A real outer
+runtime manifest binds the materialized receipt. Independent validation reads that
+manifest and receipt, rejects missing/false activity and artifact drift, and
+recomputes the retained safe public body's hash. Projection-only evidence remains
+retained for diagnosis but cannot pass this complete-body observation. Approval of
+this passive path does not approve remaining Windows credential, cleanup or IDE
+checks, renew an inference budget, or create an absolute authorization deadline.
+
 ## Verification and rollout
 
 Exercise rejection, offline correction, independent approval and read-only resume

@@ -18,7 +18,8 @@ MAX_UNREVIEWED_PASSES = 3
 SUPPORT_ROOT = Path(__file__).resolve().parents[2]
 SUPPORT_FILES = tuple(f'{folder}/{name}{suffix}' for folder, suffix in (
     ('src', '.mjs'), ('test', '.test.mjs')) for name in (
-    'protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor'))
+    'protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor',
+    'public-observation-manifest'))
 
 STAGE_SPEC = importlib.util.spec_from_file_location('campaign_stage', Path(__file__).with_name('stage-control.py'))
 STAGE = importlib.util.module_from_spec(STAGE_SPEC)
