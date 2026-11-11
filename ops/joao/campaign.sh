@@ -47,6 +47,9 @@ run_campaign_review() {
   local worktree=$1 directory phase archive validation attempts limit request result=0
   phase=$(campaign_review_command phase) || return $?
   if [[ $phase == stalled ]]; then
+    campaign_review_command resume-correction >/dev/null || return $?
+    phase=$(campaign_review_command phase) || return $?
+    [[ $phase == stalled ]] || return 0
     campaign_review_notice stalled || return $?
     return 70
   fi
@@ -120,7 +123,11 @@ execute_campaign_item() {
   local issue=$1 worktree=$2 branch=$3 phase operational owner_claim result=0
   campaign_review_flush_notice || return $?
   phase=$(campaign_review_command phase) || return $?
-  [[ $phase != stalled ]] || return 70
+  if [[ $phase == stalled ]]; then
+    campaign_review_command resume-correction >/dev/null || return $?
+    phase=$(campaign_review_command phase) || return $?
+    [[ $phase != stalled ]] || return 70
+  fi
   phase=$(campaign_command phase) || return $?
   if [[ $phase == owner_required ]]; then
     owner_claim=$(campaign_review_command owner-claim-pending) || return $?

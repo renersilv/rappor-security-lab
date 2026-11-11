@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import stat
 import sys
@@ -239,7 +240,8 @@ def result(path, bundle):
     expected = {'verdict', 'findings', 'nextAction', 'scope', 'evidence', 'cleanupAssessment',
                 'progress', 'ownerRequest'}
     objective_fields = {'objectiveId', 'evidenceLevel'}
-    if set(parsed) not in (expected, expected | objective_fields) or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
+    fields = set(parsed) - {'technicalCorrection'}
+    if fields not in (expected, expected | objective_fields) or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
         raise ValueError('invalid-independent-verdict')
     if objective_fields <= set(parsed):
         ids = {item['id'] for item in OBJECTIVES._matrix()['objectives']}
@@ -288,10 +290,164 @@ def result(path, bundle):
             raise ValueError('missing-actionable-owner-request')
     elif request is not None:
         raise ValueError('unexpected-owner-request')
+    proof = parsed.get('technicalCorrection')
+    if proof is not None:
+        if (not isinstance(proof, dict) or set(proof) != {'incident', 'regressionBefore', 'regressionAfter'}
+                or parsed['verdict'] != 'pass' or not isinstance(proof['incident'], str)
+                or not re.fullmatch('[a-f0-9]{64}', proof['incident'])
+                or proof['regressionBefore'] == proof['regressionAfter']):
+            raise ValueError('invalid-technical-correction-proof')
+        for name in (proof['regressionBefore'], proof['regressionAfter']):
+            if not isinstance(name, str) or name not in refs:
+                raise ValueError('invalid-technical-correction-proof')
+            evidence_sha256(bundle, name)
+        if (evidence_sha256(bundle, proof['regressionBefore']) ==
+                evidence_sha256(bundle, proof['regressionAfter'])):
+            raise ValueError('invalid-technical-correction-proof')
     return parsed
 
 
-def finish(root):
+def technical_history(value):
+    """Read only host-protected checkpoint data, never executor claims."""
+    C.reviewed_checkpoint(value)
+    reference_value = value.get('reviewCheckpoint')
+    history = []
+    while reference_value is not None:
+        receipt = C.artifact(reference_value, protected=True)
+        raw_correction = C.artifact(receipt['correction'], protected=True, text=True)
+        try:
+            correction = json.loads(raw_correction)
+        except json.JSONDecodeError:
+            break
+        if not isinstance(correction, dict):
+            break
+        route = correction.get('technicalRoute')
+        if route is not None:
+            if (not isinstance(route, dict) or set(route) != {
+                    'incident', 'phase', 'attempt', 'sourceFingerprint', 'reviewPass'}
+                    or route['phase'] not in {'correction', 'observation'}
+                    or type(route['attempt']) is not int or not 1 <= route['attempt'] <= 2
+                    or route['reviewPass'] != receipt['reviewedThroughPass']
+                    or any(not isinstance(route[key], str) or not re.fullmatch('[a-f0-9]{64}', route[key])
+                           for key in ('incident', 'sourceFingerprint'))):
+                raise ValueError('invalid-technical-correction-route')
+            history.append(route)
+        else:
+            break
+        reference_value = receipt['previousReview']
+    return history
+
+
+def technical_route(value, verdict, selected, *, exhausted, saved_rejection=False):
+    history = technical_history(value)
+    previous = history[0] if history else None
+    if verdict['verdict'] == 'owner_required' or value['phase'] == 'owner_required':
+        return None
+    if previous and previous['phase'] == 'correction':
+        # Rewording a finding or changing source never opens another incident.
+        if selected['sourceFingerprint'] == previous['sourceFingerprint']:
+            return None
+        if verdict['verdict'] == 'changes_requested':
+            if previous['attempt'] >= 2:
+                return None
+            return dict(previous, phase='correction', attempt=previous['attempt'] + 1,
+                        sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'])
+        proof = verdict.get('technicalCorrection')
+        if (verdict['verdict'] == 'pass' and verdict['scope'] == 'read_only_preflight'
+                and verdict['cleanupAssessment'] in {'verified', 'not_required'}
+                and proof and proof['incident'] == previous['incident']):
+            return dict(previous, phase='observation', sourceFingerprint=selected['sourceFingerprint'],
+                        reviewPass=value['executorPasses'])
+        return None
+    if (exhausted and ('technicalCorrection' in verdict or saved_rejection)
+            and verdict['verdict'] == 'changes_requested' and verdict['cleanupAssessment'] != 'unresolved'):
+        incident = sha(encoded(dict(objective=verdict.get('objectiveId', 'unclassified'),
+                                    findings=sorted(' '.join(f.lower().split()) for f in verdict['findings']))))
+        attempts = max((entry['attempt'] for entry in history if entry['incident'] == incident), default=0)
+        if attempts >= 2:
+            return None
+        return dict(incident=incident, phase='correction', attempt=attempts + 1,
+                    sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'])
+    return None
+
+
+def incident_key(root, status=70):
+    """Stable failure identity; changing source bytes cannot refund a retry."""
+    directory, marker = job(root)
+    value = C.private(root / 'campaign.json')
+    C.bound(root, value)
+    if marker['executorPass'] != value['executorPasses']:
+        raise ValueError('stale-review-incident')
+    routes = technical_history(value)
+    if routes and routes[0]['phase'] == 'correction':
+        identity = routes[0]['incident']
+    elif (directory / 'result.json').exists():
+        verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+        identity = sha(encoded(dict(objective=verdict.get('objectiveId', 'unclassified'),
+                                    findings=sorted(' '.join(f.lower().split()) for f in verdict['findings']),
+                                    verdict=verdict['verdict'])))
+    else:
+        identity = sha(encoded(dict(phase=marker['phase'], objective='review-transport')))
+    return f'campaign_{status}_{identity}'
+
+
+def resume_correction(root):
+    """Recover the exact saved rejection without rewriting its review or budgets."""
+    if not (root / 'campaign-auto-review.json').exists():
+        print('not_eligible')
+        return
+    directory, marker = job(root)
+    value = C.private(root / 'campaign.json')
+    C.bound(root, value)
+    retry_path = root / 'issue-retry'
+    archive = directory / 'technical-retry-before.json'
+    if (marker['phase'] == 'stalled' and (directory / 'after.json').exists()
+            and (directory / 'stalled-marker-before-technical.json').exists()):
+        finish(root, resume_technical=True)
+        directory, marker = job(root)
+        value = C.private(root / 'campaign.json')
+    if marker['phase'] == 'stalled':
+        if (directory / 'after.json').exists() or value['phase'] != 'review_pending':
+            print('not_eligible')
+            return
+        verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+        route = technical_route(value, verdict, packet(value, root), exhausted=True, saved_rejection=True)
+        if not route or route['phase'] != 'correction':
+            print('not_eligible')
+            return
+        # Release only this campaign's retry gate, never another operational error.
+        if retry_path.exists():
+            raw = read_source(retry_path, root)
+            pairs = [line.split('=', 1) for line in raw.decode().splitlines()]
+            retry = dict(pairs)
+            base = (root / 'base_sha').read_text().strip()
+            branch = (root / 'branch').read_text().strip()
+            details = ['campaign_70', incident_key(root)]
+            expected = {sha(f'v1:{base}:{branch}:19:codex_exit:{detail}'.encode()) for detail in details}
+            if (len(pairs) != len(retry) or retry.get('issue') != '19' or retry.get('branch') != branch
+                    or retry.get('error_class') != 'codex_exit' or retry.get('fingerprint') not in expected):
+                raise ValueError('unrelated-operational-retry-gate')
+            put(archive, encoded(dict(sha256=sha(raw), content=raw.decode())))
+        finish(root, resume_technical=True)
+        directory, marker = job(root)
+        value = C.private(root / 'campaign.json')
+    # Also finish a crash between the protected checkpoint and retry release.
+    if ((directory / 'stalled-marker-before-technical.json').exists()
+            and marker['phase'] == 'continued' and value['phase'] == 'active'):
+        routes = technical_history(value)
+        if not routes or routes[0] != marker.get('technicalRoute') or routes[0]['phase'] != 'correction':
+            raise ValueError('unbound-technical-retry-release')
+        if retry_path.exists():
+            saved = C.private(archive)
+            if C.digest(retry_path) != saved['sha256']:
+                raise ValueError('technical-retry-changed')
+            retry_path.unlink()
+        print('resumed')
+        return
+    print('not_eligible')
+
+
+def finish(root, *, resume_technical=False):
     directory, marker = job(root)
     # Recover a completed atomic transition without another model or checkpoint.
     if (directory / 'after.json').exists():
@@ -303,7 +459,8 @@ def finish(root):
                 if selected['manifest'] != marker['manifest']:
                     raise ValueError('candidate-changed-before-recovery')
             C.bound(root, after)
-            if marker['phase'] == 'stalled':
+            if marker['phase'] == 'stalled' and not (resume_technical and
+                    (directory / 'stalled-marker-before-technical.json').exists()):
                 print('stalled')
                 return
             marker = C.private(directory / 'marker-after.json')
@@ -332,19 +489,27 @@ def finish(root):
     # objective history also retains preparation hidden by older marker resets.
     progressed = verdict['progress'] == 'new_runtime_evidence' and objective['materialProgress']
     # Revalidate the immutable result above, but never count a finish replay twice.
-    if marker['phase'] == 'stalled':
+    if marker['phase'] == 'stalled' and not resume_technical:
         print('stalled')
         return
-    rounds = 0 if progressed else max(marker['unchangedReviews'] + 1,
+    rounds = marker['unchangedReviews'] if resume_technical else 0 if progressed else max(marker['unchangedReviews'] + 1,
                                      objective['preparationStreak'])
     replanning = 'objectiveId' in verdict and objective['diagnosticReplanning']
-    if verdict['verdict'] != 'owner_required' and rounds >= (6 if replanning else 3):
+    exhausted = rounds >= (6 if replanning else 3)
+    route = technical_route(value, verdict, selected, exhausted=exhausted, saved_rejection=resume_technical)
+    route_history = technical_history(value)
+    pending_correction = bool(route_history and route_history[0]['phase'] == 'correction')
+    if verdict['verdict'] != 'owner_required' and (exhausted or pending_correction) and not route:
         marker['unchangedReviews'] = rounds
         marker['phase'] = 'stalled'
         marker['noticePending'] = True
         C.save(root / 'campaign-auto-review.json', marker)
         print('stalled')
         return
+    if resume_technical:
+        if not route or route['phase'] != 'correction':
+            raise ValueError('stopped-review-not-technically-correctable')
+        put(directory / 'stalled-marker-before-technical.json', encoded(marker))
     after = copy.deepcopy(value)
     if verdict['verdict'] == 'owner_required':
         after['phase'] = 'owner_required'
@@ -360,13 +525,21 @@ def finish(root):
                    'test, diagnosis and sanitized receipt with hashes. Do not copy prior metadata as fresh '
                    'proof. The wrapper performs the next independent review automatically; no chat request.\n' +
                    ('\n' + OBJECTIVES.REPLAN + '\n' if replanning else ''))
+        if route:
+            handoff += ('\nTECHNICAL CORRECTION ROUTE (not product progress):\n' + encoded(route).decode() +
+                        'Only the stated scope is permitted. Preserve all product counters and inference ledgers. '
+                        'For correction: change the actual defect offline and include relevant failing-before and '
+                        'passing-after regression artifacts. The independent reviewer must bind technicalCorrection '
+                        'to this incident before one read-only preflight. No inference, reauthentication, scans, '
+                        'mutation, deadline renewal or acceptance is authorized by this route.\n')
         receipt = dict(schema=1, issue=24, targetIssue=19, reviewedThroughPass=value['executorPasses'],
                        previousReview=value['reviewCheckpoint'], beforeState=reference(directory / 'before.json'),
                        handoff=put(directory / 'handoff.md', handoff.encode()),
                        diagnosis=put(directory / 'diagnosis.json', encoded(verdict)),
                        correction=put(directory / 'correction.json', encoded(dict(
                            manifest=selected['manifest'], sourceFingerprint=selected['sourceFingerprint'],
-                           nextAction=verdict['nextAction'], scope=verdict['scope']))),
+                           nextAction=verdict['nextAction'], scope=verdict['scope'],
+                           **({'technicalRoute': route} if route else {})))),
                        cleanup=put(directory / 'cleanup.json', encoded(dict(
                            executorPass=value['executorPasses'], assessment=verdict['cleanupAssessment'],
                            evidence={name: evidence_sha256(bundle, name) for name in verdict['evidence']},
@@ -377,6 +550,8 @@ def finish(root):
         after.update(phase='active', reviewCheckpoint=put(directory / 'review.json', encoded(receipt)))
         C.bound(root, after)
     marker['unchangedReviews'] = rounds
+    if route:
+        marker['technicalRoute'] = route
     marker['phase'] = 'owner_required' if after['phase'] == 'owner_required' else 'continued'
     marker['noticePending'] = True
     put(directory / 'marker-after.json', encoded(marker))
@@ -512,6 +687,11 @@ def reconcile(root):
             if (last['executorPass'] == marker['executorPass']
                     and last['manifestSha256'] == marker['manifest']['sha256']
                     and last['preparationStreak'] >= limit):
+                value = C.private(root / 'campaign.json')
+                history_routes = technical_history(value)
+                if (history_routes and marker.get('technicalRoute') == history_routes[0]
+                        and history_routes[0]['reviewPass'] == marker['executorPass']):
+                    return
                 marker.update(phase='stalled', noticePending=True,
                               unchangedReviews=max(marker['unchangedReviews'], last['preparationStreak']))
                 C.save(root / 'campaign-auto-review.json', marker)
@@ -537,10 +717,14 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'owner-claim-pending':
+    if args.action == 'resume-correction':
+        resume_correction(args.root)
+    elif args.action == 'incident-key':
+        print(incident_key(args.root))
+    elif args.action == 'owner-claim-pending':
         print('yes' if owner_claim_pending(args.root) else 'no')
     elif args.action == 'validate-candidate':
         value = C.private(args.root / 'campaign.json')
@@ -565,6 +749,7 @@ def main():
                           'unresolved-timing-cannot-authorize-live-work',
                           'invalid-review-evidence-citation', 'invalid-reviewed-progress',
                           'invalid-reviewed-objective',
+                          'invalid-technical-correction-proof',
                           'missing-actionable-owner-request', 'unexpected-owner-request'}
             if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
                 raise

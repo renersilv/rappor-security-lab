@@ -11,7 +11,8 @@
     "progress",
     "ownerRequest",
     "objectiveId",
-    "evidenceLevel"
+    "evidenceLevel",
+    "technicalCorrection"
   ],
   "properties": {
     "verdict": {
@@ -126,6 +127,38 @@
         "preparation",
         "runtime_observation",
         "acceptance_candidate"
+      ]
+    },
+    "technicalCorrection": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "incident",
+            "regressionBefore",
+            "regressionAfter"
+          ],
+          "properties": {
+            "incident": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "regressionBefore": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "regressionAfter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
       ]
     }
   }

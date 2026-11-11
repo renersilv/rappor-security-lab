@@ -127,13 +127,14 @@ execute_stage() {
 }
 
 execute_staged_item() {
-  local issue=$1 worktree=$2 branch=$3 result=0 phase
+  local issue=$1 worktree=$2 branch=$3 result=0 phase incident
   if campaign_enabled "$issue"; then
     execute_campaign_item "$issue" "$worktree" "$branch" || result=$?
     if (( result == 124 )); then
       return 124
     elif (( result != 0 )); then
-      record_issue_failure "$issue" "$branch" codex_exit "campaign_$result"
+      incident=$(campaign_review_command incident-key) || incident="campaign_$result"
+      record_issue_failure "$issue" "$branch" codex_exit "$incident"
       return 70
     fi
     clear_issue_retry

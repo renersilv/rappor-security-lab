@@ -25,7 +25,8 @@ ALLOWED = {'campaign-review.py', 'campaign.sh', 'stages.sh', 'stage-control.py',
            'CAMPAIGN_REVIEW_PROMPT.md', 'STAGE_REVIEW_PROMPT.md'}
 MAX_REPAIRS = 2
 TESTS = ['campaign-tests.py', 'campaign-review-tests.py', 'stage-tests.py',
-         'objectives-tests.py', 'recovery-tests.py', 'run-tests.sh', 'campaign-review-wrapper-tests.sh']
+         'objectives-tests.py', 'recovery-tests.py', 'technical-continuation-tests.py',
+         'run-tests.sh', 'campaign-review-wrapper-tests.sh']
 
 
 def data(value):

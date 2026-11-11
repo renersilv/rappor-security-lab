@@ -160,7 +160,21 @@ def enforce_review_limit(value, used):
     if value['phase'] != 'active':
         return
     through, _ = reviewed_checkpoint(value)
-    if value['executorPasses'] - through >= MAX_UNREVIEWED_PASSES:
+    limit = MAX_UNREVIEWED_PASSES
+    if value.get('reviewCheckpoint') is not None:
+        receipt = artifact(value['reviewCheckpoint'], protected=True)
+        # Existing reviewed corrections may be plain text. Structured technical
+        # metadata narrows the launch bound; it never relaxes the default.
+        raw_correction = artifact(receipt['correction'], protected=True, text=True)
+        try:
+            correction = json.loads(raw_correction)
+        except json.JSONDecodeError:
+            correction = None
+        if isinstance(correction, dict) and correction.get('technicalRoute') is not None:
+            # One correction candidate or one read-only observation per exact
+            # technical checkpoint, including interrupted launches.
+            limit = 1
+    if value['executorPasses'] - through >= limit:
         value.update(phase='review_pending', reviewReason='continuation_review_required')
     elif used >= 10:
         value.update(phase='review_pending', reviewReason='native_budget_exhausted')

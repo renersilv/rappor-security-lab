@@ -216,6 +216,10 @@ check_issue_retry_gate() {
   }
   if [[ $ISSUE_RETRY_SUSPENDED == true ]]; then
     if campaign_enabled "$issue"; then
+      # An exact reviewed correction checkpoint releases only its own archived
+      # campaign gate. It cannot clear a different executor/transport failure.
+      campaign_review_command resume-correction >/dev/null || return $?
+      [[ -e $(state_file issue-retry) ]] || return 0
       recover_campaign_failure || log "bounded campaign recovery did not complete; preserved diagnostics remain available"
       return 75
     fi

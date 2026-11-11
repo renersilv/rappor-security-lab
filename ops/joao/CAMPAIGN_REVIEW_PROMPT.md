@@ -86,3 +86,23 @@ invented authenticated enum. Exact configuration plus a matching discovered serv
 name, runtimeStatus connected, toolsError null and an actual tool catalog can
 prove client discovery without an AI turn. OAuth configuration alone cannot.
 Unknown schema fields remain unconfirmed; do not force reauthorization from that.
+
+ADR-0006 separates product evidence from an outstanding technical correction.
+If previousHandoff contains TECHNICAL CORRECTION ROUTE with phase correction,
+keep its incident identity regardless of changed finding wording or source hashes.
+Approve its repair only after inspecting the exact defect correction and relevant
+failing-before/passing-after regression artifacts in this packet. Cite both in
+evidence and return technicalCorrection with that incident, regressionBefore and
+regressionAfter source names. Do not infer tests from claims, a diff or a zero exit
+alone. Missing or irrelevant regression proof requires changes_requested/offline.
+An approved correction may permit only one read_only_preflight within the existing
+target and deadline. Never authorize inference, reauthentication, scans, mutation,
+deadline renewal or product acceptance through this technical route. Preserve
+product preparation counts; passing offline checks are not runtime progress.
+Return technicalCorrection null when no outstanding correction is being approved.
+
+For descriptor/protected-input/ledger defects, prefer the versioned laboratory
+src/windows-delivery-contract.mjs, src/protected-inputs.mjs and src/closed-ledger.mjs
+with their existing regressions. Do not invent public descriptor fields or infer
+installed package identity from a control-plane version. A passive public descriptor
+observation does not require an inference ledger or authorize an IDE session.

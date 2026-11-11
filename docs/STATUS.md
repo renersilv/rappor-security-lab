@@ -1,3 +1,12 @@
+# Current structural repair — AB#301 reviewed technical continuation
+
+ADR-0006 separates bounded technical corrections from product preparation counts.
+An exact independent rejection can route to at most two offline correction
+candidates; a verified correction with bound regression evidence can permit one
+read-only observation. Historical failures, preparation counts, acceptance and
+inference reservations remain unchanged. This source work is not installed runtime
+evidence and does not complete the IDE/MCP cycle or authorize AWS delivery.
+
 # Current owner priority — AB#301 Windows IDE cycle
 
 On 2026-11-10 the owner authorized the real Windows IDE/MCP/AI remediation cycle
