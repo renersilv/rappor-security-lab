@@ -15,6 +15,10 @@ import tempfile
 sys.dont_write_bytecode = True
 REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'
 MAX_UNREVIEWED_PASSES = 3
+SUPPORT_ROOT = Path(__file__).resolve().parents[2]
+SUPPORT_FILES = tuple(f'{folder}/{name}{suffix}' for folder, suffix in (
+    ('src', '.mjs'), ('test', '.test.mjs')) for name in (
+    'protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor'))
 
 STAGE_SPEC = importlib.util.spec_from_file_location('campaign_stage', Path(__file__).with_name('stage-control.py'))
 STAGE = importlib.util.module_from_spec(STAGE_SPEC)
@@ -23,6 +27,38 @@ STAGE_SPEC.loader.exec_module(STAGE)
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def installed_support(root=None):
+    """Expose exact installed sources, never merge or edit the task worktree."""
+    root = SUPPORT_ROOT if root is None else root
+    revision = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'],
+                              check=True, capture_output=True, text=True, timeout=10).stdout.strip()
+    if not re.fullmatch('[a-f0-9]{40}', revision):
+        raise ValueError('invalid-installed-support-revision')
+    files = []
+    for relative in SUPPORT_FILES:
+        path = root / relative
+        if path.is_symlink() or path.resolve() != path or not path.is_file():
+            raise ValueError('installed-support-source-unavailable')
+        raw = path.read_bytes()
+        committed = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{relative}'],
+                                   check=True, capture_output=True, timeout=10).stdout
+        if not raw or len(raw) > 100000 or raw != committed:
+            raise ValueError('installed-support-source-differs-from-revision')
+        files.append(dict(relativePath=relative, path=str(path), sha256=hashlib.sha256(raw).hexdigest()))
+    return dict(revision=revision, files=files)
+
+
+def installed_support_prompt():
+    return ('\nINSTALLED AUTHORITATIVE LABORATORY SUPPORT (source, not execution authority):\n' +
+            json.dumps(installed_support(), sort_keys=True) + '\n' +
+            'The preserved task worktree may predate these modules. Read the absolute installed paths above; '
+            'do not regenerate a schema because a relative worktree path is absent. Reuse the unchanged '
+            'module and its behavior regressions. For immutable review, retain exact hash-verified source '
+            'bytes and provenance in the candidate. Never merge/reset the task worktree to obtain them. '
+            'A public descriptor does not establish installed MSIX identity. Passive observation does not '
+            'require an inference ledger. These sources grant no runtime action, budget or deadline.\n')
 
 
 def private(path):
@@ -363,6 +399,7 @@ def main():
         print(value['phase'])
     elif args.action == 'prompt':
         print(Path(__file__).with_name('campaign-contract.md').read_text())
+        print(installed_support_prompt())
         manifest_prompt(root, value)
         objective_spec = importlib.util.spec_from_file_location('objective_prompt', Path(__file__).with_name('objectives.py'))
         objective_module = importlib.util.module_from_spec(objective_spec)

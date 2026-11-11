@@ -274,7 +274,9 @@ record_issue_failure 19 "$3" codex_exit "$5"
             path = scripts / filename
             path.write_text(path.read_text().replace(
                 "Path.home() / '.config/rappor-security-lab/campaign-reviews'",
-                f'Path({str(self.operator)!r})'))
+                f'Path({str(self.operator)!r})').replace(
+                'SUPPORT_ROOT = Path(__file__).resolve().parents[2]',
+                f'SUPPORT_ROOT = Path({str(HERE.parents[2])!r})'))
         verdict = C.private(self.old_directory / 'result.json')
         incident = R.sha(R.encoded(dict(objective=verdict['objectiveId'],
             findings=sorted(' '.join(f.lower().split()) for f in verdict['findings']))))

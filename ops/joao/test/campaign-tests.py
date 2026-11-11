@@ -141,6 +141,45 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
         self.assertEqual(before, [path.read_bytes() for path in paths])
         self.assertIn('campaign_remaining=9', self.command('status'))
 
+    def test_old_task_worktree_receives_exact_installed_contract_sources(self):
+        self.activate()
+        self.assertFalse((self.worktree / 'src/windows-delivery-contract.mjs').exists())
+        before = subprocess.run(['git', '-C', str(self.worktree), 'status', '--porcelain'],
+                                check=True, capture_output=True).stdout
+        prompt = self.command('prompt')
+        installed = SCRIPT.parents[2]
+        for name in ['protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor']:
+            path = installed / 'src' / f'{name}.mjs'
+            self.assertIn(str(path), prompt)
+            self.assertIn(MODULE.digest(path), prompt)
+        self.assertIn('INSTALLED AUTHORITATIVE LABORATORY SUPPORT', prompt)
+        self.assertIn('Never merge/reset the task worktree', prompt)
+        self.assertFalse((self.worktree / 'src/windows-delivery-contract.mjs').exists())
+        self.assertEqual(subprocess.run(['git', '-C', str(self.worktree), 'status', '--porcelain'],
+                        check=True, capture_output=True).stdout, before)
+
+    def test_installed_support_rejects_uncommitted_or_symlinked_source(self):
+        for relative in MODULE.SUPPORT_FILES:
+            path = self.worktree / relative
+            path.parent.mkdir(exist_ok=True)
+            path.write_text('export const fixture = true;\n')
+        subprocess.run(['git', '-C', str(self.worktree), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(self.worktree), '-c', 'user.name=Fixture', '-c',
+                        'user.email=fixture@example.invalid', 'commit', '-qm', 'test: installed support'], check=True)
+        source = self.worktree / MODULE.SUPPORT_FILES[0]
+        original = source.read_bytes()
+        references = MODULE.installed_support(self.worktree)
+        self.assertEqual(len(references['files']), 8)
+        source.write_text('export const fixture = false;\n')
+        with self.assertRaisesRegex(ValueError, 'differs-from-revision'):
+            MODULE.installed_support(self.worktree)
+        source.unlink()
+        target = self.root / 'same-source.mjs'
+        target.write_bytes(original)
+        source.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, 'source-unavailable'):
+            MODULE.installed_support(self.worktree)
+
     def test_authorization_cannot_change_platform_quota_or_safety(self):
         for key, value in [('client', 'cli-linux'), ('additionalStarts', 11), ('maxSecondsPerRun', 601),
                            ('preserveIdeWindowsReservations', 1), ('allowOpenAiApiKey', True),
@@ -299,7 +338,9 @@ execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
         controller = scripts / 'campaign-control.py'
         controller.write_text(controller.read_text().replace(
             "REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'",
-            f'REVIEW_ROOT = Path({str(self.operator)!r})'))
+            f'REVIEW_ROOT = Path({str(self.operator)!r})').replace(
+            'SUPPORT_ROOT = Path(__file__).resolve().parents[2]',
+            f'SUPPORT_ROOT = Path({str(SCRIPT.parents[2])!r})'))
         branch = self.stage['branch']
         head = subprocess.check_output(['git', '-C', str(self.worktree), 'rev-parse', 'HEAD']).decode().strip()
         for name, value in dict(batch='19', branch=branch, worktree=str(self.worktree), base_sha=head,

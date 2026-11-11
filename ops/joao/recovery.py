@@ -258,6 +258,16 @@ def diagnostic_reason(error):
     return reason if re.fullmatch('[a-z-]{1,100}', reason) else 'invalid-or-unavailable-evidence'
 
 
+def diagnostic_text(value):
+    """Minimize reviewer prose; never forward credential values or raw URLs."""
+    value = re.sub(r'https?://[^\s<>]+', '[url]', value)
+    value = re.sub(r'/(?:home|tmp|run|var)/[^\s,;]+', '[path]', value)
+    value = re.sub(r'(?i)\bbearer\s+[^\s,;]+', 'Bearer [redacted]', value)
+    value = re.sub(r'(?i)\b(password|access_token|refresh_token|api_key|token)\s*[:=]\s*[^\s,;]+',
+                   r'\1=[redacted]', value)
+    return value
+
+
 def incident_bundle(root, repo, incident):
     sources = {}
     for name in sorted(ALLOWED):
@@ -304,6 +314,12 @@ def incident_bundle(root, repo, incident):
                 answer = review.result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
                 diagnostic['responseValidation'] = 'valid'
                 diagnostic['verdict'] = answer['verdict']
+                diagnostic['review'] = {key: answer.get(key) for key in (
+                    'scope', 'cleanupAssessment', 'progress', 'objectiveId', 'evidenceLevel', 'ownerRequest')}
+                diagnostic['review']['findings'] = [diagnostic_text(text) for text in answer['findings']]
+                diagnostic['review']['nextAction'] = diagnostic_text(answer['nextAction'])
+                diagnostic['unchangedReviews'] = value['unchangedReviews']
+                diagnostic['technicalHistory'] = review.technical_history(campaign)[:2]
             except (ValueError, KeyError, TypeError, OSError) as error:
                 diagnostic['responseValidation'] = diagnostic_reason(error)
             if (directory / 'model-attempts').exists():
@@ -411,7 +427,7 @@ def supervise(root, repo, model, effort):
         bundle = incident_bundle(root, repo, incident)
         immutable(folder / 'incident.json', bundle)
         prompt = (HERE / 'RECOVERY_PROMPT.md').read_text() + '\nIMMUTABLE INCIDENT DATA:\n' + data(bundle).decode()
-        if old and Path(old['directory']).is_dir():
+        if old and old['fingerprint'] == incident['fingerprint'] and Path(old['directory']).is_dir():
             prior = Path(old['directory'])
             for name in ('repair-checks.log', 'review.json', 'failure.json'):
                 path = prior / name

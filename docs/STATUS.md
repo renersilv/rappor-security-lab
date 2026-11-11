@@ -6,6 +6,9 @@ candidates; a verified correction with bound regression evidence can permit one
 read-only observation. Historical failures, preparation counts, acceptance and
 inference reservations remain unchanged. This source work is not installed runtime
 evidence and does not complete the IDE/MCP cycle or authorize AWS delivery.
+The source-delivery addendum binds installed reusable helpers independently of the
+older task worktree and supplies concrete review findings to recovery diagnosis.
+It does not authorize a third correction candidate after the pass206 rejection.
 
 # Current owner priority — AB#301 Windows IDE cycle
 

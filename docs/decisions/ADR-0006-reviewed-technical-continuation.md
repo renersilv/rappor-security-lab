@@ -52,3 +52,18 @@ owner action, partial-write restart, preserved counters/authorization/ledger and
 immutable historical results. Install only between worker invocations under the
 existing locks after independent source review. Installation itself proves no
 product journey and authorizes no remediation-model start.
+
+## Installed source delivery and recovery context
+
+Passes 205/206 exposed a delivery defect: the preserved task worktree predates
+the installed reusable contracts. Relative source hints made the executor rebuild
+an unproven contract. The host now supplies absolute installed paths, exact Git
+revision and hashes for a closed set of reusable helpers and their regressions.
+Bytes must match that installed revision. Reading or retaining those exact sources
+does not merge, reset or otherwise change the task worktree. The handoff is source
+availability, not execution authority or a correction-budget renewal.
+
+Recovery diagnosis receives the validated sanitized findings, next action, scope,
+preparation count and technical history for the exact current review. A generic
+changes_requested label is insufficient to diagnose its failure. Historical review
+results, protected state and the exhausted two-candidate bound remain unchanged.

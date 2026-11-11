@@ -146,6 +146,20 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.base)
 
+    def test_unrelated_old_recovery_failure_is_not_sent_as_current_diagnosis(self):
+        prior = self.root / 'prior-incident'
+        prior.mkdir()
+        (prior / 'failure.json').write_text('{"reason":"unrelated-old-sandbox-failure"}')
+        R.C.save(self.state / 'recovery.json', dict(fingerprint='b' * 64, attempts=2,
+            phase='failed', directory=str(prior)))
+        answer = dict(disposition='unrepairable', diagnosis='The current synthetic incident needs a bounded diagnosis.', files=[])
+        with patch.object(R, 'protected', return_value=self.binding), \
+                patch.object(R, 'call_model', return_value=answer) as model:
+            R.supervise(self.state, self.repo, 'fixture', 'fixture')
+        self.assertNotIn('unrelated-old-sandbox-failure', model.call_args.args[2])
+        self.assertEqual(R.C.private(self.state / 'recovery.json')['attempts'], 1)
+        self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
+
     def review_fixture(self):
         spec = importlib.util.spec_from_file_location('recovery_review_fixture', HERE / 'campaign-review-tests.py')
         module = importlib.util.module_from_spec(spec)
@@ -198,6 +212,41 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue(diagnostic['reviewMatchesCurrentPass'])
         self.assertEqual(diagnostic['verdict'], 'pass')
         self.assertEqual(diagnostic['responseValidation'], 'valid')
+
+    def test_diagnosis_carries_concrete_sanitized_rejection_without_mutation(self):
+        fixture, review = self.review_fixture()
+        finding = ('The descriptor invents packageIdentity; token=synthetic-secret '
+                   'at https://example.invalid/private?token=synthetic-url and /home/private/file.')
+        fixture.response(findings=[finding], nextAction='Repair the descriptor behavior offline; password=synthetic-password.')
+        paths = [fixture.state / 'campaign.json', fixture.state / 'campaign-auto-review.json', fixture.auth_path]
+        before = [path.read_bytes() for path in paths]
+        with patch.object(R, 'load_review', return_value=review):
+            diagnostic = R.incident_bundle(fixture.state, self.repo,
+                dict(error_class='codex_exit', fingerprint=FINGERPRINT))['incident']
+        self.assertIn('descriptor invents packageIdentity', diagnostic['review']['findings'][0])
+        self.assertIn('Repair the descriptor behavior offline', diagnostic['review']['nextAction'])
+        for secret in ['synthetic-secret', 'synthetic-url', 'synthetic-password', '/home/private']:
+            self.assertNotIn(secret, json.dumps(diagnostic))
+        self.assertEqual(diagnostic['review']['scope'], 'offline')
+        self.assertEqual(diagnostic['unchangedReviews'], 0)
+        self.assertEqual(diagnostic['technicalHistory'], [])
+        self.assertEqual([path.read_bytes() for path in paths], before)
+
+    def test_diagnosis_preserves_current_technical_history_and_preparation_count(self):
+        fixture, review = self.review_fixture()
+        for number in range(1, 7):
+            fixture.changed_preparation_pass(number)
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):
+            review.resume_correction(fixture.state)
+        with patch.object(R, 'load_review', return_value=review):
+            diagnostic = R.incident_bundle(fixture.state, self.repo,
+                dict(error_class='codex_exit', fingerprint=FINGERPRINT))['incident']
+        self.assertEqual(diagnostic['unchangedReviews'], 6)
+        self.assertEqual(diagnostic['technicalHistory'][0]['phase'], 'correction')
+        self.assertEqual(diagnostic['technicalHistory'][0]['attempt'], 1)
+        self.assertEqual(diagnostic['verdict'], 'changes_requested')
 
     def test_packet_diagnostic_exceptions_do_not_expose_raw_details(self):
         fixture, review = self.review_fixture()

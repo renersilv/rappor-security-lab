@@ -712,7 +712,9 @@ class ReviewTests(unittest.TestCase):
         controller = scripts / 'campaign-control.py'
         controller.write_text(controller.read_text().replace(
             "REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'",
-            f'REVIEW_ROOT = Path({str(self.operator)!r})'))
+            f'REVIEW_ROOT = Path({str(self.operator)!r})').replace(
+            'SUPPORT_ROOT = Path(__file__).resolve().parents[2]',
+            f'SUPPORT_ROOT = Path({str(HERE.parents[2])!r})'))
         recovery = scripts / 'recovery.py'
         recovery.write_text(recovery.read_text().replace(
             "REVIEW_ROOT=Path.home() / '.config/rappor-security-lab/campaign-reviews'",
