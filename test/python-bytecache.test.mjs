@@ -22,6 +22,8 @@ test("real Python bytecache is ignored while unexpected executable source remain
   assert.equal(git("status", "--porcelain", "--untracked-files=all"), before);
   await writeFile(join(directory, "unexpected.py"), "raise RuntimeError('unexpected source')\n");
   assert.match(git("status", "--porcelain", "--untracked-files=all"), /\?\? ops\/joao\/unexpected\.py/u);
+  await writeFile(join(directory, "unexpected.pyd"), "synthetic unexpected native module\n");
+  assert.match(git("status", "--porcelain", "--untracked-files=all"), /\?\? ops\/joao\/unexpected\.pyd/u);
   await writeFile(source, "VALUE = 2\n");
   assert.match(git("status", "--porcelain", "--untracked-files=all"), /AM ops\/joao\/campaign-review\.py/u);
 });

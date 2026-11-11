@@ -132,7 +132,7 @@ class ObjectiveTests(unittest.TestCase):
         self.assertEqual(repeated['runtimeIdentityHashes'], record['runtimeIdentityHashes'])
 
     def test_nested_context_flags_and_material_hashes_cannot_claim_progress(self):
-        changes = [dict(schema=2), dict(executorPass=1), dict(candidate=dict(self.candidate, sha='b' * 40)),
+        changes = [dict(schema=2), dict(schema=True), dict(executorPass=1), dict(candidate=dict(self.candidate, sha='b' * 40)),
                    dict(authorizationId='other'), dict(issue=20), dict(objectiveId='web-entries'),
                    dict(observationType='official_runtime'), dict(newLiveActivity=False),
                    dict(inferenceStarted=True), dict(windowsAccessed=True), dict(scanStarted=True),
@@ -163,6 +163,20 @@ class ObjectiveTests(unittest.TestCase):
                 runtime['files'][name] = digest(files[name])
             with self.subTest(target=target, change=change):
                 directory, verdict = self.nested_packet(number, mutate=mutate)
+                self.assertFalse(O.record_review(self.root, directory, verdict)['materialProgress'])
+
+    def test_present_non_boolean_outer_activity_cannot_promote_nested_evidence(self):
+        for number, activity in enumerate((0, None, 'false'), 207):
+            directory, verdict = self.nested_packet(number)
+            bundle = json.loads((directory / 'bundle.json').read_text())
+            path = Path(bundle['manifest']['path'])
+            manifest = json.loads(path.read_text()); manifest['newLiveActivity'] = activity
+            private(path, manifest)
+            raw = path.read_bytes()
+            bundle['manifest']['sha256'] = digest(raw)
+            bundle['sources']['manifest'] = dict(content=raw.decode(), sha256=digest(raw))
+            private(directory / 'bundle.json', bundle)
+            with self.subTest(activity=activity):
                 self.assertFalse(O.record_review(self.root, directory, verdict)['materialProgress'])
 
     def test_nested_observation_does_not_override_outer_veto_or_preparation_review(self):

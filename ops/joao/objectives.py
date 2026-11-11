@@ -206,13 +206,13 @@ def _bound_sources(root, directory, bundle):
 def _public_runtime_sources(bundle, manifest, actual, verdict):
     """Bind the current public observer's nested packet before accounting evidence."""
     raw = actual.get('runtime-manifest.json')
-    if raw is None or manifest.get('newLiveActivity') is False:
+    if raw is None or ('newLiveActivity' in manifest and manifest['newLiveActivity'] is not True):
         return None
     try:
         runtime = json.loads(raw)
         context = dict(issue=19, executorPass=bundle['executorPass'], candidate=bundle['candidate'],
                        authorizationId=manifest['authorizationId'], objectiveId=verdict['objectiveId'])
-        if (not isinstance(runtime, dict) or runtime.get('schema') != 1
+        if (not isinstance(runtime, dict) or type(runtime.get('schema')) is not int or runtime['schema'] != 1
                 or any(runtime.get(key) != value for key, value in context.items())
                 or runtime.get('objectiveId') != 'ide-mcp'
                 or runtime.get('observationType') != 'public_contract'
