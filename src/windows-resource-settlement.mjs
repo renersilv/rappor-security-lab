@@ -140,8 +140,11 @@ function parsedResult(result) {
   assert.equal(result.settlement.remoteQuiescenceObserved, true, "settlement-transport-unresolved");
   assert.equal(result.settlement.closeObserved, true, "settlement-transport-not-closed");
   assert.equal(result.settlement.stdinEndCallbackObserved, true, "settlement-stdin-not-closed");
-  assert.equal(result.stderr.trim(), "", "settlement-command-stderr");
-  return JSON.parse(result.stdout.trim());
+  if (result.stderr.trim() !== "") {
+    throw Object.assign(new Error("settlement-command-stderr"), { code: "SETTLEMENT_STDERR" });
+  }
+  try { return JSON.parse(result.stdout.trim()); }
+  catch { throw Object.assign(new Error("settlement-command-json-invalid"), { code: "SETTLEMENT_JSON_INVALID" }); }
 }
 
 const failureReasons = Object.freeze({
@@ -151,6 +154,11 @@ const failureReasons = Object.freeze({
   source_validation: "source_changed", result_publication: "result_publication_failed",
 });
 function reasonCode(error, stage) {
+  if (stage === "transport_probe") {
+    const probeReasons = { SETTLEMENT_STDERR: "probe_stderr", SETTLEMENT_JSON_INVALID: "probe_invalid_json",
+      SETTLEMENT_PROBE_MISMATCH: "probe_mismatch" };
+    if (Object.hasOwn(probeReasons, error?.code)) return probeReasons[error.code];
+  }
   if (error?.code === "SETTLEMENT_DEADLINE") return "deadline_exhausted";
   const transportReasons = { timeout: "transport_timeout", output_limit: "transport_output_limit",
     stdin_error: "transport_pipe_failure", stdin_unsettled: "transport_pipe_failure",
@@ -212,7 +220,8 @@ export async function settleWindowsResources(args, dependencies = {}) {
       const probe = parsedResult(await executePowerShellStdin(adapter,
         `[ordered]@{ schema = 1; probe = '${nonce}'; domainUuid = [string](Get-CimInstance Win32_ComputerSystemProduct -ErrorAction Stop).UUID.ToLowerInvariant() } | ConvertTo-Json -Compress\n`,
         { timeout: Math.min(8000, remaining()), maxOutputBytes: 16384 }));
-      assert.deepEqual(probe, { schema: 1, probe: nonce, domainUuid: HOST_UUID }, "settlement-probe-mismatch");
+      try { assert.deepEqual(probe, { schema: 1, probe: nonce, domainUuid: HOST_UUID }); }
+      catch { throw Object.assign(new Error("settlement-probe-mismatch"), { code: "SETTLEMENT_PROBE_MISMATCH" }); }
       stage = "source_validation";
       const template = await captureSourceSnapshot(fileURLToPath(new URL("windows-resource-settlement.ps1", import.meta.url)));
       assert.equal(template.sha256, plan.sourceHashes["src/windows-resource-settlement.ps1"]);

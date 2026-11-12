@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 export const WINDOWS_COMMAND_LINE_LIMIT = 8191;
 export const POWERSHELL_STDIN_BOOTSTRAP = [
+  "$ProgressPreference = 'SilentlyContinue'",
   "$source = [Console]::In.ReadToEnd()",
   "& ([ScriptBlock]::Create($source))",
 ].join("; ");

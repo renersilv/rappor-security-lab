@@ -266,6 +266,17 @@ class SettlementTests(T.TechnicalTests):
         manifest=C.private(packet / 'manifest-pass3.json')
         self.assertEqual(manifest['files']['settlement-unresolved.json'],result['unresolvedDiagnostic']['sha256'])
 
+    def test_closed_probe_failure_codes_reject_raw_diagnostic_text(self):
+        value = dict(schema=1,kind='windows_task_settlement_unresolved',outcome='unresolved',
+                     planSha256='a'*64,checkpointSha256='b'*64,intentSha256='c'*64,
+                     failedStage='transport_probe',reasonCode='probe_stderr',elapsedMs=100)
+        for code in ('probe_stderr','probe_invalid_json','probe_mismatch'):
+            value['reasonCode']=code
+            self.assertEqual(S.unresolved(R.encoded(value),'a'*64,'b'*64,'c'*64)['reasonCode'],code)
+        for changed in (dict(value,reasonCode='raw remote failure'),dict(value,stderr='secret diagnostic')):
+            with self.assertRaises(ValueError):
+                S.unresolved(R.encoded(changed),'a'*64,'b'*64,'c'*64)
+
     def test_rejected_settlement_uses_only_remaining_offline_correction_then_stops(self):
         self.open_settlement()
         first = R.technical_history(C.private(self.state / 'campaign.json'))[0]

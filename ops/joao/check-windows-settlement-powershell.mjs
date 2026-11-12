@@ -96,3 +96,25 @@ ${body}
   assert.equal(result.error, undefined); assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.equal(result.stdout.match(/PASS:/gu)?.length, 13);
 });
+
+test("actual PowerShell parses the exact UUID transport probe and preserves its nonce", async () => {
+  const source = await readFile(new URL("../../src/windows-resource-settlement.mjs", import.meta.url), "utf8");
+  const probe = source.match(/`(\[ordered\]@\{ schema = 1; probe = '\$\{nonce\}'[^`]+)`/u)?.[1];
+  assert.ok(probe, "exact production probe must be available");
+  const nonce = "a".repeat(32);
+  const input = `function Get-CimInstance { param($ClassName,$ErrorAction); if ($ClassName -ne 'Win32_ComputerSystemProduct') { throw 'wrong-class' }; Write-Progress -Activity 'Loading fixture CIM' -Status 'Loading' -PercentComplete 50; [pscustomobject]@{ UUID='13918E5C-5B79-4A99-9029-0AA515F5A732' } }\n` +
+    probe.replace("${nonce}", nonce).replaceAll("\\n", "\n");
+  const result = powershell(input);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr.trim(), "");
+  assert.deepEqual(JSON.parse(result.stdout), {schema:1,probe:nonce,domainUuid:"13918e5c-5b79-4a99-9029-0aa515f5a732"});
+});
+
+test("actual PowerShell progress suppression preserves genuine error output", () => {
+  const result = powershell("Write-Progress -Activity 'Fixture progress' -PercentComplete 50; Write-Error 'fixture-genuine-error' -ErrorAction Stop\n");
+  assert.equal(result.error, undefined);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /fixture-genuine-error/u);
+  assert.doesNotMatch(result.stderr, /S="progress"/u);
+});

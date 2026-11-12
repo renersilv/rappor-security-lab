@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { SettlementTransport, openStablePrivateCredential } from "../src/windows-settlement-transport.mjs";
-import { executePowerShellStdin, POWERSHELL_STDIN_COMMAND } from "../src/powershell-stdin-transport.mjs";
+import { executePowerShellStdin, POWERSHELL_STDIN_COMMAND, POWERSHELL_STDIN_BOOTSTRAP } from "../src/powershell-stdin-transport.mjs";
 const childEnvironment = { ...process.env };
 delete childEnvironment.NODE_TEST_CONTEXT;
 const transport = () => new SettlementTransport("/fixture/no-key");
@@ -46,4 +46,11 @@ test("held credential rejects content drift and closes idempotently", async t =>
   await credential.assertStable(); await writeFile(path, "changed-only", { mode: 0o600 });
   await assert.rejects(credential.assertStable()); await credential.close(); await credential.close();
   await assert.rejects(credential.assertStable(), /closed/u);
+});
+
+test("stdin bootstrap suppresses only progress while preserving errors", () => {
+  assert.match(POWERSHELL_STDIN_BOOTSTRAP, /^\$ProgressPreference = 'SilentlyContinue';/u);
+  assert.doesNotMatch(POWERSHELL_STDIN_BOOTSTRAP, /ErrorActionPreference|WarningPreference|2>|2&|Out-Null/u);
+  const encoded = POWERSHELL_STDIN_COMMAND.split(" ").at(-1);
+  assert.equal(Buffer.from(encoded, "base64").toString("utf16le"), POWERSHELL_STDIN_BOOTSTRAP);
 });

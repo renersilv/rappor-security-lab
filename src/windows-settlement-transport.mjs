@@ -76,7 +76,7 @@ export class SettlementTransport {
   constructor(sshKey) {
     this.sshTarget = "joao@127.0.0.1";
     this.sshArguments = ["-F", "/dev/null", "-p", "2222", "-i", sshKey,
-      "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+      "-o", "BatchMode=yes", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10",
       "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"];
   }
   async execute(file, arguments_, {

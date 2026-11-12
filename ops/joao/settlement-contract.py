@@ -132,7 +132,7 @@ def unresolved(raw, plan_sha, checkpoint_sha, intent_sha):
     value = json.loads(raw)
     stages = {'host_identity', 'credential_open', 'credential_validation', 'transport_probe', 'resource_cleanup',
               'credential_close', 'source_validation', 'result_publication'}
-    reasons = {'host_identity_rejected', 'credential_unavailable', 'credential_changed', 'probe_failed',
+    reasons = {'host_identity_rejected', 'credential_unavailable', 'credential_changed', 'probe_failed', 'probe_stderr', 'probe_invalid_json', 'probe_mismatch',
                'cleanup_failed', 'credential_close_failed', 'source_changed', 'result_publication_failed',
                'deadline_exhausted', 'transport_timeout', 'transport_output_limit', 'transport_pipe_failure',
                'transport_exit_255', 'transport_nonzero_exit', 'transport_start_failed', 'transport_interrupted'}
