@@ -12,7 +12,9 @@
     "ownerRequest",
     "objectiveId",
     "evidenceLevel",
-    "technicalCorrection"
+    "technicalCorrection",
+    "settlementPlan",
+    "settlementEvidence"
   ],
   "properties": {
     "verdict": {
@@ -42,7 +44,8 @@
       "enum": [
         "offline",
         "read_only_preflight",
-        "bounded_no_model"
+        "bounded_no_model",
+        "settlement_only"
       ]
     },
     "evidence": {
@@ -158,6 +161,30 @@
               "maxLength": 300
             }
           }
+        }
+      ]
+    },
+    "settlementPlan": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      ]
+    },
+    "settlementEvidence": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
         }
       ]
     }

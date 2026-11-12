@@ -40,7 +40,7 @@ export async function settlementSources() {
 }
 function bundleSource(bundle, name, expected) {
   const source = bundle.sources?.[name];
-  assert.ok(source && source.omitted === false && typeof source.content === "string", "settlement-bundle-source-missing");
+  assert.ok(source && (source.omitted === undefined || source.omitted === false) && typeof source.content === "string", "settlement-bundle-source-missing");
   assert.equal(hash(Buffer.from(source.content)), expected, "settlement-bundle-content-mismatch");
   assert.equal(source.sha256, expected, "settlement-bundle-hash-mismatch");
   return JSON.parse(source.content);

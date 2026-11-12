@@ -1,3 +1,11 @@
+# Current correction — AB#301 early technical provenance
+
+Pass222 exposed a missing correction route: offline rejections with unresolved
+cleanup did not retain incident/proof provenance before preparation exhaustion.
+Start the bounded route at the rejection and require exact proof at approval.
+This source repair preserves historical results, counters and inference limits;
+it does not approve Windows cleanup, transport, MCP discovery or a model turn.
+
 # Current correction — AB#301 public evidence ingestion
 
 The two-level public observation packet is now validated at the objective review

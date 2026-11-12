@@ -20,12 +20,12 @@ from types import SimpleNamespace
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 ALLOWED = {'campaign-review.py', 'campaign.sh', 'stages.sh', 'stage-control.py',
-           'objectives.py',
+           'objectives.py', 'settlement-host.py',
            'campaign-review-result.schema.json', 'review-result.schema.json',
            'CAMPAIGN_REVIEW_PROMPT.md', 'STAGE_REVIEW_PROMPT.md'}
 MAX_REPAIRS = 2
 TESTS = ['campaign-tests.py', 'campaign-review-tests.py', 'stage-tests.py',
-         'objectives-tests.py', 'recovery-tests.py', 'technical-continuation-tests.py',
+         'objectives-tests.py', 'recovery-tests.py', 'technical-continuation-tests.py', 'settlement-continuation-tests.py',
          'run-tests.sh', 'campaign-review-wrapper-tests.sh']
 
 
@@ -272,6 +272,13 @@ def incident_bundle(root, repo, incident):
     sources = {}
     for name in sorted(ALLOWED):
         sources['ops/joao/' + name] = (repo / 'ops/joao' / name).read_text()
+    # Authority contracts are diagnostic context only, never an editable repair target.
+    for relative in ('ops/joao/settlement-contract.py', 'ops/joao/windows-host-identity.py',
+                     'src/windows-resource-settlement.mjs', 'src/windows-resource-settlement.ps1',
+                     'src/windows-settlement-transport.mjs', 'src/powershell-stdin-transport.mjs'):
+        path = repo / relative
+        if path.exists():
+            sources[relative] = path.read_text()
     for name in TESTS:
         path = repo / 'ops/joao/test' / name
         if path.exists():

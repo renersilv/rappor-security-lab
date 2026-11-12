@@ -74,6 +74,131 @@ class TechnicalTests(BASE.ReviewTests):
             self.assertEqual(now[key], self.before[key], key)
         self.assertFalse(now['allowsFinalDelivery'])
 
+    def early_rejection(self):
+        self.response(technicalCorrection=None, objectiveId='ide-mcp', evidenceLevel='preparation',
+                      cleanupAssessment='unresolved')
+        self.finish()
+        return R.job(self.state)[1]
+
+    def test_first_offline_rejection_binds_route_even_with_unresolved_cleanup(self):
+        before = C.private(self.state / 'campaign.json')
+        marker = self.early_rejection()
+        self.assertEqual(marker['phase'], 'continued')
+        self.assertEqual(marker['unchangedReviews'], 1)
+        self.assertEqual(marker.get('technicalRoute', {}).get('phase'), 'correction')
+        self.assertEqual(marker['technicalRoute']['attempt'], 1)
+        self.assertEqual(C.private(self.state / 'campaign.json')['executorPasses'], before['executorPasses'])
+        after = (self.state / 'campaign.json').read_bytes()
+        R.reconcile(self.state)
+        self.finish()
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), after)
+        self.next_packet(2)
+        directory = self.prepare()
+        bundle = C.private(directory / 'bundle.json')
+        self.assertEqual(bundle['technicalCorrectionContext'], marker['technicalRoute'])
+        self.assertIn('TECHNICAL CORRECTION ROUTE', bundle['previousHandoff'])
+
+    def test_two_reviewed_repairs_do_not_lose_provenance_at_six_preparations(self):
+        ledger = self.state / 'synthetic-inference-ledger.json'
+        C.save(ledger, dict(attempts=[dict(sequence=22, outcome='failed')], active=False))
+        preserved = {path: path.read_bytes() for path in (ledger, self.auth_path, self.state / 'session')}
+        marker = self.early_rejection()
+        self.assertIn('technicalRoute', marker)
+        original_incident = marker['technicalRoute']['incident']
+        snapshots = []
+        for number in range(2, 7):
+            previous_dir = R.job(self.state)[0]
+            snapshots.append((previous_dir / 'result.json', (previous_dir / 'result.json').read_bytes()))
+            self.next_packet(number)
+            if number in (3, 6):
+                self.repair_response(cleanupAssessment='verified', nextAction=(
+                    'First settle and verify only the exact prior task, temporary root and owned processes. '
+                    'Then test only corrected multiline transport within the existing deadlines; no MCP discovery or inference.'))
+            elif number == 4:
+                self.response(technicalCorrection=None, findings=['The complete multiline script loses structured output.'],
+                              objectiveId='ide-mcp', evidenceLevel='preparation', cleanupAssessment='unresolved')
+            else:
+                self.repair_response(accepted=False, cleanupAssessment='unresolved')
+            self.finish()
+            R.reconcile(self.state)
+            marker = R.job(self.state)[1]
+            self.assertEqual(marker['phase'], 'continued')
+            self.assertEqual(marker['unchangedReviews'], number)
+            self.assertEqual(marker['technicalRoute']['phase'], 'observation' if number in (3, 6) else 'correction')
+        self.assertNotEqual(marker['technicalRoute']['incident'], original_incident)
+        self.assertEqual(marker['technicalRoute']['attempt'], 2)
+        self.assertEqual(R.OBJECTIVES._history(self.state)[-1]['preparationStreak'], 6)
+        self.assertFalse(R.OBJECTIVES._history(self.state)[-1]['acceptanceChanged'])
+        for path, raw in [*preserved.items(), *snapshots]:
+            self.assertEqual(path.read_bytes(), raw)
+        state = C.private(self.state / 'campaign.json')
+        state['executorPasses'] += 1
+        C.enforce_review_limit(state, 2)
+        self.assertEqual(state['phase'], 'review_pending')
+
+    def test_typed_pending_incident_rejects_approval_without_matching_proof(self):
+        marker = self.early_rejection()
+        self.assertIn('technicalRoute', marker)
+        self.next_packet(2)
+        directory = self.repair_response(proof=False)
+        before = (self.state / 'campaign.json').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'missing-bound-technical-correction-proof'):
+            self.finish()
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), before)
+        self.assertFalse((directory / 'result.json').exists())
+        output = io.StringIO()
+        with mock.patch.object(R.sys, 'argv', ['campaign-review.py', 'validate-response', str(self.state)]), contextlib.redirect_stdout(output):
+            R.main()
+        self.assertEqual(output.getvalue().strip(), 'regenerate')
+        bundle = C.private(directory / 'bundle.json')
+        response = C.private(directory / 'response.json')
+        response['technicalCorrection'] = dict(incident='f' * 64,
+            regressionBefore='regression-before.json', regressionAfter='regression-after.json')
+        wrong = directory / 'wrong-events.jsonl'
+        R.put(wrong, R.encoded(dict(type='item.completed', item=dict(type='agent_message', text=json.dumps(response)))))
+        with self.assertRaisesRegex(ValueError, 'missing-bound-technical-correction-proof'):
+            R.result(wrong, bundle)
+
+    def test_early_route_keeps_two_candidate_limit_for_equivalent_defect(self):
+        first = self.early_rejection()
+        self.assertIn('technicalRoute', first)
+        for number in (2, 3):
+            self.next_packet(number)
+            self.repair_response(accepted=False, cleanupAssessment='unresolved',
+                                 findings=[f'Reworded same unsettled transport problem {number}.'])
+            self.finish()
+        marker = R.job(self.state)[1]
+        self.assertEqual(marker['phase'], 'stalled')
+        self.assertEqual(marker['unchangedReviews'], 3)
+        self.assertEqual(R.technical_history(C.private(self.state / 'campaign.json'))[0]['attempt'], 2)
+        self.assertEqual(R.technical_history(C.private(self.state / 'campaign.json'))[0]['incident'], first['technicalRoute']['incident'])
+
+    def test_bound_regression_does_not_release_unresolved_cleanup_by_prose(self):
+        self.early_rejection()
+        self.next_packet(2)
+        self.repair_response(cleanupAssessment='unresolved', nextAction=(
+            'Settle only the exact known task and temporary root before a transport check; no other runtime action.'))
+        self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(R.technical_history(C.private(self.state / 'campaign.json'))[0]['phase'], 'correction')
+
+    def test_historical_pass_without_route_or_proof_cannot_be_upgraded_on_resume(self):
+        for number in range(1, 6):
+            self.changed_preparation_pass(number)
+        self.next_packet(6)
+        self.response(verdict='pass', findings=[], scope='read_only_preflight', progress='behavior_change',
+                      objectiveId='ide-mcp', evidenceLevel='preparation', cleanupAssessment='unresolved',
+                      technicalCorrection=None)
+        self.finish()
+        marker = R.job(self.state)[1]
+        self.assertEqual(marker['phase'], 'stalled')
+        directory = R.job(self.state)[0]
+        files = [self.state / 'campaign.json', directory / 'result.json', self.state / 'campaign-auto-review.json']
+        snapshots = [path.read_bytes() for path in files]
+        self.resume()
+        self.assertEqual([path.read_bytes() for path in files], snapshots)
+        self.assertEqual(R.technical_history(C.private(self.state / 'campaign.json')), [])
+
     def test_saved_rejection_routes_offline_without_reset_and_restart_is_idempotent(self):
         self.stopped()
         self.resume()
@@ -184,8 +309,11 @@ record_issue_failure 19 "$3" codex_exit "$5"
         self.resume()
         self.next_packet(7)
         self.repair_response(proof=False)
-        self.finish()
-        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        before = (self.state / 'campaign.json').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'missing-bound-technical-correction-proof'):
+            self.finish()
+        self.assertEqual((self.state / 'campaign.json').read_bytes(), before)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'review_pending')
 
     def test_bounded_runtime_expansion_is_not_authorized_by_technical_repair(self):
         self.stopped()

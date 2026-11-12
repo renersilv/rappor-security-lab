@@ -19,7 +19,13 @@ SUPPORT_ROOT = Path(__file__).resolve().parents[2]
 SUPPORT_FILES = tuple(f'{folder}/{name}{suffix}' for folder, suffix in (
     ('src', '.mjs'), ('test', '.test.mjs')) for name in (
     'protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor',
-    'public-observation-manifest'))
+    'public-observation-manifest')) + (
+    'src/windows-resource-settlement.mjs', 'src/windows-resource-settlement.ps1',
+    'src/windows-settlement-transport.mjs', 'src/powershell-stdin-transport.mjs',
+    'ops/joao/settlement-contract.py', 'ops/joao/settlement-host.py', 'ops/joao/windows-host-identity.py',
+    'ops/joao/test/settlement-continuation-tests.py', 'test/windows-resource-settlement.test.mjs',
+    'test/windows-settlement-transport.test.mjs', 'test/support-settlement-fixture.mjs',
+)
 
 STAGE_SPEC = importlib.util.spec_from_file_location('campaign_stage', Path(__file__).with_name('stage-control.py'))
 STAGE = importlib.util.module_from_spec(STAGE_SPEC)

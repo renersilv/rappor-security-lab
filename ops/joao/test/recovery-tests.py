@@ -90,6 +90,7 @@ class RecoveryTests(unittest.TestCase):
     def test_allowlist_rejects_authority_product_existing_tests_and_traversal(self):
         for name in ['ops/joao/campaign-control.py', 'ops/joao/recovery.py',
                      'ops/joao/campaign-contract.md', 'ops/joao/contracts/issue-19.md',
+                     'ops/joao/settlement-contract.py', 'src/windows-resource-settlement.mjs',
                      'src/product.py', 'ops/joao/test/campaign-tests.py',
                      'ops/joao/../joao/campaign.sh', 'ops/joao/test/../../campaign.sh']:
             with self.subTest(path=name):
@@ -98,6 +99,14 @@ class RecoveryTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     R.validate_proposal(value, self.repo)
         self.assertEqual(R.validate_proposal(self.proposal(), self.repo), [REGRESSION])
+
+    def test_settlement_host_transport_is_repairable_without_authority_contract_access(self):
+        value = self.proposal()
+        value['files'][0] = dict(path='ops/joao/settlement-host.py', content='# Synthetic bounded transport repair.\n')
+        self.assertEqual(R.validate_proposal(value, self.repo), [REGRESSION])
+        value['files'][0]['path'] = 'ops/joao/settlement-contract.py'
+        with self.assertRaisesRegex(ValueError, 'repair-outside-allowlist'):
+            R.validate_proposal(value, self.repo)
 
     def test_existing_regression_and_symlink_are_not_replaced(self):
         target = self.repo / REGRESSION

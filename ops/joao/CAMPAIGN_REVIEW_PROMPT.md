@@ -88,8 +88,10 @@ prove client discovery without an AI turn. OAuth configuration alone cannot.
 Unknown schema fields remain unconfirmed; do not force reauthorization from that.
 
 ADR-0006 separates product evidence from an outstanding technical correction.
-If previousHandoff contains TECHNICAL CORRECTION ROUTE with phase correction,
-keep its incident identity regardless of changed finding wording or source hashes.
+The host supplies technicalCorrectionContext for an outstanding correction and
+the same route in previousHandoff. Keep that incident identity regardless of
+changed finding wording or source hashes. The route begins at the first offline
+rejection, including unresolved cleanup, without waiting for preparation exhaustion.
 Approve its repair only after inspecting the exact defect correction and relevant
 failing-before/passing-after regression artifacts in this packet. Cite both in
 evidence and return technicalCorrection with that incident, regressionBefore and
@@ -99,10 +101,33 @@ An approved correction may permit only one read_only_preflight within the existi
 target and deadline. Never authorize inference, reauthentication, scans, mutation,
 deadline renewal or product acceptance through this technical route. Preserve
 product preparation counts; passing offline checks are not runtime progress.
-Return technicalCorrection null when no outstanding correction is being approved.
+A pass while technicalCorrectionContext is present requires that bound proof;
+null or a different incident is an invalid response and uses the existing limited
+review-response regeneration. If proof is absent or irrelevant, report the concrete
+missing evidence as changes_requested/offline instead. Unresolved cleanup still
+prevents leaving the technical route for runtime; cleanup instructions in prose
+do not bind a restricted operation. Return technicalCorrection null when no
+outstanding correction is being approved.
 
 For descriptor/protected-input/ledger defects, prefer the versioned laboratory
 src/windows-delivery-contract.mjs, src/protected-inputs.mjs and src/closed-ledger.mjs
 with their existing regressions. Do not invent public descriptor fields or infer
 installed package identity from a control-plane version. A passive public descriptor
 observation does not require an inference ledger or authorize an IDE session.
+
+For an outstanding correction with unresolved cleanup, settlement_only is the
+sole runtime exception. It requires technicalCorrection plus settlementPlan naming
+a cited, closed windows_task_settlement plan. The plan binds original manifest and
+runtime evidence, exact prior resources, current candidate/authorization, installed
+fixed entrypoint sources and the original 55000 ms settlement bound. No arbitrary
+commands, new task/root, IDE launch, MCP or inference are permitted. Missing or
+ambiguous resource ownership remains a stop, not permission for broader cleanup.
+The host validates and retains this plan before one executor launch.
+
+When technicalSettlementContext is present, approve only from the actual cited
+settlementEvidence receipt bound to the protected settlementPlanSnapshot. It must
+prove exact resource absence, verified ownership and the fixed transport probe,
+within the original limit and with all prohibited activity flags false. Only then
+select read_only_preflight and cleanupAssessment verified for the next already
+authorized check. Settlement is operational cleanup, not new product evidence.
+Return settlementPlan and settlementEvidence null outside their respective stages.

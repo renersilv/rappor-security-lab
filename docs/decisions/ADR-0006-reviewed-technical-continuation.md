@@ -91,3 +91,40 @@ the observer's generated files. Historical packets and review results are never
 rewritten, and an independent preparation verdict cannot be promoted by ingestion.
 Python bytecode caches are ignored as generated files; unexpected source remains
 visible to the unchanged clean-worktree gate.
+
+## Start correction provenance at the rejection
+
+The typed correction route starts at the first current-schema independent offline
+rejection, rather than waiting for preparation exhaustion. Unresolved cleanup does
+not prevent correcting its implementation offline. The protected review bundle
+provides the outstanding route explicitly, and approval must cite its exact incident
+and distinct, relevant regression artifacts. Missing proof cannot become a silent
+approval followed by an operational stall. Equivalent defects retain the two-candidate
+bound, while product preparation counters and all inference authorizations remain
+unchanged. Historical results without route/proof are not upgraded retroactively.
+
+An approval with unresolved cleanup still cannot leave the technical route for
+runtime. Free-text instructions to clean up are not a verifiable restriction on
+resources or actions. The existing gate remains closed until cleanup is eligible
+or a separately reviewed protected checkpoint binds an exact authorized operation.
+No historical null proof is reconstructed from prose or a behavior_change flag.
+
+## Exact operational settlement continuation
+
+For a corrected technical defect whose prior operation left cleanup unresolved,
+a separate internal settlement_only scope can authorize one exact cleanup/probe.
+It requires the same bound before/after repair proof and a closed typed plan:
+original pass manifest/runtime receipt, unchanged candidate and authorization,
+exact prior task/root and ownership-receipt names, installed fixed entrypoint
+hashes and the original settlement deadline. It cannot accept arbitrary commands,
+new resources or inference. The controller retains this plan and evidence in its
+protected checkpoint; the entrypoint reserves one immutable execution intent.
+
+Settlement is operational cleanup, not product evidence or acceptance. Only a
+new receipt bound to that plan, pass and sources with observed absence, verified
+process ownership and successful fixed transport probe permits the next existing
+read-only observation. Missing/ambiguous ownership or incomplete cleanup stops.
+Automatic and assisted checkpoints share these validators. Assisted recovery of
+a historical untyped review uses a new explicit proof and preserves that result,
+its consumed correction attempts and all campaign counters. Replaying a checkpoint
+or request cannot execute settlement again.

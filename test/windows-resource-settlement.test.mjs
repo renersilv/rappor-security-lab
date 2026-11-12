@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { settleWindowsResources } from "../src/windows-resource-settlement.mjs";
 import { settlementFixture } from "./support-settlement-fixture.mjs";
 
@@ -112,4 +112,23 @@ for (const [stage, reason, options] of [
   assert.equal(receipt.failedStage, stage); assert.equal(receipt.reasonCode, reason);
   assert.doesNotMatch(JSON.stringify(receipt), /secret|password|token/u);
   assert.equal(await value.exists("settlement-result.json"), false);
+});
+
+for (const omitted of [true, null, 0, "false"]) test(`settlement rejects an invalid omitted source flag: ${JSON.stringify(omitted)}`, async t => {
+  const value = await fixture(t);
+  const read = async ref => JSON.parse(await readFile(ref.path, "utf8"));
+  const checkpoint = await read(value.request.checkpoint);
+  const correction = await read(checkpoint.correction);
+  const packet = await read(correction.settlementBundle);
+  packet.bundle.sources[packet.planName].omitted = omitted;
+  correction.settlementBundle = await value.put("invalid-bundle.json", packet);
+  checkpoint.correction = await value.put("invalid-correction.json", correction);
+  const checkpointRef = await value.put("invalid-checkpoint.json", checkpoint);
+  const campaign = await read({path: `${value.dependencies.stateRoot}/campaign.json`});
+  campaign.reviewCheckpoint = checkpointRef;
+  await value.put("campaign.json", campaign, value.dependencies.stateRoot);
+  value.request.checkpoint = checkpointRef;
+  const request = await value.put("invalid-request.json", value.request);
+  await assert.rejects(settleWindowsResources({...value.args, requestPath:request.path, requestSha256:request.sha256},value.dependencies), /settlement-bundle-source-missing/u);
+  assert.equal(value.calls,0);
 });

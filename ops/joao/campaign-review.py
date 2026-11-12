@@ -11,6 +11,7 @@ from pathlib import Path
 import stat
 import sys
 import tempfile
+import types
 
 sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location('campaign', Path(__file__).with_name('campaign-control.py'))
@@ -19,6 +20,12 @@ SPEC.loader.exec_module(C)
 OBJECTIVE_SPEC = importlib.util.spec_from_file_location('campaign_objectives', Path(__file__).with_name('objectives.py'))
 OBJECTIVES = importlib.util.module_from_spec(OBJECTIVE_SPEC)
 OBJECTIVE_SPEC.loader.exec_module(OBJECTIVES)
+SETTLEMENT_SPEC = importlib.util.spec_from_file_location('settlement_contract', Path(__file__).with_name('settlement-contract.py'))
+SETTLEMENT = importlib.util.module_from_spec(SETTLEMENT_SPEC)
+SETTLEMENT_SPEC.loader.exec_module(SETTLEMENT)
+HOST_SPEC = importlib.util.spec_from_file_location('settlement_host', Path(__file__).with_name('settlement-host.py'))
+HOST = importlib.util.module_from_spec(HOST_SPEC)
+HOST_SPEC.loader.exec_module(HOST)
 CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh', '.c'}
 
 
@@ -159,6 +166,59 @@ def job(root):
     return path, marker
 
 
+def settlement_origins(value):
+    """Anchor resources to manifests retained by the protected review chain."""
+    C.reviewed_checkpoint(value)
+    reference_value = value.get('reviewCheckpoint')
+    origins = {}
+    while reference_value is not None:
+        receipt = C.artifact(reference_value, protected=True)
+        try:
+            correction = json.loads(C.artifact(receipt['correction'], protected=True, text=True))
+        except json.JSONDecodeError:
+            correction = None
+        manifest = correction.get('manifest') if isinstance(correction, dict) else None
+        if isinstance(manifest, dict) and isinstance(manifest.get('sha256'), str):
+            origins[str(receipt['reviewedThroughPass'])] = manifest['sha256']
+        reference_value = receipt['previousReview']
+    return origins
+
+
+def pending_cleanup_origin(value):
+    """Find the unresolved operation, stopping at the last eligible cleanup review."""
+    C.reviewed_checkpoint(value)
+    reference_value = value.get('reviewCheckpoint')
+    origin = None
+    while reference_value is not None:
+        receipt = C.artifact(reference_value, protected=True)
+        try:
+            diagnosis = json.loads(C.artifact(receipt['diagnosis'], protected=True, text=True))
+            correction = json.loads(C.artifact(receipt['correction'], protected=True, text=True))
+        except json.JSONDecodeError:
+            break
+        if not isinstance(diagnosis, dict) or diagnosis.get('cleanupAssessment') != 'unresolved':
+            break
+        manifest = correction.get('manifest') if isinstance(correction, dict) else None
+        if isinstance(manifest, dict) and diagnosis.get('verdict') == 'changes_requested':
+            origin = dict(executorPass=receipt['reviewedThroughPass'], manifestSha256=manifest['sha256'],
+                          incident=sha(encoded(dict(objective=diagnosis.get('objectiveId', 'unclassified'),
+                              findings=sorted(' '.join(f.lower().split()) for f in diagnosis['findings'])))))
+        reference_value = receipt['previousReview']
+    return origin
+
+
+def settlement_execution(value):
+    checkpoint = value['reviewCheckpoint']
+    path = Path(checkpoint['path']).parent / 'settlement-host-result.json'
+    result = C.artifact(reference(path), protected=True)
+    if result.get('binding', {}).get('checkpoint') != checkpoint:
+        raise ValueError('settlement-host-result-changed')
+    if result.get('receipt'):
+        C.artifact(result['receipt'], protected=True)
+        C.artifact(result['executionIntent'], protected=True)
+    return result
+
+
 def prepare(root):
     value = current(root)
     selected = packet(value, root)
@@ -184,7 +244,16 @@ def prepare(root):
     result = C.private(root / 'campaign-result.json')
     if result.get('executorPass') != value['executorPasses']:
         result = dict(note='Last executor launch has no bound finish result; review interrupted work.')
+    routes = technical_history(value)
+    correction_context = routes[0] if routes and routes[0]['phase'] == 'correction' else None
+    settlement_context = routes[0] if routes and routes[0]['phase'] == 'settlement' else None
     bundle = dict(**selected, priorReviewedPass=prior_pass, previousHandoff=handoff,
+                  technicalCorrectionContext=correction_context,
+                  technicalSettlementContext=settlement_context,
+                  settlementExecutionSnapshot=settlement_execution(value) if settlement_context else None,
+                  settlementOrigins=settlement_origins(value),
+                  settlementCleanupOrigin=correction_context.get('cleanupOrigin') if correction_context else None,
+                  settlementPlanSnapshot=C.artifact(settlement_context['settlementPlan'], protected=True) if settlement_context else None,
                   result=result, candidate=value['candidate'], executorPass=value['executorPasses'],
                   unchangedExecutableReviews=same)
     put(directory / 'bundle.json', encoded(bundle))
@@ -240,7 +309,7 @@ def result(path, bundle):
     expected = {'verdict', 'findings', 'nextAction', 'scope', 'evidence', 'cleanupAssessment',
                 'progress', 'ownerRequest'}
     objective_fields = {'objectiveId', 'evidenceLevel'}
-    fields = set(parsed) - {'technicalCorrection'}
+    fields = set(parsed) - {'technicalCorrection', 'settlementPlan', 'settlementEvidence'}
     if fields not in (expected, expected | objective_fields) or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
         raise ValueError('invalid-independent-verdict')
     if objective_fields <= set(parsed):
@@ -255,7 +324,7 @@ def result(path, bundle):
     if not isinstance(parsed['nextAction'], str) or not 20 <= len(parsed['nextAction']) <= 6000:
         raise ValueError('missing-concrete-next-action')
     scope = parsed['scope']
-    if scope not in {'offline', 'read_only_preflight', 'bounded_no_model'}:
+    if scope not in {'offline', 'read_only_preflight', 'bounded_no_model', 'settlement_only'}:
         raise ValueError('invalid-continuation-scope')
     if parsed['verdict'] != 'pass' and scope != 'offline':
         raise ValueError('correction-must-remain-offline')
@@ -291,6 +360,10 @@ def result(path, bundle):
     elif request is not None:
         raise ValueError('unexpected-owner-request')
     proof = parsed.get('technicalCorrection')
+    context = bundle.get('technicalCorrectionContext')
+    if (context is not None and parsed['verdict'] == 'pass'
+            and (not isinstance(proof, dict) or proof.get('incident') != context['incident'])):
+        raise ValueError('missing-bound-technical-correction-proof')
     if proof is not None:
         if (not isinstance(proof, dict) or set(proof) != {'incident', 'regressionBefore', 'regressionAfter'}
                 or parsed['verdict'] != 'pass' or not isinstance(proof['incident'], str)
@@ -304,6 +377,33 @@ def result(path, bundle):
         if (evidence_sha256(bundle, proof['regressionBefore']) ==
                 evidence_sha256(bundle, proof['regressionAfter'])):
             raise ValueError('invalid-technical-correction-proof')
+    plan_name = parsed.get('settlementPlan')
+    settlement_evidence = parsed.get('settlementEvidence')
+    pending_settlement = bundle.get('technicalSettlementContext')
+    if scope == 'settlement_only':
+        if (not context or not proof or parsed['cleanupAssessment'] != 'unresolved'
+                or not isinstance(plan_name, str) or plan_name not in refs or settlement_evidence is not None):
+            raise ValueError('invalid-settlement-review')
+        SETTLEMENT.plan(bundle, plan_name, context['incident'])
+    elif plan_name is not None:
+        raise ValueError('invalid-settlement-review')
+    if pending_settlement and parsed['verdict'] == 'pass':
+        if (scope != 'read_only_preflight' or parsed['cleanupAssessment'] != 'verified'
+                or not isinstance(settlement_evidence, str) or settlement_evidence not in refs):
+            raise ValueError('missing-bound-settlement-evidence')
+        execution = bundle.get('settlementExecutionSnapshot')
+        if (not isinstance(execution, dict) or execution.get('outcome') != 'settled'
+                or type(execution.get('exitCode')) is not int or execution['exitCode'] != 0
+                or execution.get('binding', {}).get('plan') != pending_settlement['settlementPlan']
+                or execution.get('receipt', {}).get('sha256') != evidence_sha256(bundle, settlement_evidence)):
+            raise ValueError('missing-bound-settlement-execution')
+        checked = SETTLEMENT.receipt(bundle, settlement_evidence, bundle['settlementPlanSnapshot'],
+                                    pending_settlement['settlementPlan']['sha256'])
+        if (checked['checkpointSha256'] != execution['binding']['checkpoint']['sha256']
+                or execution.get('executionIntent', {}).get('sha256') != checked['intentSha256']):
+            raise ValueError('missing-bound-settlement-execution')
+    elif settlement_evidence is not None:
+        raise ValueError('invalid-settlement-review')
     return parsed
 
 
@@ -323,14 +423,26 @@ def technical_history(value):
             break
         route = correction.get('technicalRoute')
         if route is not None:
-            if (not isinstance(route, dict) or set(route) != {
+            if (not isinstance(route, dict) or set(route) - {'settlementPlan', 'cleanupOrigin'} != {
                     'incident', 'phase', 'attempt', 'sourceFingerprint', 'reviewPass'}
-                    or route['phase'] not in {'correction', 'observation'}
+                    or route['phase'] not in {'correction', 'settlement', 'observation'}
                     or type(route['attempt']) is not int or not 1 <= route['attempt'] <= 2
                     or route['reviewPass'] != receipt['reviewedThroughPass']
                     or any(not isinstance(route[key], str) or not re.fullmatch('[a-f0-9]{64}', route[key])
                            for key in ('incident', 'sourceFingerprint'))):
                 raise ValueError('invalid-technical-correction-route')
+            cleanup_origin = route.get('cleanupOrigin')
+            if cleanup_origin is not None and (not isinstance(cleanup_origin, dict)
+                    or set(cleanup_origin) != {'executorPass', 'manifestSha256'}
+                    or type(cleanup_origin['executorPass']) is not int
+                    or not 1 <= cleanup_origin['executorPass'] <= route['reviewPass']
+                    or not isinstance(cleanup_origin['manifestSha256'], str)
+                    or not re.fullmatch('[a-f0-9]{64}', cleanup_origin['manifestSha256'])):
+                raise ValueError('invalid-technical-correction-route')
+            if route['phase'] == 'settlement' and ('settlementPlan' not in route or cleanup_origin is None):
+                raise ValueError('invalid-technical-correction-route')
+            if 'settlementPlan' in route:
+                C.artifact(route['settlementPlan'], protected=True)
             history.append(route)
         else:
             break
@@ -343,6 +455,12 @@ def technical_route(value, verdict, selected, *, exhausted, saved_rejection=Fals
     previous = history[0] if history else None
     if verdict['verdict'] == 'owner_required' or value['phase'] == 'owner_required':
         return None
+    if previous and previous['phase'] == 'settlement':
+        if (verdict['verdict'] == 'pass' and verdict['scope'] == 'read_only_preflight'
+                and verdict['cleanupAssessment'] == 'verified' and verdict.get('settlementEvidence')):
+            return dict(previous, phase='observation', sourceFingerprint=selected['sourceFingerprint'],
+                        reviewPass=value['executorPasses'])
+        return None
     if previous and previous['phase'] == 'correction':
         # Rewording a finding or changing source never opens another incident.
         if selected['sourceFingerprint'] == previous['sourceFingerprint']:
@@ -353,21 +471,31 @@ def technical_route(value, verdict, selected, *, exhausted, saved_rejection=Fals
             return dict(previous, phase='correction', attempt=previous['attempt'] + 1,
                         sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'])
         proof = verdict.get('technicalCorrection')
+        if (verdict['verdict'] == 'pass' and verdict['scope'] == 'settlement_only'
+                and verdict['cleanupAssessment'] == 'unresolved' and proof
+                and proof['incident'] == previous['incident'] and verdict.get('settlementPlan')):
+            return dict(previous, phase='settlement', sourceFingerprint=selected['sourceFingerprint'],
+                        reviewPass=value['executorPasses'], settlementPlanName=verdict['settlementPlan'])
         if (verdict['verdict'] == 'pass' and verdict['scope'] == 'read_only_preflight'
                 and verdict['cleanupAssessment'] in {'verified', 'not_required'}
                 and proof and proof['incident'] == previous['incident']):
             return dict(previous, phase='observation', sourceFingerprint=selected['sourceFingerprint'],
                         reviewPass=value['executorPasses'])
         return None
-    if (exhausted and ('technicalCorrection' in verdict or saved_rejection)
-            and verdict['verdict'] == 'changes_requested' and verdict['cleanupAssessment'] != 'unresolved'):
+    # Start provenance at the rejection, before ordinary preparation is exhausted.
+    # Unresolved cleanup is a reason to repair offline, not to discard its incident.
+    if (('technicalCorrection' in verdict or saved_rejection)
+            and verdict['verdict'] == 'changes_requested' and verdict['scope'] == 'offline'):
         incident = sha(encoded(dict(objective=verdict.get('objectiveId', 'unclassified'),
                                     findings=sorted(' '.join(f.lower().split()) for f in verdict['findings']))))
         attempts = max((entry['attempt'] for entry in history if entry['incident'] == incident), default=0)
         if attempts >= 2:
             return None
         return dict(incident=incident, phase='correction', attempt=attempts + 1,
-                    sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'])
+                    sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'],
+                    **({'cleanupOrigin': dict(executorPass=value['executorPasses'],
+                         manifestSha256=selected['manifest']['sha256'])}
+                       if verdict['cleanupAssessment'] == 'unresolved' else {}))
     return None
 
 
@@ -498,7 +626,7 @@ def finish(root, *, resume_technical=False):
     exhausted = rounds >= (6 if replanning else 3)
     route = technical_route(value, verdict, selected, exhausted=exhausted, saved_rejection=resume_technical)
     route_history = technical_history(value)
-    pending_correction = bool(route_history and route_history[0]['phase'] == 'correction')
+    pending_correction = bool(route_history and route_history[0]['phase'] in {'correction', 'settlement'})
     if verdict['verdict'] != 'owner_required' and (exhausted or pending_correction) and not route:
         marker['unchangedReviews'] = rounds
         marker['phase'] = 'stalled'
@@ -510,6 +638,11 @@ def finish(root, *, resume_technical=False):
         if not route or route['phase'] != 'correction':
             raise ValueError('stopped-review-not-technically-correctable')
         put(directory / 'stalled-marker-before-technical.json', encoded(marker))
+    settlement_bundle = None
+    if route and route.get('settlementPlanName'):
+        plan_name = route.pop('settlementPlanName')
+        route['settlementPlan'] = put(directory / 'settlement-plan.json', SETTLEMENT.source(bundle, plan_name))
+        settlement_bundle = put(directory / 'settlement-bundle.json', encoded(dict(planName=plan_name, bundle=bundle)))
     after = copy.deepcopy(value)
     if verdict['verdict'] == 'owner_required':
         after['phase'] = 'owner_required'
@@ -531,7 +664,13 @@ def finish(root, *, resume_technical=False):
                         'For correction: change the actual defect offline and include relevant failing-before and '
                         'passing-after regression artifacts. The independent reviewer must bind technicalCorrection '
                         'to this incident before one read-only preflight. No inference, reauthentication, scans, '
-                        'mutation, deadline renewal or acceptance is authorized by this route.\n')
+                        'product/configuration mutation, deadline renewal or acceptance is authorized by this route.\n')
+        if route and route['phase'] == 'settlement':
+            handoff += ('SETTLEMENT ONLY: the host runs the installed fixed entrypoint once using the protected '
+                        'settlement-request.json beside this checkpoint. Only the exact original task, temporary root '
+                        'and verified owned processes in that plan may be stopped/removed. No IDE launch, MCP, model, '
+                        'scan, registration, credential or product change. Retain the operational receipt; it is not '
+                        'product progress. Missing or ambiguous ownership stops the operation.\n')
         receipt = dict(schema=1, issue=24, targetIssue=19, reviewedThroughPass=value['executorPasses'],
                        previousReview=value['reviewCheckpoint'], beforeState=reference(directory / 'before.json'),
                        handoff=put(directory / 'handoff.md', handoff.encode()),
@@ -539,7 +678,8 @@ def finish(root, *, resume_technical=False):
                        correction=put(directory / 'correction.json', encoded(dict(
                            manifest=selected['manifest'], sourceFingerprint=selected['sourceFingerprint'],
                            nextAction=verdict['nextAction'], scope=verdict['scope'],
-                           **({'technicalRoute': route} if route else {})))),
+                           **({'technicalRoute': route} if route else {}),
+                           **({'settlementBundle': settlement_bundle} if settlement_bundle else {})))),
                        cleanup=put(directory / 'cleanup.json', encoded(dict(
                            executorPass=value['executorPasses'], assessment=verdict['cleanupAssessment'],
                            evidence={name: evidence_sha256(bundle, name) for name in verdict['evidence']},
@@ -547,7 +687,11 @@ def finish(root, *, resume_technical=False):
                        failureFingerprint=sha(encoded(verdict['findings'])) if verdict['findings'] else None)
         for key in ('authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256', 'contractSha256'):
             receipt[key] = value[key]
+        if verdict['scope'] == 'settlement_only':
+            validate_settlement_checkpoint(C.artifact(receipt['correction'], protected=True), verdict, value)
         after.update(phase='active', reviewCheckpoint=put(directory / 'review.json', encoded(receipt)))
+        if verdict['scope'] == 'settlement_only':
+            write_settlement_request(root, after['reviewCheckpoint'], route['settlementPlan'])
         C.bound(root, after)
     marker['unchangedReviews'] = rounds
     if route:
@@ -598,6 +742,49 @@ def operator_ide_authorization(correction, receipt, before):
         raise ValueError('operator-ide-reservation-unavailable')
 
 
+def write_settlement_request(root, checkpoint, plan_reference):
+    plan = C.artifact(plan_reference, protected=True)
+    directory = Path(checkpoint['path']).parent
+    output = root / 'tmp/issue19-native-windows-20261023/candidates' / (
+        f'settlement-pass{plan["executorPass"]}-{plan_reference["sha256"][:12]}')
+    return put(directory / 'settlement-request.json', encoded(dict(schema=1, scope='settlement_only',
+               checkpoint=checkpoint, plan=plan_reference, outputDirectory=str(output))))
+
+
+def validate_settlement_checkpoint(correction, diagnosis, before):
+    """Automatic and assisted checkpoints bind the same closed resources and proof."""
+    route = correction.get('technicalRoute')
+    if (not isinstance(route, dict) or route.get('phase') != 'settlement'
+            or type(route.get('attempt')) is not int or not 1 <= route['attempt'] <= 2
+            or route.get('reviewPass') != before['executorPasses']):
+        raise ValueError('invalid-settlement-review')
+    material = C.artifact(correction.get('settlementBundle'), protected=True)
+    bundle, name = material['bundle'], material['planName']
+    if bundle['executorPass'] != before['executorPasses'] or bundle['candidate'] != before['candidate']:
+        raise ValueError('invalid-settlement-review')
+    pending = pending_cleanup_origin(before)
+    expected_origin = {key: pending[key] for key in ('executorPass', 'manifestSha256')} if pending else None
+    if not pending or route.get('cleanupOrigin') != expected_origin or route['incident'] != pending['incident']:
+        raise ValueError('settlement-origin-not-pending')
+    plan, fingerprint = SETTLEMENT.plan(bundle, name, route['incident'], trusted_origins=settlement_origins(before),
+                                       pending_origin=expected_origin)
+    retained = C.artifact(route.get('settlementPlan'), protected=True)
+    if retained != plan or route['settlementPlan']['sha256'] != fingerprint:
+        raise ValueError('invalid-settlement-review')
+    proof = diagnosis.get('technicalCorrection')
+    if (not isinstance(proof, dict) or set(proof) != {'incident', 'regressionBefore', 'regressionAfter'}
+            or proof['incident'] != route['incident'] or diagnosis.get('settlementPlan') != name
+            or diagnosis.get('cleanupAssessment') != 'unresolved'
+            or proof['regressionBefore'] == proof['regressionAfter']):
+        raise ValueError('missing-bound-technical-correction-proof')
+    refs = diagnosis.get('evidence', [])
+    if any(key not in refs for key in (name, proof['regressionBefore'], proof['regressionAfter'])):
+        raise ValueError('missing-bound-technical-correction-proof')
+    if SETTLEMENT.source(bundle, proof['regressionBefore']) == SETTLEMENT.source(bundle, proof['regressionAfter']):
+        raise ValueError('invalid-technical-correction-proof')
+    return plan
+
+
 def operator_checkpoint(root, marker, value, *, replay=False):
     """Bind an assisted amendment to the exact exhausted automatic snapshot."""
     C.bound(root, value)
@@ -635,7 +822,7 @@ def operator_checkpoint(root, marker, value, *, replay=False):
     correction = C.artifact(receipt['correction'], protected=True)
     if (diagnosis.get('verdict') != 'pass' or diagnosis.get('findings') != []
             or diagnosis.get('ownerRequest') is not None
-            or diagnosis.get('scope') not in {'offline', 'read_only_preflight', 'bounded_no_model', 'bounded_ide_ai'}
+            or diagnosis.get('scope') not in {'offline', 'read_only_preflight', 'bounded_no_model', 'bounded_ide_ai', 'settlement_only'}
             or correction.get('scope') != diagnosis['scope']):
         raise ValueError('operator-review-not-approved')
     transition = correction.get('contractTransition')
@@ -645,6 +832,8 @@ def operator_checkpoint(root, marker, value, *, replay=False):
             raise ValueError('operator-contract-transition-required')
     elif transition is not None or diagnosis.get('contractTransition') is not None:
         raise ValueError('operator-contract-transition-unexpected')
+    if diagnosis['scope'] == 'settlement_only':
+        validate_settlement_checkpoint(correction, diagnosis, before)
     if diagnosis['scope'] == 'bounded_ide_ai':
         operator_ide_authorization(correction, receipt, before)
     if not replay:
@@ -717,10 +906,14 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'resume-correction':
+    if args.action == 'settlement-mode':
+        print(HOST.mode(types.SimpleNamespace(**globals()), args.root))
+    elif args.action == 'execute-settlement':
+        HOST.execute(types.SimpleNamespace(**globals()), args.root)
+    elif args.action == 'resume-correction':
         resume_correction(args.root)
     elif args.action == 'incident-key':
         print(incident_key(args.root))
@@ -749,7 +942,12 @@ def main():
                           'unresolved-timing-cannot-authorize-live-work',
                           'invalid-review-evidence-citation', 'invalid-reviewed-progress',
                           'invalid-reviewed-objective',
-                          'invalid-technical-correction-proof',
+                          'invalid-technical-correction-proof', 'missing-bound-technical-correction-proof',
+                          'invalid-settlement-review', 'missing-bound-settlement-evidence',
+                          'missing-bound-settlement-execution',
+                          'invalid-settlement-contract', 'settlement-evidence-hash-mismatch',
+                          'settlement-installed-source-mismatch', 'settlement-origin-not-protected',
+                          'settlement-origin-not-pending',
                           'missing-actionable-owner-request', 'unexpected-owner-request'}
             if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
                 raise

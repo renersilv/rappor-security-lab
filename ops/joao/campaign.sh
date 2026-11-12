@@ -153,14 +153,21 @@ execute_campaign_item() {
   elif [[ $operational != doing ]]; then
     return 65
   fi
-  campaign_command begin || return $?
-  run_codex "$issue" "$worktree" "$branch" || result=$?
-  if (( result == 124 )); then
-    return 124
-  elif (( result != 0 )); then
-    return "$result"
+  phase=$(campaign_review_command settlement-mode) || return $?
+  if [[ $phase == pending ]]; then
+    # The host, not the model, owns the fixed settlement and protected evidence.
+    campaign_review_command execute-settlement || return $?
+    phase=$(campaign_command phase) || return $?
+  else
+    campaign_command begin || return $?
+    run_codex "$issue" "$worktree" "$branch" || result=$?
+    if (( result == 124 )); then
+      return 124
+    elif (( result != 0 )); then
+      return "$result"
+    fi
+    phase=$(campaign_command finish) || return $?
   fi
-  phase=$(campaign_command finish) || return $?
   operational=$(issue_operational_state "$issue") || return $?
   if [[ $phase == owner_required ]]; then
     [[ $operational == blocked ]] || return 65
