@@ -482,6 +482,57 @@ recover_campaign_failure
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.base)
         self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
 
+    def test_snapshot_retains_exact_modified_sources_and_only_authorized_new_regression(self):
+        (self.repo / '.gitignore').write_text('ignored-secret.txt\n')
+        self.commit('test: snapshot exclusions')
+        source = self.ops / 'campaign.sh'
+        source.write_text(source.read_text() + '# Modified candidate source.\n'); source.chmod(0o755)
+        regression = self.repo / REGRESSION; regression.write_text(REGRESSION_SOURCE)
+        (self.repo / 'ignored-secret.txt').write_text('must-not-copy')
+        (self.repo / 'untracked-secret.txt').write_text('must-not-copy')
+        trees = []
+        original_head = self.git('rev-parse','HEAD')
+        with patch.dict(os.environ, {'GIT_DIR':'/unavailable-host-git', 'GIT_CONFIG_COUNT':'1',
+                                    'GIT_CONFIG_KEY_0':'core.hooksPath', 'GIT_CONFIG_VALUE_0':'/unsafe'}):
+            for _ in range(2):
+                with R.validation_snapshot(self.repo, [Path(REGRESSION).name]) as (snapshot, proof):
+                    trees.append(proof['tree'])
+                    self.assertEqual((snapshot / 'ops/joao/campaign.sh').read_bytes(),source.read_bytes())
+                    self.assertEqual((snapshot / 'ops/joao/campaign.sh').stat().st_mode & 0o777,0o755)
+                    self.assertTrue((snapshot / REGRESSION).is_file())
+                    self.assertFalse((snapshot / 'ignored-secret.txt').exists())
+                    self.assertFalse((snapshot / 'untracked-secret.txt').exists())
+                    config=(snapshot / '.git/config').read_text()
+                    self.assertNotIn('[remote',config)
+                    self.assertNotIn('/unsafe',config)
+                    self.assertEqual(proof['files']['ops/joao/campaign.sh']['sha256'],R.C.digest(source))
+        self.assertEqual(trees[0],trees[1])
+        self.assertEqual(self.git('rev-parse','HEAD'),original_head)
+
+    def test_snapshot_rejects_symlinks_and_changes_during_capture(self):
+        source=self.ops / 'campaign.sh'; original=source.read_bytes()
+        outside=self.root / 'outside-source'; outside.write_bytes(original)
+        source.unlink(); source.symlink_to(outside)
+        with self.assertRaises((OSError,ValueError)):
+            with R.validation_snapshot(self.repo,[]): self.fail('symlink accepted')
+        source.unlink(); source.write_bytes(original)
+        reader=R.snapshot_source; changed=False
+        def race(path):
+            nonlocal changed
+            result=reader(path)
+            if path==source and not changed:
+                changed=True; source.write_bytes(original+b'# Changed during capture.\n')
+            return result
+        with patch.object(R,'snapshot_source',side_effect=race):
+            with self.assertRaisesRegex(ValueError,'snapshot-source-changed'):
+                with R.validation_snapshot(self.repo,[]): self.fail('changed source accepted')
+
+    def test_snapshot_rejects_candidate_changes_while_tests_are_running(self):
+        source = self.ops / 'campaign.sh'
+        with self.assertRaisesRegex(ValueError, 'snapshot-source-changed'):
+            with R.validation_snapshot(self.repo, []):
+                source.write_text(source.read_text() + '# Changed after snapshot capture.\n')
+
     def test_sandbox_applies_resource_limits_and_no_host_configuration_mount(self):
         observed = []
         def process(args, **kwargs):
@@ -489,7 +540,7 @@ recover_campaign_failure
             kwargs['stdout'].write(b'recovery_checks_started=true\nrecovery_case_finished=1\n')
             return subprocess.CompletedProcess(args, 1)
         with patch.object(R.subprocess, 'run', side_effect=process):
-            self.assertEqual(R.sandbox(self.repo, ['sample.py'], self.root / 'sandbox.log'), 1)
+            self.assertEqual(R.sandbox_process(self.repo, ['sample.py'], self.root / 'sandbox.log', {'fixture': 'snapshot'}), 1)
         for required in ['--property=MemoryMax=1G', '--property=TasksMax=64', '--property=CPUQuota=100%',
                          '--property=RuntimeMaxSec=310s', '--unshare-all', '--clearenv']:
             self.assertIn(required, observed)
@@ -533,7 +584,7 @@ recover_campaign_failure
             return subprocess.CompletedProcess(args, 1)
         with patch.object(R.subprocess, 'run', side_effect=process):
             with self.assertRaisesRegex(ValueError, 'sandbox-did-not-run-tests'):
-                R.sandbox(self.repo, ['sample.py'], self.root / 'sandbox.log')
+                R.sandbox_process(self.repo, ['sample.py'], self.root / 'sandbox.log', {'fixture': 'snapshot'})
 
     def simulated_checks(self, worktree, tests, log):
         baseline = log.name == 'baseline-checks.log'
@@ -582,6 +633,14 @@ recover_campaign_failure
         self.preflight_patch.stop()
         shutil.copytree(HERE.parent, self.ops, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        # The real sandbox validates the same installed support as the host, not an ops-only stub.
+        support_spec = importlib.util.spec_from_file_location('recovery_fixture_support', HERE.parent / 'campaign-control.py')
+        support = importlib.util.module_from_spec(support_spec)
+        support_spec.loader.exec_module(support)
+        for relative in support.SUPPORT_FILES:
+            target = self.repo / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(HERE.parents[2] / relative, target)
         original = (self.ops / 'campaign.sh').read_text()
         (self.ops / 'campaign.sh').write_text(original + BROKEN)
         self.commit('test: full automation with synthetic conversion defect')

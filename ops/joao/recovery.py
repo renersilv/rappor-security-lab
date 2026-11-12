@@ -170,7 +170,98 @@ def validate_proposal(value, repo):
     return regressions
 
 
+def snapshot_source(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+                or before.st_size > 8 * 1024 * 1024 or Path(f'/proc/self/fd/{descriptor}').resolve() != path):
+            raise ValueError('unsafe-recovery-snapshot-source')
+        with os.fdopen(descriptor, 'rb', closefd=False) as stream:
+            raw = stream.read(8 * 1024 * 1024 + 1)
+        after, current = os.fstat(descriptor), path.lstat()
+        fields = ('st_dev', 'st_ino', 'st_mode', 'st_uid', 'st_gid', 'st_size', 'st_mtime_ns', 'st_ctime_ns')
+        identity = tuple(getattr(before, field) for field in fields)
+        if (identity != tuple(getattr(after, field) for field in fields)
+                or identity != tuple(getattr(current, field) for field in fields)
+                or Path(f'/proc/self/fd/{descriptor}').resolve() != path or len(raw) != before.st_size):
+            raise ValueError('recovery-snapshot-source-changed')
+        return raw, 0o755 if before.st_mode & 0o111 else 0o644, identity
+    finally:
+        os.close(descriptor)
+
+
+@contextlib.contextmanager
+def validation_snapshot(repo, tests):
+    if repo != repo.resolve():
+        raise ValueError('unsafe-recovery-snapshot-root')
+    git_env = {'PATH': '/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM': '1',
+               'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0'}
+    def source_git(*args):
+        return run(['git', '-C', str(repo), *args], env=git_env)
+    tracked = source_git('ls-files', '-z').split('\0')
+    names = {name for name in tracked if name}
+    for name in tests:
+        if re.fullmatch(r'recovery-regression-[a-z0-9-]+\.(py|sh)', name):
+            names.add('ops/joao/test/' + name)
+    if not names or len(names) > 5000:
+        raise ValueError('invalid-recovery-snapshot-files')
+    retained, total = {}, 0
+    for name in sorted(names):
+        relative = Path(name)
+        if (relative.is_absolute() or '..' in relative.parts or '.git' in relative.parts
+                or str(relative) != name):
+            raise ValueError('invalid-recovery-snapshot-path')
+        raw, mode, identity = snapshot_source(repo / name)
+        total += len(raw)
+        if total > 128 * 1024 * 1024:
+            raise ValueError('recovery-snapshot-too-large')
+        retained[name] = (raw, mode, identity)
+    with tempfile.TemporaryDirectory(prefix='joao-validation-source-') as temporary:
+        snapshot = Path(temporary) / 'source'
+        snapshot.mkdir(mode=0o700)
+        for name, (raw, mode, _) in retained.items():
+            destination = snapshot / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(raw)
+            destination.chmod(mode)
+        # Recheck the source generation after capturing the whole tree, not just each file.
+        for name, expected in retained.items():
+            if snapshot_source(repo / name) != expected:
+                raise ValueError('recovery-snapshot-source-changed')
+        if {name for name in source_git('ls-files', '-z').split('\0') if name} != {name for name in tracked if name}:
+            raise ValueError('recovery-snapshot-index-changed')
+        env = {**git_env,
+               'GIT_AUTHOR_DATE': '2000-01-01T00:00:00Z', 'GIT_COMMITTER_DATE': '2000-01-01T00:00:00Z'}
+        def local_git(*args):
+            return run(['git', '-C', str(snapshot), '-c', 'core.hooksPath=/dev/null',
+                        '-c', 'commit.gpgsign=false', '-c', 'user.name=Validation snapshot',
+                        '-c', 'user.email=validation@example.invalid', *args], env=env)
+        local_git('init', '--template=', '-q', '-b', 'validation')
+        local_git('add', '-f', '--', *sorted(names))
+        local_git('commit', '-qm', 'test: exact isolated validation inputs')
+        provenance = dict(schema=1, kind='recovery_validation_snapshot',
+                          tree=local_git('rev-parse', 'HEAD^{tree}'),
+                          files={name: dict(sha256=hash_bytes(raw), mode=oct(mode))
+                                 for name, (raw, mode, _) in retained.items()},
+                          limitation='Synthetic test tree only; not installed revision or product acceptance.')
+        try:
+            yield snapshot, provenance
+        finally:
+            # Approval must still describe the source generation that was tested.
+            for name, expected in retained.items():
+                if snapshot_source(repo / name) != expected:
+                    raise ValueError('recovery-snapshot-source-changed')
+            if {name for name in source_git('ls-files', '-z').split('\0') if name} != {name for name in tracked if name}:
+                raise ValueError('recovery-snapshot-index-changed')
+
+
 def sandbox(repo, tests, log_path):
+    with validation_snapshot(repo, tests) as (snapshot, provenance):
+        return sandbox_process(snapshot, tests, log_path, provenance)
+
+
+def sandbox_process(repo, tests, log_path, provenance):
     # No host home, state, network, processes, credentials, Git mutation or VM.
     commands = []
     for name in tests:
@@ -212,6 +303,8 @@ def sandbox(repo, tests, log_path):
             '--property=CPUQuota=100%', '--property=RuntimeMaxSec=310s', '--property=TimeoutStopSec=10s', *args]
     with log_path.open('wb') as output:
         os.fchmod(output.fileno(), 0o600)
+        output.write(data(provenance))
+        output.flush()
         try:
             result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=300)
             output.flush()

@@ -130,3 +130,13 @@ its consumed correction attempts and all campaign counters. Replaying a checkpoi
 or request cannot execute settlement again.
 
 A rejected settlement with an unused second correction returns only to offline repair under the same incident and cleanup origin. It removes the active settlement plan; a fresh changed-source regression proof and independent checkpoint are required before any further operation. A rejection after the second correction stops without renewing limits.
+
+Recovery validation uses a self-contained temporary source snapshot because a Git
+worktree's metadata points outside its read-only sandbox. Capture only tracked
+regular files and explicitly authorized new regression files, reject symbolic
+links or changes during capture, and preserve executable modes. Commit these exact
+bytes into a fresh local Git repository with no remote or inherited configuration.
+Its tree hash identifies test inputs only; it is never an installed revision or
+product acceptance. Mount that snapshot read-only with the existing resource,
+network and host-isolation limits, and retain its file hashes and tree provenance
+in the validation log. The repair branch, protected state and quotas are unchanged.
