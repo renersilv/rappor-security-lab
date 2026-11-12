@@ -73,6 +73,7 @@ campaign_command() {
 
 campaign_review_command() {
   case $1 in
+    settlement-mode) printf 'none\n' ;;
     resume-correction) printf 'not_eligible\n' ;;
     owner-claim-pending)
       if [[ -f $STATE_ROOT/unreviewed-owner ]]; then printf yes; else printf no; fi ;;
