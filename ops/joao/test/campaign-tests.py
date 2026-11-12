@@ -162,7 +162,7 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
     def test_installed_support_rejects_uncommitted_or_symlinked_source(self):
         for relative in MODULE.SUPPORT_FILES:
             path = self.worktree / relative
-            path.parent.mkdir(exist_ok=True)
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('export const fixture = true;\n')
         subprocess.run(['git', '-C', str(self.worktree), 'add', '.'], check=True)
         subprocess.run(['git', '-C', str(self.worktree), '-c', 'user.name=Fixture', '-c',
@@ -170,7 +170,9 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
         source = self.worktree / MODULE.SUPPORT_FILES[0]
         original = source.read_bytes()
         references = MODULE.installed_support(self.worktree)
-        self.assertEqual(len(references['files']), 10)
+        self.assertEqual(len(references['files']), len(MODULE.SUPPORT_FILES))
+        self.assertIn('ops/joao/settlement-host.py', MODULE.SUPPORT_FILES)
+        self.assertIn('src/windows-resource-settlement.mjs', MODULE.SUPPORT_FILES)
         source.write_text('export const fixture = false;\n')
         with self.assertRaisesRegex(ValueError, 'differs-from-revision'):
             MODULE.installed_support(self.worktree)
