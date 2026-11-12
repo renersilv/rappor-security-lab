@@ -128,3 +128,5 @@ Automatic and assisted checkpoints share these validators. Assisted recovery of
 a historical untyped review uses a new explicit proof and preserves that result,
 its consumed correction attempts and all campaign counters. Replaying a checkpoint
 or request cannot execute settlement again.
+
+A rejected settlement with an unused second correction returns only to offline repair under the same incident and cleanup origin. It removes the active settlement plan; a fresh changed-source regression proof and independent checkpoint are required before any further operation. A rejection after the second correction stops without renewing limits.

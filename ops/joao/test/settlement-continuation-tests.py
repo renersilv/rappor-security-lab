@@ -266,6 +266,37 @@ class SettlementTests(T.TechnicalTests):
         manifest=C.private(packet / 'manifest-pass3.json')
         self.assertEqual(manifest['files']['settlement-unresolved.json'],result['unresolvedDiagnostic']['sha256'])
 
+    def test_rejected_settlement_uses_only_remaining_offline_correction_then_stops(self):
+        self.open_settlement()
+        first = R.technical_history(C.private(self.state / 'campaign.json'))[0]
+        for attempt in (1, 2):
+            with mock.patch.object(R.HOST, 'invoke', return_value=(1, b'', b'Bounded transport failed.\n')):
+                R.HOST.execute(R, self.state)
+            current = C.private(self.state / 'campaign.json')['executorPasses']
+            self.response(verdict='changes_requested', scope='offline', findings=['Fix the bounded transport failure.'],
+                cleanupAssessment='unresolved', technicalCorrection=None, settlementPlan=None, settlementEvidence=None,
+                evidence=['settlement-host-result.json'], objectiveId='ide-mcp', evidenceLevel='preparation')
+            self.finish()
+            marker = R.job(self.state)[1]
+            if attempt == 2:
+                self.assertEqual(marker['phase'], 'stalled')
+                self.assertEqual(C.private(self.state / 'campaign.json')['executorPasses'], 5)
+                break
+            self.assertEqual(marker['phase'], 'continued')
+            route = marker['technicalRoute']
+            self.assertEqual((route['phase'], route['attempt']), ('correction', 2))
+            self.assertEqual(route['incident'], first['incident'])
+            self.assertEqual(route['cleanupOrigin'], first['cleanupOrigin'])
+            self.assertNotIn('settlementPlan', route)
+            self.assertEqual(R.HOST.mode(R, self.state), 'none')
+            self.next_packet(current + 1)
+            self.add_plan(route['incident'], number=current + 1)
+            self.repair_response(scope='settlement_only', cleanupAssessment='unresolved',
+                settlementPlan='settlement-plan.json', settlementEvidence=None,
+                evidence=['worker.ps1', 'regression-before.json', 'regression-after.json', 'settlement-plan.json'])
+            self.finish()
+            self.assertEqual(R.job(self.state)[1]['technicalRoute']['attempt'], 2)
+
     def test_real_shell_host_entrypoint_receipt_review_and_read_only_resume(self):
         repository = HERE.parents[2]
         self.installed = repository

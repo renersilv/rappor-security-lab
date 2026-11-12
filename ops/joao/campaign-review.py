@@ -460,6 +460,13 @@ def technical_route(value, verdict, selected, *, exhausted, saved_rejection=Fals
                 and verdict['cleanupAssessment'] == 'verified' and verdict.get('settlementEvidence')):
             return dict(previous, phase='observation', sourceFingerprint=selected['sourceFingerprint'],
                         reviewPass=value['executorPasses'])
+        if (verdict['verdict'] == 'changes_requested' and verdict['scope'] == 'offline'
+                and previous['attempt'] < 2):
+            # A rejected operational result uses the remaining correction, never a replay grant.
+            route = dict(previous, phase='correction', attempt=previous['attempt'] + 1,
+                         sourceFingerprint=selected['sourceFingerprint'], reviewPass=value['executorPasses'])
+            route.pop('settlementPlan', None)
+            return route
         return None
     if previous and previous['phase'] == 'correction':
         # Rewording a finding or changing source never opens another incident.
