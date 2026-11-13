@@ -134,3 +134,18 @@ for (const omitted of [true, null, 0, "false"]) test(`settlement rejects an inva
   await assert.rejects(settleWindowsResources({...value.args, requestPath:request.path, requestSha256:request.sha256},value.dependencies), /settlement-bundle-source-missing/u);
   assert.equal(value.calls,0);
 });
+
+test("every guest mutation has a fresh deadline check after its preceding query", async () => {
+  // The executable PowerShell regression advances time inside each preceding query.
+  // This default gate also prevents introducing an unguarded mutation between those runs.
+  const lines = (await readFile(new URL("../src/windows-resource-settlement.ps1", import.meta.url), "utf8"))
+    .split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
+  const mutations = [];
+  for (const [index, line] of lines.entries()) {
+    if (/^(Stop-ScheduledTask|Stop-Process|Unregister-ScheduledTask|Remove-Item)\b/u.test(line)) {
+      mutations.push(line.split(" ")[0]);
+      assert.equal(lines[index - 1], "Assert-Deadline", `fresh deadline required for ${mutations.at(-1)}`);
+    }
+  }
+  assert.deepEqual(mutations, ["Stop-ScheduledTask", "Stop-Process", "Unregister-ScheduledTask", "Remove-Item"]);
+});

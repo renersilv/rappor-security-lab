@@ -118,3 +118,77 @@ test("actual PowerShell progress suppression preserves genuine error output", ()
   assert.match(result.stderr, /fixture-genuine-error/u);
   assert.doesNotMatch(result.stderr, /S="progress"/u);
 });
+
+test("actual PowerShell refuses each mutation when its preceding query exhausts the deadline", async () => {
+  const source = (await readFile(new URL("../../src/windows-resource-settlement.ps1", import.meta.url), "utf8"))
+    .replaceAll("__ORIGIN_PASS__", "220").replace("__DURATION_MS__", "30000")
+    .replace("__INTERACTIVE_SHA256__", digest("interactive-original")).replace("__OBSERVER_SHA256__", digest("observer-original"));
+  const boundary = source.indexOf("\nAssert-Deadline\nAssert-Root\n");
+  assert.ok(boundary > 0);
+  const fixture = `
+$ErrorActionPreference = 'Stop'
+$failures = @()
+foreach ($scenario in @('task-stop','process-stop','task-unregister','root-remove')) {
+    $directory = Join-Path '/tmp' ([Guid]::NewGuid().ToString())
+    [void](New-Item -ItemType Directory -Path $directory)
+    [void](New-PSDrive -Name C -PSProvider FileSystem -Root $directory)
+    $script:rootPath = 'C:\\RapporLab\\runtime\\pass220-ide-readiness'
+    [void](New-Item -ItemType Directory -Path $script:rootPath -Force)
+    [IO.File]::WriteAllText((Join-Path $directory 'RapporLab/runtime/pass220-ide-readiness/interactive.ps1'), 'interactive-original')
+    [IO.File]::WriteAllText((Join-Path $directory 'RapporLab/runtime/pass220-ide-readiness/observe.ps1'), 'observer-original')
+    $script:expired = $false; $script:armRemoval = $false; $script:taskCalls = 0; $script:processCalls = 0; $script:mutations = @()
+    $script:processes = @()
+    $script:task = [pscustomobject]@{ TaskName='RapporLab-Pass220-IdeReadiness'; TaskPath='\\'; State='Ready';
+        Actions=@([pscustomobject]@{ Execute='powershell.exe'; Arguments=('-NoLogo -NoProfile -NonInteractive -File "'+$script:rootPath+'\\interactive.ps1"'); WorkingDirectory='' });
+        Principal=[pscustomobject]@{UserId='fixture\\joao';LogonType='Interactive';RunLevel='Limited'} }
+    if ($scenario -eq 'task-stop') { $script:task.State='Running' }
+    if ($scenario -eq 'root-remove') { $script:task=$null }
+    if ($scenario -eq 'process-stop') {
+        $start=[DateTime]::Parse('2026-11-13T12:00:00Z').ToUniversalTime()
+        $script:processes=@([pscustomobject]@{Id=221;Handle=123;ProcessName='Code';SessionId=1;StartTime=$start})
+        [ordered]@{schema=1;processes=@([ordered]@{name='Code';processId=221;sessionId=1;startTicks=[string]$start.Ticks})} |
+            ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $script:rootPath 'owned-processes.json')
+    }
+    function Get-ScheduledTask {
+        $script:taskCalls++
+        if (($scenario -eq 'task-stop' -and $script:taskCalls -eq 1) -or ($scenario -eq 'task-unregister' -and $script:taskCalls -eq 2)) { $script:expired=$true }
+        if ($scenario -eq 'root-remove' -and $script:taskCalls -eq 2) { $script:armRemoval=$true }
+        if ($null -ne $script:task) { return $script:task }
+    }
+    function Get-Process {
+        $script:processCalls++
+        if ($scenario -eq 'process-stop' -and $script:processCalls -eq 3) { $script:expired=$true }
+        return $script:processes
+    }
+    function Get-CimInstance { return @() }
+    function Test-Path {
+        param($LiteralPath,$PathType)
+        $result=Microsoft.PowerShell.Management\\Test-Path -LiteralPath $LiteralPath
+        if ($script:armRemoval -and $LiteralPath -ceq $script:rootPath) { $script:expired=$true }
+        return $result
+    }
+    function Stop-ScheduledTask { $script:mutations+='task-stop';$script:task.State='Ready' }
+    function Stop-Process { $script:mutations+='process-stop';$script:processes=@() }
+    function Unregister-ScheduledTask { $script:mutations+='task-unregister';$script:task=$null }
+    function Remove-Item { $script:mutations+='root-remove' }
+    $failed=$false
+    try {
+        & {
+${source.slice(0, boundary)}
+            function Assert-Deadline { if ($script:expired) { throw 'fixture-deadline-exhausted' } }
+            function Get-CurrentAccountSid { return 'fixture-sid' }
+            function Get-TaskAccountSid([string]$userId) { return 'fixture-sid' }
+${source.slice(boundary)}
+        } | Out-Null
+    } catch { $failed=$true }
+    if (-not $failed -or -not $script:expired -or $script:mutations.Count -ne 0) { $failures += ('deadline-mutation:'+ $scenario + ':' + ($script:mutations -join ',')) } else { Write-Output ('PASS:'+$scenario) }
+    [void](Remove-PSDrive C)
+    Microsoft.PowerShell.Management\\Remove-Item -LiteralPath $directory -Force -Recurse
+}
+if ($failures.Count -gt 0) { throw ($failures -join ';') }
+`;
+  const result = powershell(fixture);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.equal(result.stdout.match(/PASS:/gu)?.length, 4);
+});

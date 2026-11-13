@@ -129,6 +129,7 @@ foreach ($entry in $entries) { $null = Get-ExactProcess $entry }
 # Only the exact, source-bound task can be stopped. Unknown processes are never killed.
 if ($null -ne $task -and [string]$task.State -eq 'Running') {
     if (-not (Test-Path -LiteralPath $root)) { throw 'settlement-running-task-without-root' }
+    Assert-Deadline
     Stop-ScheduledTask -TaskName $taskName -TaskPath '\' -ErrorAction Stop
     do {
         Assert-Deadline
@@ -143,7 +144,10 @@ Assert-KnownInventory $entries
 foreach ($entry in $entries) {
     Assert-Deadline
     $process = Get-ExactProcess $entry
-    if ($null -ne $process) { Stop-Process -InputObject $process -Force -ErrorAction Stop }
+    if ($null -ne $process) {
+        Assert-Deadline
+        Stop-Process -InputObject $process -Force -ErrorAction Stop
+    }
 }
 Start-Sleep -Milliseconds 200
 foreach ($entry in $entries) {
@@ -155,9 +159,13 @@ Assert-Root
 $task = Get-BoundTask
 if ($null -ne $task) {
     if ([string]$task.State -notin @('Ready','Disabled')) { throw 'settlement-task-restarted' }
+    Assert-Deadline
     Unregister-ScheduledTask -TaskName $taskName -TaskPath '\' -Confirm:$false -ErrorAction Stop
 }
-if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction Stop }
+if (Test-Path -LiteralPath $root) {
+    Assert-Deadline
+    Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction Stop
+}
 Start-Sleep -Milliseconds 200
 Assert-Deadline
 if ($null -ne (Get-BoundTask) -or (Test-Path -LiteralPath $root) -or @(Get-RelatedProcesses).Count -ne 0) {
