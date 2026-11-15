@@ -1,3 +1,14 @@
+# Current correction — AB#301 executable Windows preparation
+
+Pass228 identified partial-root cleanup and mocked preparation regression gaps.
+The canonical preparation helper and generated-PowerShell checks are delivered as
+hash-bound installed support, with read-only diagnostic context. Generic recovery
+retains its existing sandbox and repair allowlist. Closed settlement validation
+also recognizes authentic early preparation-failure evidence without inventing a
+missing completed-operation receipt. Historical failures, quotas and candidate
+identity are preserved; source validation does not establish live cleanup or the
+remaining IDE/MCP journey. See the preparation addendum to ADR-0006.
+
 # Current correction — AB#301 early technical provenance
 
 Pass222 exposed a missing correction route: offline rejections with unresolved

@@ -173,6 +173,11 @@ except (OSError,ValueError,KeyError,TypeError,m.subprocess.SubprocessError):
         self.assertEqual(len(references['files']), len(MODULE.SUPPORT_FILES))
         self.assertIn('ops/joao/settlement-host.py', MODULE.SUPPORT_FILES)
         self.assertIn('src/windows-resource-settlement.mjs', MODULE.SUPPORT_FILES)
+        for name in ('src/windows-ide-preparation.mjs', 'test/windows-ide-preparation.test.mjs',
+                     'ops/joao/check-windows-ide-preparation-powershell.mjs'):
+            self.assertIn(name, {entry['relativePath'] for entry in references['files']})
+        source = self.worktree / 'src/windows-ide-preparation.mjs'
+        original = source.read_bytes()
         source.write_text('export const fixture = false;\n')
         with self.assertRaisesRegex(ValueError, 'differs-from-revision'):
             MODULE.installed_support(self.worktree)

@@ -20,6 +20,8 @@ SUPPORT_FILES = tuple(f'{folder}/{name}{suffix}' for folder, suffix in (
     ('src', '.mjs'), ('test', '.test.mjs')) for name in (
     'protected-inputs', 'windows-delivery-contract', 'closed-ledger', 'observe-public-descriptor',
     'public-observation-manifest')) + (
+    'src/windows-ide-preparation.mjs', 'test/windows-ide-preparation.test.mjs',
+    'ops/joao/check-windows-ide-preparation-powershell.mjs',
     'src/windows-resource-settlement.mjs', 'src/windows-resource-settlement.ps1',
     'src/windows-settlement-transport.mjs', 'src/powershell-stdin-transport.mjs',
     'ops/joao/settlement-contract.py', 'ops/joao/settlement-host.py', 'ops/joao/windows-host-identity.py',
@@ -62,7 +64,10 @@ def installed_support_prompt():
             json.dumps(installed_support(), sort_keys=True) + '\n' +
             'The preserved task worktree may predate these modules. Read the absolute installed paths above; '
             'do not regenerate a schema because a relative worktree path is absent. Reuse the unchanged '
-            'module and its behavior regressions. For immutable review, retain exact hash-verified source '
+            'module and its behavior regressions. Windows script preparation must reuse windows-ide-preparation.mjs '
+            'and execute its generated PowerShell regression; mocked receipts or source assertions alone do not '
+            'prove preparation cleanup. Repair this implementation through the reviewed offline executor route, '
+            'not the controller-only recovery sandbox. For immutable review, retain exact hash-verified source '
             'bytes and provenance in the candidate. Never merge/reset the task worktree to obtain them. '
             'A public descriptor does not establish installed MSIX identity. Passive observation does not '
             'require an inference ledger. These sources grant no runtime action, budget or deadline.\n')

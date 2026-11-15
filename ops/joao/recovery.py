@@ -368,7 +368,9 @@ def incident_bundle(root, repo, incident):
     # Authority contracts are diagnostic context only, never an editable repair target.
     for relative in ('ops/joao/settlement-contract.py', 'ops/joao/windows-host-identity.py',
                      'src/windows-resource-settlement.mjs', 'src/windows-resource-settlement.ps1',
-                     'src/windows-settlement-transport.mjs', 'src/powershell-stdin-transport.mjs'):
+                     'src/windows-settlement-transport.mjs', 'src/powershell-stdin-transport.mjs',
+                     'src/windows-ide-preparation.mjs', 'test/windows-ide-preparation.test.mjs',
+                     'ops/joao/check-windows-ide-preparation-powershell.mjs'):
         path = repo / relative
         if path.exists():
             sources[relative] = path.read_text()
@@ -380,6 +382,8 @@ def incident_bundle(root, repo, incident):
     if matrix.exists():
         sources['ops/joao/objectives.json'] = matrix.read_text()
     diagnostic = {'class': incident.get('error_class'), 'fingerprint': incident['fingerprint']}
+    if 'src/windows-ide-preparation.mjs' in sources:
+        diagnostic['preparationRepairRoute'] = 'reviewed_offline_executor'
     # Packet preparation can fail before a job exists. Diagnose the current
     # campaign first; an older successful review cannot explain that failure.
     campaign_path = root / 'campaign.json'

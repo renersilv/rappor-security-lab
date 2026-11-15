@@ -140,3 +140,34 @@ Its tree hash identifies test inputs only; it is never an installed revision or
 product acceptance. Mount that snapshot read-only with the existing resource,
 network and host-isolation limits, and retain its file hashes and tree provenance
 in the validation log. The repair branch, protected state and quotas are unchanged.
+
+## Preparation failure evidence and reusable executable source
+
+AB#301 pass228 exposed a private preparation helper that recovery could neither
+inspect nor test. Deliver the canonical Windows preparation module and its Node
+and real generated-PowerShell regressions with the exact installed support hashes.
+The executor retains those bytes in its immutable candidate instead of inventing
+another preparation implementation. Diagnostic recovery receives this source as
+read-only context and names the reviewed offline executor route. Its implementation
+allowlist and isolated Python/Bash sandbox remain unchanged; no Docker socket,
+guest access or simulated PowerShell result is granted to that sandbox.
+
+A preparation failure must distinguish a pre-existing root from one exclusively
+created by the invocation. Only the latter is eligible for immediate bounded
+cleanup, with ownership and path checks and an observed outcome. A timeout or
+failed absence check remains unresolved. Before/after regressions execute the
+materialized PowerShell branch; source-text assertions and fabricated receipts
+are not its acceptance evidence. Historical candidates, reviews and counters
+remain unchanged. The current exhausted incident requires an independently
+reviewed assisted checkpoint after correction, not another unchanged retry.
+
+Settlement accepts two mutually exclusive current evidence forms: the completed
+operation receipt, or an early preparation failure before that receipt exists.
+The latter binds the original protected manifest and its exact transport, cleanup,
+runner and two generated script artifacts. It requires a failed preparation, no
+activation/observation/inference, explicit unresolved cleanup and matching pass,
+source hashes and unchanged target. Both host and runtime validators apply the
+same closed contract; absent, mixed or forged evidence is rejected. This does not
+reconstruct a historical receipt or infer ownership/absence from a timeout. Guest
+cleanup retains its existing exact-resource checks and 55-second total limit; a
+fixed inner margin lets errors return before transport termination.

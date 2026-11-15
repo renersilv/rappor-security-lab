@@ -15,7 +15,7 @@ SOURCE_ROOT = Path(__file__).resolve().parents[2]
 FLAGS = ('inferenceStarted', 'mcpToolCallIssued', 'ideLaunched', 'appServerLaunched', 'scanStarted',
          'reauthenticationStarted', 'configurationChanged', 'ledgerChanged')
 PLAN_KEYS = {'schema', 'kind', 'issue', 'authorizationId', 'candidate', 'executorPass', 'originPass',
-             'incident', 'originManifest', 'originRuntimeReceipt', 'taskName', 'guestRoot',
+             'incident', 'originManifest', 'taskName', 'guestRoot',
              'ownershipFiles', 'maxDurationMs', 'sourceHashes'}
 CONTEXT = ('issue', 'authorizationId', 'candidate', 'executorPass', 'originPass', 'incident',
            'taskName', 'guestRoot', 'sourceHashes')
@@ -69,10 +69,91 @@ def installed_bytes(path, *, private=False, allow_empty=False):
         os.close(descriptor)
 
 
+EARLY_FLAGS = ('inferenceStarted', 'mcpToolCallIssued', 'scanStarted', 'reauthenticationStarted',
+               'configurationChanged', 'ledgerChanged', 'reservationSequence23Consumed')
+FAILURE_CODES = {'nonzero_exit', 'timeout', 'output_limit', 'stdin_error', 'stdin_unsettled',
+                 'ssh_transport_exit', 'spawn_error', 'process_signal'}
+
+
+def evidence_reference(bundle, manifest, value, expected_name, *, parse=True):
+    require(isinstance(value, dict) and set(value) == {'file', 'sha256', 'manifestName'})
+    require(isinstance(value['file'], str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]+', value['file']))
+    require(isinstance(value['sha256'], str) and HASH.fullmatch(value['sha256']))
+    require(value['manifestName'] == expected_name and manifest.get('files', {}).get(expected_name) == value['sha256'],
+            'settlement-origin-evidence-binding')
+    raw = source(bundle, value['file'])
+    require(digest(raw) == value['sha256'], 'settlement-evidence-hash-mismatch')
+    require(raw, 'settlement-origin-source-empty')
+    return json.loads(raw) if parse else raw
+
+
+def origin_evidence(value, bundle, manifest):
+    origin = value['originPass']
+    require(isinstance(manifest, dict) and type(manifest.get('executorPass')) is int and
+            type(manifest.get('issue')) is int and manifest.get('executorPass') == origin and
+            all(manifest.get(key) == value[key] for key in ('issue', 'candidate', 'authorizationId')))
+    live_name = f'live-pass{origin}-ide-mcp-discovery.json'
+    # These are current semantic evidence forms, not compatibility versions or fabricated receipts.
+    if 'originRuntimeReceipt' in value:
+        require('originRuntimeEvidence' not in value, 'settlement-origin-evidence-mixed')
+        original = evidence_reference(bundle, manifest, value['originRuntimeReceipt'], live_name)
+        require(isinstance(original, dict) and type(original.get('executorPass')) is int and
+                type(original.get('issue')) is int and original.get('executorPass') == origin and
+                all(original.get(key) == value[key] for key in ('issue', 'candidate', 'authorizationId')))
+        for name in ('runtime/interactive.ps1', 'runtime/observe.ps1'):
+            fingerprint = original.get('artifacts', {}).get(name)
+            require(isinstance(fingerprint, str) and HASH.fullmatch(fingerprint))
+        return
+    require(live_name not in manifest['files'], 'settlement-early-evidence-has-runtime-receipt')
+    names = dict(transport=f'pass{origin}-transport.json', cleanup=f'pass{origin}-cleanup.json',
+                 runner=f'runtime/run-pass{origin}.mjs', interactive='runtime/interactive.ps1', observer='runtime/observe.ps1')
+    evidence = value.get('originRuntimeEvidence')
+    require(isinstance(evidence, dict) and set(evidence) == set(names))
+    records = {key: evidence_reference(bundle, manifest, evidence[key], name, parse=key in {'transport', 'cleanup'})
+               for key, name in names.items()}
+    transport, cleanup = records['transport'], records['cleanup']
+    require(isinstance(transport, dict) and set(transport) == {'schema', 'executorPass', 'requestCount', 'retryIssued', 'operations'})
+    require(type(transport['schema']) is int and transport['schema'] == 1 and
+            type(transport['executorPass']) is int and transport['executorPass'] == origin and transport['retryIssued'] is False)
+    operations = transport['operations']
+    require(isinstance(operations, list) and 1 <= len(operations) <= 3 and
+            type(transport['requestCount']) is int and transport['requestCount'] == len(operations))
+    require(all(isinstance(operation, dict) for operation in operations))
+    require([operation.get('label') for operation in operations] in
+            [['prepare'], ['prepare', 'settle'], ['prepare', 'signal-and-await', 'settle']], 'settlement-early-operations-invalid')
+    for operation in operations:
+        require(operation.get('status') in {'completed', 'failed'})
+        keys = {'label', 'status', 'stdoutSha256', 'stdoutBytes', 'stderrSha256', 'stderrBytes', 'settlement'}
+        keys |= {'code', 'cleanup'} if operation['status'] == 'failed' else {'exitCode'}
+        require(set(operation) == keys)
+        require(all(isinstance(operation[key], str) and HASH.fullmatch(operation[key]) for key in ('stdoutSha256', 'stderrSha256')))
+        require(all(type(operation[key]) is int and operation[key] >= 0 for key in ('stdoutBytes', 'stderrBytes')))
+        settlement = operation['settlement']
+        require(isinstance(settlement, dict) and type(settlement.get('schema')) is int and settlement['schema'] == 1 and
+                settlement.get('remoteCommandTransport') == 'openssh' and type(settlement.get('timeoutMs')) is int and
+                0 < settlement['timeoutMs'] <= 55000)
+        if operation['status'] == 'failed':
+            require(operation['code'] in FAILURE_CODES and settlement.get('cause') == operation['code'])
+            require(isinstance(operation['cleanup'], dict) and type(operation['cleanup'].get('required')) is bool and
+                    operation['cleanup'].get('status') in {'unresolved', 'verified_remote_quiescence', 'verified_not_started'})
+        else:
+            require(type(operation['exitCode']) is int and operation['exitCode'] == 0 and settlement.get('cause') == 'accepted')
+    require(operations[0]['status'] == 'failed', 'settlement-preparation-did-not-fail')
+    require(isinstance(cleanup, dict) and set(cleanup) == {'schema', 'executorPass', 'cleanup'} | set(EARLY_FLAGS))
+    require(type(cleanup['schema']) is int and cleanup['schema'] == 1 and type(cleanup['executorPass']) is int and
+            cleanup['executorPass'] == origin and all(cleanup[flag] is False for flag in EARLY_FLAGS), 'settlement-early-activity-flag')
+    state = cleanup['cleanup']
+    require(isinstance(state, dict) and set(state) == {'status', 'required', 'preparationAttempted', 'preparationResponseValidated', 'code'})
+    require(state['status'] == 'unresolved' and state['required'] is True and state['preparationAttempted'] is True and
+            state['preparationResponseValidated'] is False and state['code'] in FAILURE_CODES)
+
+
 def plan(bundle, name, incident, *, installed_root=None, trusted_origins=None, pending_origin=None):
     raw = source(bundle, name)
     value = json.loads(raw)
-    require(isinstance(value, dict) and set(value) == PLAN_KEYS)
+    require(isinstance(value, dict))
+    forms = {'originRuntimeReceipt', 'originRuntimeEvidence'} & set(value)
+    require(len(forms) == 1 and set(value) == PLAN_KEYS | forms, 'settlement-origin-evidence-form')
     require(type(value['schema']) is int and value['schema'] == 1 and value['kind'] == 'windows_task_settlement')
     require(value['issue'] == 19 and type(value['issue']) is int and
             value['authorizationId'] == 'issue19-native-windows-20261023')
@@ -92,17 +173,7 @@ def plan(bundle, name, incident, *, installed_root=None, trusted_origins=None, p
     origins = bundle.get('settlementOrigins', {}) if trusted_origins is None else trusted_origins
     require(origins.get(str(origin)) == value['originManifest'].get('sha256'), 'settlement-origin-not-protected')
     manifest = reference(bundle, value['originManifest'], {'file', 'sha256'})
-    original = reference(bundle, value['originRuntimeReceipt'], {'file', 'sha256', 'manifestName'})
-    for artifact in (manifest, original):
-        require(isinstance(artifact, dict) and type(artifact.get('executorPass')) is int
-                and type(artifact.get('issue')) is int and artifact.get('executorPass') == origin and
-                artifact.get('candidate') == value['candidate'] and artifact.get('issue') == 19 and
-                artifact.get('authorizationId') == value['authorizationId'])
-    require(manifest.get('files', {}).get(value['originRuntimeReceipt']['manifestName']) ==
-            value['originRuntimeReceipt']['sha256'])
-    for name in ('runtime/interactive.ps1', 'runtime/observe.ps1'):
-        fingerprint = original.get('artifacts', {}).get(name)
-        require(isinstance(fingerprint, str) and HASH.fullmatch(fingerprint))
+    origin_evidence(value, bundle, manifest)
     require(isinstance(value['sourceHashes'], dict) and set(value['sourceHashes']) == set(SOURCE_NAMES))
     installed_root = installed_root or SOURCE_ROOT
     for name, fingerprint in value['sourceHashes'].items():

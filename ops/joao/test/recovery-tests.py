@@ -108,6 +108,24 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'repair-outside-allowlist'):
             R.validate_proposal(value, self.repo)
 
+    def test_preparation_diagnosis_receives_sources_without_expanding_repair_authority(self):
+        paths = ('src/windows-ide-preparation.mjs', 'test/windows-ide-preparation.test.mjs',
+                 'ops/joao/check-windows-ide-preparation-powershell.mjs')
+        for name in paths:
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('export const preparationFixture = true;\n')
+        bundle = R.incident_bundle(self.state, self.repo,
+                                  dict(error_class='codex_exit', fingerprint=FINGERPRINT))
+        for name in paths:
+            self.assertEqual(bundle['sources'].get(name), (self.repo / name).read_text())
+            proposal = self.proposal()
+            proposal['files'][0]['path'] = name
+            with self.assertRaises(ValueError):
+                R.validate_proposal(proposal, self.repo)
+        self.assertEqual(bundle['incident']['preparationRepairRoute'], 'reviewed_offline_executor')
+        self.assertEqual(self.retry_path.read_bytes(), self.retry_bytes)
+
     def test_existing_regression_and_symlink_are_not_replaced(self):
         target = self.repo / REGRESSION
         target.write_text('existing regression\n')
