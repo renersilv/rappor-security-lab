@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["disposition", "diagnosis", "files"],
+  "properties": {
+    "disposition": {"type": "string", "enum": ["repair", "unrepairable"]},
+    "diagnosis": {"type": "string", "minLength": 20, "maxLength": 3000},
+    "files": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "content"],
+        "properties": {"path": {"type": "string"}, "content": {"type": "string", "maxLength": 250000}}
+      }
+    }
+  }
+}

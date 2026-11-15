@@ -13,6 +13,23 @@ campaign_review_command() {
   python3 "$SCRIPT_DIR/campaign-review.py" "$1" "$STATE_ROOT"
 }
 
+candidate_repair_dispatch() {
+  local eligible phase message
+  eligible=$(python3 "$SCRIPT_DIR/candidate-repair.py" eligible "$STATE_ROOT") || return $?
+  [[ $eligible == yes || $eligible == no ]] || return 65
+  [[ $eligible == yes ]] || return 0
+  phase=$(python3 "$SCRIPT_DIR/candidate-repair.py" run "$STATE_ROOT" \
+    --model "$MODEL" --effort "$REASONING_EFFORT") || return $?
+  message=$(python3 "$SCRIPT_DIR/candidate-repair.py" notice "$STATE_ROOT") || return $?
+  if [[ $message != none ]]; then
+    queue_comment 19 '<!-- joao-candidate-repair:19 -->' "$message" || return $?
+    python3 "$SCRIPT_DIR/candidate-repair.py" notice-done "$STATE_ROOT" || return $?
+  fi
+  log "Independent offline candidate repair: $phase; platform acceptance remains pending"
+  # Handled by a distinct repair lane, not a failed Codex transport or delivery.
+  return 75
+}
+
 campaign_review_notice() {
   local phase=$1 marker='<!-- joao-campaign-review:19 -->' message
   case $phase in

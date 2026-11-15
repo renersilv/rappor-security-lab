@@ -56,6 +56,7 @@ status() {
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/objectives.py" status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/recovery.py" status "$STATE_ROOT"
+    python3 "$(dirname -- "${BASH_SOURCE[0]}")/candidate-repair.py" status "$STATE_ROOT"
   else
   python3 "$(dirname -- "${BASH_SOURCE[0]}")/stage-control.py" status "$STATE_ROOT"
   fi

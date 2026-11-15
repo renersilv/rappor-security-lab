@@ -1,3 +1,11 @@
+# Current structural correction — AB#301 independent candidate repair
+
+ADR-0007 adds a host-owned repair path for exact offline candidates rejected after
+the two executor corrections. Separate independent proposals run with isolated
+Node/Python regression and review; approval grants only offline adoption. The
+original technical counter and product evidence remain unchanged. Source work
+and synthetic validation do not establish live rollout or IDE/MCP acceptance.
+
 # Current correction — AB#301 executable Windows preparation
 
 Pass228 identified partial-root cleanup and mocked preparation regression gaps.

@@ -129,10 +129,19 @@ execute_stage() {
 execute_staged_item() {
   local issue=$1 worktree=$2 branch=$3 result=0 phase incident
   if campaign_enabled "$issue"; then
+    candidate_repair_dispatch || result=$?
+    if (( result == 75 )); then return 0; fi
+    (( result == 0 )) || return "$result"
     execute_campaign_item "$issue" "$worktree" "$branch" || result=$?
     if (( result == 124 )); then
       return 124
     elif (( result != 0 )); then
+      # A concrete rejected candidate goes to independent repair immediately.
+      # Preserve the operational retry record; a verified checkpoint releases it.
+      local repair_result=0
+      candidate_repair_dispatch || repair_result=$?
+      if (( repair_result == 75 )); then return 0; fi
+      (( repair_result == 0 )) || return "$repair_result"
       incident=$(campaign_review_command incident-key) || incident="campaign_$result"
       record_issue_failure "$issue" "$branch" codex_exit "$incident"
       return 70

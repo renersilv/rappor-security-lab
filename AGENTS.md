@@ -57,6 +57,14 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
   Product objective evidence is tracked separately from preparation; three
   preparations trigger diagnostic replanning, never inferred acceptance. Exhausted
   replanning, unverifiable authority and unsafe repairs remain explicit stops.
+- ADR-0007 routes a current independently rejected offline candidate whose two
+  executor corrections are exhausted into a separate bounded repair operation.
+  The host retains the same incident and allows at most two independent proposals
+  in isolated Node/Python snapshots. Source scope, fixed tests, new before/after
+  regression and independent review are mandatory. Only the host may issue an
+  offline adoption checkpoint; ordinary review still controls runtime. Historical
+  counters, evidence and inference authorizations are never reset. This route
+  precedes operational retry and does not classify a valid rejection as codex_exit.
 - Use `blocked` only for a real owner decision, authorization, credential supplied through a secure channel or owner-controlled external change.
 - Deliver an implemented Task with `validating`. The wrapper sets real Azure `Done`
   after batch integration and laboratory validation pass; this is technical delivery,

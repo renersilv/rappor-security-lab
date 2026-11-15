@@ -208,6 +208,11 @@ record_issue_failure() {
 
 check_issue_retry_gate() {
   local issue=$1 branch=$2
+  if campaign_enabled "$issue"; then
+    local repair_result=0
+    candidate_repair_dispatch || repair_result=$?
+    (( repair_result == 0 )) || return "$repair_result"
+  fi
   [[ -e $(state_file issue-retry) ]] || return 0
   read_issue_retry || return 1
   [[ $ISSUE_RETRY_ISSUE == "$issue" && $ISSUE_RETRY_BRANCH == "$branch" ]] || {
