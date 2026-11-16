@@ -1,3 +1,13 @@
+# Current correction — AB#301 reviewed independent work continuation
+
+ADR-0008 closes the missing handoff between an approved inconclusive diagnostic
+and other already-authorized no-model work. Typed reviewer selections are bound
+to exact sources and one launch; the complete checkpoint chain retains target
+consumption and rejects repeated targets or unlimited preparation/runtime grants.
+Historical preparation and inference counters stay unchanged. The source change
+requires focused regression, independent review and installed-runner proof before
+rollout is claimed; it does not establish the remaining product acceptance.
+
 # Current structural correction — AB#301 independent candidate repair
 
 ADR-0007 adds a host-owned repair path for exact offline candidates rejected after

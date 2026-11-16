@@ -757,7 +757,7 @@ check_issue_retry_gate 19 joao/batch-20261023T000000Z-19-19 || result=$?
     def test_activation_and_status_do_not_dirty_installed_source_with_bytecode(self):
         clean = self.root / 'clean-installed-ops'
         clean.mkdir()
-        for name in ['campaign-control.py', 'stage-control.py', 'campaign-contract.md']:
+        for name in ['campaign-control.py', 'work-continuation.py', 'stage-control.py', 'campaign-contract.md']:
             shutil.copyfile(SCRIPT.with_name(name), clean / name)
         result = subprocess.run(['python3', str(clean / 'campaign-control.py'), 'activate', str(self.state),
                                  str(self.auth_path), str(self.attempts), str(self.candidate)], capture_output=True, text=True)
@@ -765,7 +765,7 @@ check_issue_retry_gate 19 joao/batch-20261023T000000Z-19-19 || result=$?
         result = subprocess.run(['python3', str(clean / 'campaign-control.py'), 'status', str(self.state)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(sorted(path.name for path in clean.iterdir()),
-                         ['campaign-contract.md', 'campaign-control.py', 'stage-control.py'])
+                         ['campaign-contract.md', 'campaign-control.py', 'stage-control.py', 'work-continuation.py'])
 
 
 if __name__ == '__main__':

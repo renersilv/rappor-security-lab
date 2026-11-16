@@ -30,6 +30,33 @@ candidate_repair_dispatch() {
   return 75
 }
 
+# Review a preserved handoff before an operational gate can suppress it.
+# The protected controller alone decides eligibility and releases the exact gate.
+campaign_work_review_dispatch() {
+  local worktree=$1 phase result=0
+  phase=$(campaign_review_command phase) || return $?
+  if [[ $phase == continued ]]; then
+    # Finish a crash after the checkpoint was committed but before gate release.
+    campaign_review_command resume-correction >/dev/null || return $?
+  fi
+  if [[ $phase == stalled ]]; then
+    campaign_review_command resume-correction >/dev/null || return $?
+    phase=$(campaign_review_command phase) || return $?
+    if [[ $phase == stalled ]]; then
+      campaign_review_command prepare-work-review >/dev/null || return $?
+      phase=$(campaign_review_command phase) || return $?
+    fi
+  fi
+  if [[ $phase == review_pending ]]; then
+    run_campaign_review "$worktree" || result=$?
+    if (( result != 0 )); then
+      log "Independent work review remains pending or stopped (exit $result); preserving the operational gate"
+      return 75
+    fi
+    campaign_review_command resume-correction >/dev/null || return $?
+  fi
+}
+
 campaign_review_notice() {
   local phase=$1 marker='<!-- joao-campaign-review:19 -->' message
   case $phase in
@@ -66,9 +93,15 @@ run_campaign_review() {
   if [[ $phase == stalled ]]; then
     campaign_review_command resume-correction >/dev/null || return $?
     phase=$(campaign_review_command phase) || return $?
-    [[ $phase == stalled ]] || return 0
-    campaign_review_notice stalled || return $?
-    return 70
+    if [[ $phase == stalled ]]; then
+      campaign_review_command prepare-work-review >/dev/null || return $?
+      phase=$(campaign_review_command phase) || return $?
+    fi
+    if [[ $phase == stalled ]]; then
+      campaign_review_notice stalled || return $?
+      return 70
+    fi
+    [[ $phase == review_pending ]] || return 0
   fi
   directory=$(campaign_review_command prepare) || return $?
   campaign_review_notice reviewing || return $?
@@ -143,6 +176,10 @@ execute_campaign_item() {
   if [[ $phase == stalled ]]; then
     campaign_review_command resume-correction >/dev/null || return $?
     phase=$(campaign_review_command phase) || return $?
+    if [[ $phase == stalled ]]; then
+      campaign_review_command prepare-work-review >/dev/null || return $?
+      phase=$(campaign_review_command phase) || return $?
+    fi
     [[ $phase != stalled ]] || return 70
   fi
   phase=$(campaign_command phase) || return $?

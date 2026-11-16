@@ -2,6 +2,7 @@
 """Objective evidence accounting, independent of harness edits and acceptance."""
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,8 @@ import stat
 import tempfile
 import sys
 
+
+CONTROLLER = None
 
 LEVELS = ('preparation', 'runtime_observation', 'acceptance_candidate')
 OBSERVATIONS = ('official_runtime', 'public_contract', 'rendered_web')
@@ -96,6 +99,20 @@ def _view(root):
     current = last['objectiveId'] if last and last['objectiveId'] != 'unclassified' else matrix['defaultObjectiveId']
     if current == 'windows-cli-local':
         current = matrix['defaultObjectiveId']
+    campaign = Path(root) / 'campaign.json'
+    if campaign.exists():
+        controller = CONTROLLER
+        if controller is None:
+            spec = importlib.util.spec_from_file_location('objective_campaign', Path(__file__).with_name('campaign-control.py'))
+            controller = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(controller)
+        value = controller.private(campaign)
+        grant = None
+        if value.get('reviewCheckpoint') is not None:
+            controller.reviewed_checkpoint(value)
+            grant = controller.WORK.active(value, controller.artifact)
+        if grant and value.get('phase') == 'active':
+            current = grant['targetObjectiveId']
     return matrix, history, current
 
 

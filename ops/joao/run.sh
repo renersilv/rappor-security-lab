@@ -207,11 +207,13 @@ record_issue_failure() {
 }
 
 check_issue_retry_gate() {
-  local issue=$1 branch=$2
+  local issue=$1 branch=$2 worktree=${3:-}
   if campaign_enabled "$issue"; then
     local repair_result=0
     candidate_repair_dispatch || repair_result=$?
     (( repair_result == 0 )) || return "$repair_result"
+    [[ -n $worktree ]] || worktree=$(read_state worktree)
+    campaign_work_review_dispatch "$worktree" || return $?
   fi
   [[ -e $(state_file issue-retry) ]] || return 0
   read_issue_retry || return 1
@@ -790,7 +792,7 @@ execute_issues() {
     fi
     operational=$(issue_operational_state "$issue") || suspend "Issue #$issue state is invalid"
     retry_status=0
-    check_issue_retry_gate "$issue" "$branch" || retry_status=$?
+    check_issue_retry_gate "$issue" "$branch" "$worktree" || retry_status=$?
     if (( retry_status == 75 )); then
       return 0
     elif (( retry_status != 0 )); then

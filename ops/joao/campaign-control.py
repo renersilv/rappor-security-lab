@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import types
 
 sys.dont_write_bytecode = True
 REVIEW_ROOT = Path.home() / '.config/rappor-security-lab/campaign-reviews'
@@ -28,6 +29,10 @@ SUPPORT_FILES = tuple(f'{folder}/{name}{suffix}' for folder, suffix in (
     'ops/joao/test/settlement-continuation-tests.py', 'test/windows-resource-settlement.test.mjs',
     'test/windows-settlement-transport.test.mjs', 'test/support-settlement-fixture.mjs',
 )
+
+WORK_SPEC = importlib.util.spec_from_file_location('work_continuation', Path(__file__).with_name('work-continuation.py'))
+WORK = importlib.util.module_from_spec(WORK_SPEC)
+WORK_SPEC.loader.exec_module(WORK)
 
 STAGE_SPEC = importlib.util.spec_from_file_location('campaign_stage', Path(__file__).with_name('stage-control.py'))
 STAGE = importlib.util.module_from_spec(STAGE_SPEC)
@@ -218,7 +223,9 @@ def enforce_review_limit(value, used):
             correction = json.loads(raw_correction)
         except json.JSONDecodeError:
             correction = None
-        if isinstance(correction, dict) and correction.get('technicalRoute') is not None:
+        if isinstance(correction, dict) and (correction.get('technicalRoute') is not None or
+                                              correction.get('workContinuation') is not None):
+            WORK.history(value, artifact)
             # One correction candidate or one read-only observation per exact
             # technical checkpoint, including interrupted launches.
             limit = 1
@@ -416,6 +423,7 @@ def main():
         objective_spec = importlib.util.spec_from_file_location('objective_prompt', Path(__file__).with_name('objectives.py'))
         objective_module = importlib.util.module_from_spec(objective_spec)
         objective_spec.loader.exec_module(objective_module)
+        objective_module.CONTROLLER = types.SimpleNamespace(**globals())
         print(objective_module.prompt(root))
         _, handoff = reviewed_checkpoint(value)
         if handoff is not None:

@@ -14,7 +14,8 @@
     "evidenceLevel",
     "technicalCorrection",
     "settlementPlan",
-    "settlementEvidence"
+    "settlementEvidence",
+    "workContinuation"
   ],
   "properties": {
     "verdict": {
@@ -185,6 +186,30 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 300
+        }
+      ]
+    },
+    "workContinuation": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targetObjectiveId"
+          ],
+          "properties": {
+            "targetObjectiveId": {
+              "type": "string",
+              "enum": [
+                "web-entries",
+                "managed-technical",
+                "negative-consent-cleanup"
+              ]
+            }
+          }
         }
       ]
     }

@@ -20,12 +20,14 @@ SPEC.loader.exec_module(C)
 OBJECTIVE_SPEC = importlib.util.spec_from_file_location('campaign_objectives', Path(__file__).with_name('objectives.py'))
 OBJECTIVES = importlib.util.module_from_spec(OBJECTIVE_SPEC)
 OBJECTIVE_SPEC.loader.exec_module(OBJECTIVES)
+OBJECTIVES.CONTROLLER = C
 SETTLEMENT_SPEC = importlib.util.spec_from_file_location('settlement_contract', Path(__file__).with_name('settlement-contract.py'))
 SETTLEMENT = importlib.util.module_from_spec(SETTLEMENT_SPEC)
 SETTLEMENT_SPEC.loader.exec_module(SETTLEMENT)
 HOST_SPEC = importlib.util.spec_from_file_location('settlement_host', Path(__file__).with_name('settlement-host.py'))
 HOST = importlib.util.module_from_spec(HOST_SPEC)
 HOST_SPEC.loader.exec_module(HOST)
+WORK = C.WORK
 CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh', '.c'}
 
 
@@ -219,20 +221,21 @@ def settlement_execution(value):
     return result
 
 
-def prepare(root):
+def prepare(root, *, work_rereview=None):
+    OBJECTIVES.CONTROLLER = C
     value = current(root)
     selected = packet(value, root)
     marker_path = root / 'campaign-auto-review.json'
     previous = None
     if marker_path.exists():
         previous_dir, previous = job(root)
-        if previous['executorPass'] == value['executorPasses']:
+        if previous['executorPass'] == value['executorPasses'] and work_rereview is None:
             if C.digest(root / 'campaign.json') != previous['beforeSha256']:
                 raise ValueError('review-state-changed')
             if reference(Path(selected['manifest']['path'])) != previous['manifest']:
                 raise ValueError('review-manifest-changed')
             print(previous_dir)
-            return
+            return previous_dir
     same = previous['unchangedReviews'] if previous else 0
     C.REVIEW_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
     if C.REVIEW_ROOT.is_symlink() or C.REVIEW_ROOT != C.REVIEW_ROOT.resolve():
@@ -255,7 +258,9 @@ def prepare(root):
                   settlementCleanupOrigin=correction_context.get('cleanupOrigin') if correction_context else None,
                   settlementPlanSnapshot=C.artifact(settlement_context['settlementPlan'], protected=True) if settlement_context else None,
                   result=result, candidate=value['candidate'], executorPass=value['executorPasses'],
-                  unchangedExecutableReviews=same)
+                  unchangedExecutableReviews=same,
+                  workContinuationContext=WORK.status(value, C.artifact),
+                  workRereview=work_rereview)
     put(directory / 'bundle.json', encoded(bundle))
     prompt = (Path(__file__).with_name('CAMPAIGN_REVIEW_PROMPT.md').read_text() +
               '\nPRODUCT OBJECTIVE CONTEXT:\n' + encoded(OBJECTIVES.review_context(root)).decode() +
@@ -272,6 +277,83 @@ def prepare(root):
                   promptSha256=C.digest(directory / 'prompt.md'))
     C.save(marker_path, marker)
     print(directory)
+    return directory
+
+
+
+def work_source_binding():
+    names = ('campaign-review.py', 'campaign-control.py', 'work-continuation.py',
+             'objectives.py', 'campaign-review-result.schema.json', 'CAMPAIGN_REVIEW_PROMPT.md')
+    revision = C.subprocess.run(['git', '-C', str(C.SUPPORT_ROOT), 'rev-parse', 'HEAD'],
+                                check=True, capture_output=True, text=True, timeout=10).stdout.strip()
+    return dict(revision=revision, files={name: C.digest(Path(__file__).with_name(name)) for name in names})
+
+
+def rereview_objective(root, snapshot):
+    """A second opinion never appends duplicate product evidence or resets its streak."""
+    old = C.artifact(snapshot['marker'], protected=True)
+    for ref in snapshot['artifacts'].values():
+        C.artifact(ref, protected=True, text=True)
+    if snapshot['sourceBinding'] != work_source_binding():
+        raise ValueError('work-rereview-source-changed')
+    records = OBJECTIVES._history(root)
+    matches = [row for row in records if row['manifestSha256'] == old['manifest']['sha256']]
+    if (len(matches) != 1 or matches[0]['bundleSha256'] != old['bundleSha256']
+            or matches[0]['verdictSha256'] != snapshot['artifacts']['result.json']['sha256']):
+        raise ValueError('work-rereview-objective-binding-mismatch')
+    return matches[0]
+
+
+def prepare_work_review(root):
+    """Create one fresh independent job for an exact historical stalled verdict."""
+    directory, marker = job(root)
+    if marker['phase'] != 'stalled':
+        return None
+    value = current(root, stalled_replay=True)
+    old = C.private(directory / 'result.json')
+    bundle = C.private(directory / 'bundle.json')
+    if ('workContinuation' in old or bundle.get('workRereview') is not None
+            or old['verdict'] != 'pass' or old['scope'] != 'offline'
+            or old['cleanupAssessment'] not in {'verified', 'not_required'}):
+        return None
+    selected = packet(value, root)
+    if (C.digest(root / 'campaign.json') != marker['beforeSha256']
+            or selected['manifest'] != marker['manifest']
+            or selected['sourceFingerprint'] != marker['sourceFingerprint']
+            or C.digest(directory / 'bundle.json') != marker['bundleSha256']
+            or C.digest(directory / 'prompt.md') != marker['promptSha256']
+            or encoded(result(directory / 'events.jsonl', bundle)) != (directory / 'result.json').read_bytes()):
+        raise ValueError('stale-work-rereview-snapshot')
+    # Snapshot beside the new job, never modify the original result/job.
+    snapshot_dir = Path(tempfile.mkdtemp(prefix='work-rereview-snapshot-', dir=C.REVIEW_ROOT))
+    retry_snapshot = None
+    retry_path = root / 'issue-retry'
+    if retry_path.exists():
+        raw = read_source(retry_path, root)
+        pairs = [line.split('=', 1) for line in raw.decode().splitlines()]
+        retry = dict(pairs)
+        base = (root / 'base_sha').read_text().strip()
+        branch = (root / 'branch').read_text().strip()
+        expected = {sha(f'v1:{base}:{branch}:19:codex_exit:{detail}'.encode())
+                    for detail in ('campaign_70', incident_key(root))}
+        if (len(pairs) != len(retry) or retry.get('issue') != '19' or retry.get('branch') != branch
+                or retry.get('error_class') != 'codex_exit' or retry.get('fingerprint') not in expected):
+            raise ValueError('unrelated-operational-retry-gate')
+        retry_snapshot = put(snapshot_dir / 'retry.json', encoded(dict(sha256=sha(raw), content=raw.decode())))
+    snapshot = dict(marker=put(snapshot_dir / 'marker.json', encoded(marker)),
+                    retryGate=retry_snapshot,
+                    artifacts={name: reference(directory / name) for name in
+                               ('before.json', 'bundle.json', 'prompt.md', 'events.jsonl', 'result.json')},
+                    campaignResult=reference(root / 'campaign-result.json'),
+                    sourceBinding=work_source_binding())
+    rereview_objective(root, snapshot)
+    return prepare(root, work_rereview=snapshot)
+
+
+def work_status(root):
+    value = C.private(root / 'campaign.json')
+    C.reviewed_checkpoint(value)
+    return WORK.status(value, C.artifact)
 
 
 def evidence_sha256(bundle, name):
@@ -309,13 +391,14 @@ def result(path, bundle):
     expected = {'verdict', 'findings', 'nextAction', 'scope', 'evidence', 'cleanupAssessment',
                 'progress', 'ownerRequest'}
     objective_fields = {'objectiveId', 'evidenceLevel'}
-    fields = set(parsed) - {'technicalCorrection', 'settlementPlan', 'settlementEvidence'}
+    fields = set(parsed) - {'technicalCorrection', 'settlementPlan', 'settlementEvidence', 'workContinuation'}
     if fields not in (expected, expected | objective_fields) or parsed['verdict'] not in {'pass', 'changes_requested', 'owner_required'}:
         raise ValueError('invalid-independent-verdict')
     if objective_fields <= set(parsed):
         ids = {item['id'] for item in OBJECTIVES._matrix()['objectives']}
         if parsed['objectiveId'] not in ids or parsed['evidenceLevel'] not in OBJECTIVES.LEVELS:
             raise ValueError('invalid-reviewed-objective')
+    WORK.selection(parsed)
     findings = parsed['findings']
     if (not isinstance(findings, list) or len(findings) > 8 or
             any(not isinstance(f, str) or not 1 <= len(f) <= 2000 for f in findings) or
@@ -526,6 +609,29 @@ def incident_key(root, status=70):
     return f'campaign_{status}_{identity}'
 
 
+def release_work_retry(root, directory, marker, value):
+    if value['executorPasses'] > marker['executorPass']:
+        return False
+    if marker['phase'] != 'continued' or value['phase'] != 'active' or not marker.get('workContinuation'):
+        return False
+    if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
+        raise ValueError('work-retry-bundle-changed')
+    snapshot = C.private(directory / 'bundle.json').get('workRereview')
+    if snapshot is None:
+        return False
+    rereview_objective(root, snapshot)
+    if (value != C.private(directory / 'after.json') or
+            WORK.active(value, C.artifact) != marker['workContinuation']):
+        raise ValueError('unbound-work-retry-release')
+    retry = root / 'issue-retry'
+    if retry.exists():
+        saved = C.artifact(snapshot['retryGate'], protected=True) if snapshot['retryGate'] else None
+        if not saved or sha(read_source(retry, root)) != saved['sha256']:
+            raise ValueError('work-retry-changed')
+        retry.unlink()
+    return True
+
+
 def resume_correction(root):
     """Recover the exact saved rejection without rewriting its review or budgets."""
     if not (root / 'campaign-auto-review.json').exists():
@@ -534,6 +640,9 @@ def resume_correction(root):
     directory, marker = job(root)
     value = C.private(root / 'campaign.json')
     C.bound(root, value)
+    if release_work_retry(root, directory, marker, value):
+        print('resumed')
+        return
     retry_path = root / 'issue-retry'
     archive = directory / 'technical-retry-before.json'
     if (marker['phase'] == 'stalled' and (directory / 'after.json').exists()
@@ -618,23 +727,33 @@ def finish(root, *, resume_technical=False):
         raise ValueError('candidate-changed-during-review')
     bundle = C.private(directory / 'bundle.json')
     verdict = result(directory / 'events.jsonl', bundle)
-    objective = OBJECTIVES.record_review(root, directory, verdict)
+    work = WORK.select(value, verdict, selected, C.artifact)
+    rereview = bundle.get('workRereview')
+    if rereview:
+        if reference(root / 'campaign-result.json') != rereview['campaignResult']:
+            raise ValueError('work-rereview-executor-result-changed')
+        objective = rereview_objective(root, rereview)
+    else:
+        objective = OBJECTIVES.record_review(root, directory, verdict)
     put(directory / 'result.json', encoded(verdict))
     # Harness changes cannot renew a product-evidence budget. The immutable
     # objective history also retains preparation hidden by older marker resets.
-    progressed = verdict['progress'] == 'new_runtime_evidence' and objective['materialProgress']
+    progressed = not rereview and verdict['progress'] == 'new_runtime_evidence' and objective['materialProgress']
     # Revalidate the immutable result above, but never count a finish replay twice.
     if marker['phase'] == 'stalled' and not resume_technical:
         print('stalled')
         return
-    rounds = marker['unchangedReviews'] if resume_technical else 0 if progressed else max(marker['unchangedReviews'] + 1,
+    rounds = marker['unchangedReviews'] if (resume_technical or rereview) else 0 if progressed else max(marker['unchangedReviews'] + 1,
                                      objective['preparationStreak'])
     replanning = 'objectiveId' in verdict and objective['diagnosticReplanning']
     exhausted = rounds >= (6 if replanning else 3)
+    active_work = WORK.active(value, C.artifact)
     route = technical_route(value, verdict, selected, exhausted=exhausted, saved_rejection=resume_technical)
+    if rereview or work or (active_work and not progressed):
+        route = None
     route_history = technical_history(value)
     pending_correction = bool(route_history and route_history[0]['phase'] in {'correction', 'settlement'})
-    if verdict['verdict'] != 'owner_required' and (exhausted or pending_correction) and not route:
+    if verdict['verdict'] != 'owner_required' and (exhausted or pending_correction or rereview or (active_work and not progressed)) and not route and not work:
         marker['unchangedReviews'] = rounds
         marker['phase'] = 'stalled'
         marker['noticePending'] = True
@@ -665,6 +784,10 @@ def finish(root, *, resume_technical=False):
                    'test, diagnosis and sanitized receipt with hashes. Do not copy prior metadata as fresh '
                    'proof. The wrapper performs the next independent review automatically; no chat request.\n' +
                    ('\n' + OBJECTIVES.REPLAN + '\n' if replanning else ''))
+        if work:
+            handoff += ('\nINDEPENDENT AUTHORIZED WORK (not product progress):\n' + encoded(work).decode() +
+                        'One launch only. Preserve deadlines, consent, counters and inference ledgers. '
+                        'This grant does not authorize inference, reauthentication, new resources or acceptance.\n')
         if route:
             handoff += ('\nTECHNICAL CORRECTION ROUTE (not product progress):\n' + encoded(route).decode() +
                         'Only the stated scope is permitted. Preserve all product counters and inference ledgers. '
@@ -686,6 +809,7 @@ def finish(root, *, resume_technical=False):
                            manifest=selected['manifest'], sourceFingerprint=selected['sourceFingerprint'],
                            nextAction=verdict['nextAction'], scope=verdict['scope'],
                            **({'technicalRoute': route} if route else {}),
+                           **({'workContinuation': work} if work else {}),
                            **({'settlementBundle': settlement_bundle} if settlement_bundle else {})))),
                        cleanup=put(directory / 'cleanup.json', encoded(dict(
                            executorPass=value['executorPasses'], assessment=verdict['cleanupAssessment'],
@@ -701,6 +825,8 @@ def finish(root, *, resume_technical=False):
             write_settlement_request(root, after['reviewCheckpoint'], route['settlementPlan'])
         C.bound(root, after)
     marker['unchangedReviews'] = rounds
+    if work:
+        marker['workContinuation'] = work
     if route:
         marker['technicalRoute'] = route
     marker['phase'] = 'owner_required' if after['phase'] == 'owner_required' else 'continued'
@@ -708,7 +834,7 @@ def finish(root, *, resume_technical=False):
     put(directory / 'marker-after.json', encoded(marker))
     put(directory / 'after.json', encoded(after))
     C.save(root / 'campaign.json', json.loads(encoded(after)))
-    C.save(root / 'campaign-auto-review.json', marker)
+    C.save(root / 'campaign-auto-review.json', json.loads(encoded(marker)))
     print(marker['phase'])
 
 
@@ -884,6 +1010,9 @@ def reconcile(root):
                     and last['manifestSha256'] == marker['manifest']['sha256']
                     and last['preparationStreak'] >= limit):
                 value = C.private(root / 'campaign.json')
+                active_work = WORK.active(value, C.artifact)
+                if active_work and active_work == marker.get('workContinuation'):
+                    return
                 history_routes = technical_history(value)
                 if (history_routes and marker.get('technicalRoute') == history_routes[0]
                         and history_routes[0]['reviewPass'] == marker['executorPass']):
@@ -913,10 +1042,15 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'prepare-work-review', 'work-status'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'settlement-mode':
+    if args.action == 'prepare-work-review':
+        if prepare_work_review(args.root) is None:
+            print('not_eligible')
+    elif args.action == 'work-status':
+        print(json.dumps(work_status(args.root), sort_keys=True))
+    elif args.action == 'settlement-mode':
         print(HOST.mode(types.SimpleNamespace(**globals()), args.root))
     elif args.action == 'execute-settlement':
         HOST.execute(types.SimpleNamespace(**globals()), args.root)
@@ -940,9 +1074,17 @@ def main():
         if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
             raise ValueError('review-snapshot-changed')
         try:
-            result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+            verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+            value = current(args.root, stalled_replay=marker['phase'] == 'stalled')
+            if C.digest(args.root / 'campaign.json') != marker['beforeSha256']:
+                raise ValueError('review-state-changed')
+            WORK.select(value, verdict, packet(value, args.root), C.artifact)
         except ValueError as error:
             repairable = {'invalid-review-findings', 'invalid-independent-verdict',
+                          'invalid-work-continuation-selection', 'unsafe-work-continuation',
+                          'work-continuation-predecessor-mismatch', 'work-continuation-target-not-enterable',
+                          'work-continuation-source-citation-required', 'unapproved-work-runtime',
+                          'work-continuation-budget-exhausted',
                           'missing-concrete-next-action', 'invalid-continuation-scope',
                           'correction-must-remain-offline', 'invalid-cleanup-assessment',
                           'unresolved-cleanup-cannot-authorize-live-work',

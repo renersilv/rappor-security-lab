@@ -131,3 +131,13 @@ within the original limit and with all prohibited activity flags false. Only the
 select read_only_preflight and cleanupAssessment verified for the next already
 authorized check. Settlement is operational cleanup, not new product evidence.
 Return settlementPlan and settlementEvidence null outside their respective stages.
+
+ADR-0008 independent work selection: return workContinuation=null unless explicitly
+selecting an already authorized target (web-entries, managed-technical, or
+negative-consent-cleanup). Its only field is targetObjectiveId. The first selection
+requires pass, clean cleanup, offline scope and a different objectiveId. Subsequent
+reviews describe the actual target objective. Host history limits each target to
+two offline preparations and one approved read_only_preflight/bounded_no_model
+checkpoint, one launch each; no inference, acceptance, quota or deadline renewal.
+Cite the actual prepared sources and concrete next action. Prose cannot grant this
+route. workContinuationContext reports host-derived counts; do not invent counts.

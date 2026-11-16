@@ -65,6 +65,14 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
   offline adoption checkpoint; ordinary review still controls runtime. Historical
   counters, evidence and inference authorizations are never reset. This route
   precedes operational retry and does not classify a valid rejection as codex_exit.
+- ADR-0008 lets the independent reviewer select typed, already-authorized no-model
+  work after an inconclusive branch stops. The host binds each selection to its
+  source/checkpoint and one executor launch, deriving two offline preparation and
+  one runtime allowance per eligible target from the complete protected history.
+  Targets cannot be revisited to renew that allowance. Prose does not route work;
+  technical repairs do not reset it. Preparation counts, inference budgets and
+  acceptance remain unchanged. Historical stalled reviews are re-reviewed in a
+  separate exact-bound job before any matching operational gate is released.
 - Use `blocked` only for a real owner decision, authorization, credential supplied through a secure channel or owner-controlled external change.
 - Deliver an implemented Task with `validating`. The wrapper sets real Azure `Done`
   after batch integration and laboratory validation pass; this is technical delivery,
