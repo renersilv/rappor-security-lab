@@ -73,7 +73,8 @@ campaign_command() {
 
 campaign_review_command() {
   case $1 in
-    settlement-mode) printf 'none\n' ;;
+    settlement-mode|web-zip-mode) printf 'none\n' ;;
+    web-zip-reconcile) : ;;
     work-review-limit)
       if [[ -f $STATE_ROOT/work-rereview ]]; then printf '3\n'; else printf 'none\n'; fi ;;
     resume-correction|prepare-work-review) printf 'not_eligible\n' ;;

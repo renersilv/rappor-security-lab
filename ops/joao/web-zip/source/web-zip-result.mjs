@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+const HASH = /^[a-f0-9]{64}$/u;
+const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u;
+export function validateWebZipResult(primary, instruction) {
+  assert.equal(primary.outcome, 'completed');
+  assert.equal(primary.requestSha256, instruction.requestSha256);
+  assert.equal(primary.archiveSha256, instruction.archiveSha256);
+  assert.deepEqual(primary.candidate, instruction.candidate);
+  const binding = primary.execution;
+  assert.match(binding.id, UUID);
+  assert.equal(binding.productId, instruction.product.productId);
+  assert.equal(binding.analysisDefinitionId, instruction.product.analysisDefinitionId);
+  assert.equal(binding.revisionId, instruction.product.revisionId);
+  assert.equal(binding.uploadPath, `/api/analysis-definitions/${instruction.product.analysisDefinitionId}/assessments/uploaded-code`);
+  assert.match(binding.idempotencyKey, UUID);
+  assert.match(primary.selectionFingerprint, HASH);
+  assert.notEqual(primary.selectionFingerprint, instruction.archiveSha256, 'selection-is-not-archive-identity');
+  assert.equal(primary.confirmationObserved, true);
+  assert.equal(primary.counts.pickerOpens, 1); assert.equal(primary.counts.fileSelections, 1);
+  assert.equal(primary.counts.uploads, 1); assert.equal(primary.counts.analyses, 1);
+  assert.equal(primary.rendered.executionId, binding.id);
+  assert.equal(primary.rendered.revisionId, binding.revisionId);
+  assert.equal(primary.rendered.productId, binding.productId);
+  assert.equal(primary.rendered.pathname, `/executions/${binding.id}`);
+  assert.equal(primary.rendered.historyExecutionId, binding.id);
+  assert.equal(primary.rendered.coverageComplete, true);
+  assert.ok(Number.isFinite(primary.rendered.score) && primary.rendered.score >= 0 && primary.rendered.score <= 100);
+  assert.ok(Number.isSafeInteger(primary.rendered.problemCount) && primary.rendered.problemCount >= 0);
+  for (const key of ['executionScreenshotSha256', 'historyScreenshotSha256']) assert.match(primary.rendered[key], HASH);
+  assert.deepEqual(primary.sourceHashes, instruction.sourceHashes);
+  return primary;
+}

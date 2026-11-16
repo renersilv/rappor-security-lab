@@ -1,3 +1,39 @@
+# Fixed Web ZIP host dispatch — AB#301
+
+Before installation, run `npm run check` once on the final reviewed commit. It
+includes the portable Node contracts, controller/host integration and shell route
+regressions. Native-process fixtures additionally use the documented
+`PWSH_BIN=/usr/bin/pwsh npm run test:web-zip-process` inside the existing approved
+isolated SDK container. The latter is an offline Linux test with explicit Windows
+API/DPAPI doubles, not a native acceptance result. Preserve the exact source and
+log hashes for both checks.
+
+Install only after independent review and combined validation. Pause the existing
+João timer, wait for the service to be inactive with no main/control PID or queued
+job, and acquire the existing locks in order: the shared
+`rappor-security/sequential-agents.lock`, then
+`rappor-security-lab/joao/run.lock` and
+`rappor-security-lab/joao/main-integration.lock`, all under the normal state home.
+Do not stop an active worker to force installation. Record exact installed source,
+campaign, automatic-review marker, retry gate, session, authorization and ledger
+hashes before the checked fast-forward to the reviewed LAB commit. Preserve the
+separate dirty task worktree and any pending publication. Update existing runner
+pins only where required by the installed binding, and run the normal installed
+`ops/joao/run.sh preflight` before restoring the timer. Compare protected-state
+hashes again: installation itself must not begin a pass, clear a retry, issue a
+grant or launch Windows.
+
+Runtime admission is a separate protected operator checkpoint through the existing
+review verifier. Bind current observed desktop SID/session and one authorized
+existing UploadedZip/Managed definition/current revision. Serialize private request,
+correction and review in that order; the request names the preserved predecessor.
+The fixed source closure lives in `ops/joao/web-zip/source/`. `web-zip-mode` reports
+only the exact bound host operation; `execute-web-zip` uses existing begin/finish
+and a single durable intent. `web-zip-reconcile` only closes review evidence for a
+consumed launch and never launches the guest again. The normal independent review
+still controls continuation and acceptance. Do not run these mutation commands as
+an installation smoke test and never substitute a synthetic request for live data.
+
 # Azure cutover addendum
 
 ADR-0005 supersedes historical GitHub queue instructions. Before starting this

@@ -103,3 +103,47 @@ adoption. Failed checks never authorize runtime or entry into another target. A 
 offline correction of the active target consumes its remaining preparation slot;
 it does not refund a grant. Real rollout verifies a new
 executor pass; it does not claim that its product journey has passed.
+
+## Fixed host execution of the reviewed Web ZIP journey
+
+The owner-authorized assisted repair of the rejected pass237 packet is installed
+as a fixed Web ZIP entrypoint. The existing campaign wrapper dispatches this
+specific operation on the host, using a protected `webZipRequest` and the existing
+`web-entries` runtime grant. It does not run a model to execute protected files,
+introduce another service/counter, restore an offline allowance, or change the
+inference ledger. `begin` and `finish` remain the existing controller operations.
+
+The request binds the immutable predecessor as `previousReview`. The new
+correction binds the request hash; the new review binds the correction; the
+campaign selects that current review. This acyclic order preserves exact current
+authority, candidate, pass, installed source hashes and desktop/product inputs.
+The host validates the complete grant history before one launch. Source or request
+changes require fresh review; an offline test verdict is not a runtime grant.
+
+A host intent is published atomically and durably before invoking the installed
+Node entrypoint. Interrupted intent, partial output and partial entrypoint intent
+produce unresolved evidence without another guest launch. Reconciliation runs
+before the normal phase gate, including when that gate has already moved a
+consumed launch to review_pending. It neither restores active state nor decrements
+counters. Protected host result and packet references bind the ordinary independent
+review to exact output bytes. Only a completed, settled run supplies current-pass
+runtime evidence; that evidence never changes documented acceptance by itself.
+
+The owner separately authorized completing ordinary official Web login inside the
+same owned Edge instance/profile. The fixed existing private LAB credential file
+is read as data only, never sourced as shell code or copied into the request or
+review package. SSH stdin carries runtime-only login material; DPAPI CurrentUser
+protects its temporary Windows file. The official login form is submitted once,
+with network recording disabled during authentication, inside the unchanged
+600-second absolute operation budget. The parent verifies temporary login-file
+removal independently of primary evidence writes. No copied cookies, registration,
+password reset, OAuth reauthorization, credential rotation or new account is
+permitted. A failed login is unresolved, not inferred owner action or acceptance.
+
+Local Node/PowerShell process regressions use synthetic credentials and explicit
+Windows/DPAPI/UI doubles. Their passing result does not establish native Windows,
+PowerShell5.1, DPAPI transfer, an authenticated desktop, upload or scanner success.
+Actual observed SID/session and existing authorized product/definition/revision
+IDs are required before the protected runtime request can be admitted. Original
+review237, earlier packets, all preparation counts and the inference ledger remain
+immutable. See `ops/joao/web-zip/README.md` and the host rollout procedure.

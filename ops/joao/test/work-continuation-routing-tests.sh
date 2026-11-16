@@ -29,7 +29,8 @@ campaign_command() {
 campaign_review_command() {
   case $1 in
     phase) cat "$STATE_ROOT/review-phase" ;;
-    settlement-mode) printf 'none\n' ;;
+    settlement-mode|web-zip-mode) printf 'none\n' ;;
+    web-zip-reconcile) : ;;
     resume-correction)
       record protected-release-check
       if [[ $(cat "$STATE_ROOT/review-phase") == stalled && -f $STATE_ROOT/active-offline-correction ]]; then

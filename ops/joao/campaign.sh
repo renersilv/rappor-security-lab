@@ -188,6 +188,7 @@ execute_campaign_item() {
     fi
     [[ $phase != stalled ]] || return 70
   fi
+  campaign_review_command web-zip-reconcile >/dev/null || return $?
   phase=$(campaign_command phase) || return $?
   if [[ $phase == owner_required ]]; then
     owner_claim=$(campaign_review_command owner-claim-pending) || return $?
@@ -219,14 +220,20 @@ execute_campaign_item() {
     campaign_review_command execute-settlement || return $?
     phase=$(campaign_command phase) || return $?
   else
-    campaign_command begin || return $?
-    run_codex "$issue" "$worktree" "$branch" || result=$?
-    if (( result == 124 )); then
-      return 124
-    elif (( result != 0 )); then
-      return "$result"
+    phase=$(campaign_review_command web-zip-mode) || return $?
+    if [[ $phase == pending ]]; then
+      campaign_review_command execute-web-zip || return $?
+      phase=$(campaign_command phase) || return $?
+    else
+      campaign_command begin || return $?
+      run_codex "$issue" "$worktree" "$branch" || result=$?
+      if (( result == 124 )); then
+        return 124
+      elif (( result != 0 )); then
+        return "$result"
+      fi
+      phase=$(campaign_command finish) || return $?
     fi
-    phase=$(campaign_command finish) || return $?
   fi
   operational=$(issue_operational_state "$issue") || return $?
   if [[ $phase == owner_required ]]; then

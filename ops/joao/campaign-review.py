@@ -27,6 +27,9 @@ SETTLEMENT_SPEC.loader.exec_module(SETTLEMENT)
 HOST_SPEC = importlib.util.spec_from_file_location('settlement_host', Path(__file__).with_name('settlement-host.py'))
 HOST = importlib.util.module_from_spec(HOST_SPEC)
 HOST_SPEC.loader.exec_module(HOST)
+WEBZIP_SPEC = importlib.util.spec_from_file_location('web_zip_host', Path(__file__).with_name('web-zip-host.py'))
+WEBZIP = importlib.util.module_from_spec(WEBZIP_SPEC)
+WEBZIP_SPEC.loader.exec_module(WEBZIP)
 WORK = C.WORK
 CODE = {'.mjs', '.js', '.ts', '.tsx', '.ps1', '.py', '.sh', '.c'}
 
@@ -254,6 +257,7 @@ def prepare(root, *, work_rereview=None):
                   technicalCorrectionContext=correction_context,
                   technicalSettlementContext=settlement_context,
                   settlementExecutionSnapshot=settlement_execution(value) if settlement_context else None,
+                  webZipExecutionSnapshot=WEBZIP.execution_snapshot(types.SimpleNamespace(**globals()), value, selected),
                   settlementOrigins=settlement_origins(value),
                   settlementCleanupOrigin=correction_context.get('cleanupOrigin') if correction_context else None,
                   settlementPlanSnapshot=C.artifact(settlement_context['settlementPlan'], protected=True) if settlement_context else None,
@@ -1177,7 +1181,7 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'prepare-work-review', 'work-status', 'work-review-limit'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
     if args.action == 'work-review-limit':
@@ -1190,6 +1194,12 @@ def main():
             print('not_eligible')
     elif args.action == 'work-status':
         print(json.dumps(work_status(args.root), sort_keys=True))
+    elif args.action == 'web-zip-reconcile':
+        WEBZIP.reconcile(types.SimpleNamespace(**globals()), args.root)
+    elif args.action == 'web-zip-mode':
+        print(WEBZIP.mode(types.SimpleNamespace(**globals()), args.root))
+    elif args.action == 'execute-web-zip':
+        WEBZIP.execute(types.SimpleNamespace(**globals()), args.root)
     elif args.action == 'settlement-mode':
         print(HOST.mode(types.SimpleNamespace(**globals()), args.root))
     elif args.action == 'execute-settlement':

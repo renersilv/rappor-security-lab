@@ -1,3 +1,18 @@
+# Current correction — AB#301 fixed host Web ZIP execution
+
+The assisted repair of pass237 now has a concrete host dispatch path through the
+existing campaign wrapper. A protected request and the existing one-launch Web
+runtime grant bind the installed source, candidate, predecessor, desktop and
+analysis inputs. Official login uses the same owned browser profile and existing
+safe credential channel; interrupted execution produces reviewable unresolved
+evidence without replay or a quota reset. ADR-0008 records this bounded extension.
+
+Focused source and synthetic process regressions passed, including exact authority,
+credential isolation, cleanup and crash recovery. Installation and native Windows
+execution remain separate gates. No source test establishes a usable desktop,
+actual DPAPI/login/upload, scanner completion, product acceptance or AB#301 delivery.
+The prior rejection, campaign history and inference reservations remain preserved.
+
 # Current correction — AB#301 reviewed independent work continuation
 
 ADR-0008 closes the missing handoff between an approved inconclusive diagnostic

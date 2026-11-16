@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "fixtureId": "issue19-web-zip-pass196",
+  "purpose": "bounded-no-model-web-zip-entry",
+  "expectedFunctionalTests": 2,
+  "containsProductSource": false,
+  "containsCredentials": false,
+  "containsCustomerData": false
+}
