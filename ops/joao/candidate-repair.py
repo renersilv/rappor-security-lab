@@ -380,7 +380,8 @@ def run(root, model, effort):
     try:
         proposal = model_call(attempt, 'proposal', prompt, HERE / 'candidate-repair-result.schema.json', model, effort)
         B = sandbox_module()
-        edits, new_tests = B.validate_proposal(proposal, sources)
+        expanded = B.expand_proposal(proposal, sources)
+        edits, new_tests = B.validate_proposal(expanded, sources)
         if proposal['disposition'] != 'repair':
             state.update(phase='unrepairable', reason='independent-diagnosis-no-safe-repair')
             save(root, state_path, state)

@@ -68,7 +68,7 @@ class CandidateRepairTests(unittest.TestCase):
         self.ledger_before = self.ledger.read_bytes()
         self.calls, self.checks, self.stopped = [], [], []
         self.proposal = dict(disposition='repair', diagnosis='Replace the defective worker with a bounded offline return.', files=[
-            dict(path='source/worker.ps1', content='function Invoke-Worker { return 42 }\n'),
+            dict(path='source/worker.ps1', patches=[dict(before=self.original_source.decode(), after='function Invoke-Worker { return 42 }\n')]),
             dict(path='tests/repair-worker.py', content='assert 42 == 42\n')])
         self.review = dict(verdict='pass', findings=[])
         self.check_codes = [1, 0]
@@ -110,7 +110,8 @@ class CandidateRepairTests(unittest.TestCase):
 
     @contextlib.contextmanager
     def adapters(self, model=None, sandbox=None, snapshot=None):
-        adapter = types.SimpleNamespace(validate_proposal=B.validate_proposal, snapshot=snapshot or B.snapshot,
+        adapter = types.SimpleNamespace(expand_proposal=B.expand_proposal,
+            validate_proposal=B.validate_proposal, snapshot=snapshot or B.snapshot,
             tree_hashes=B.tree_hashes, stop_incomplete=lambda log: self.stopped.append(str(log)),
             sandbox=sandbox or self.sandbox)
         with mock.patch.object(M.RECOVERY, 'protected', side_effect=self.protected), \

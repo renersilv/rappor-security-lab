@@ -115,6 +115,52 @@ def fixture_edit(original, replacement):
             'candidate-existing-test-changed')
 
 
+def expand_proposal(proposal, original_sources):
+    """Materialize bounded exact edits before applying the unchanged safety checks."""
+    original = source_material(original_sources)
+    require(isinstance(proposal, dict) and set(proposal) == {'disposition', 'diagnosis', 'files'},
+            'candidate-proposal-invalid')
+    require(len(json.dumps(proposal, ensure_ascii=False).encode()) <= 60000, 'candidate-patch-output-too-large')
+    files = proposal['files']
+    require(isinstance(files, list) and len(files) <= MAX_FILES, 'candidate-proposal-files-invalid')
+    expanded = []
+    names = set()
+    for item in files:
+        require(isinstance(item, dict) and 'path' in item, 'candidate-patch-file-invalid')
+        name = safe_name(item['path'])
+        require(name not in names, 'candidate-proposal-duplicate')
+        names.add(name)
+        if NEW_TEST.fullmatch(name):
+            require(set(item) == {'path', 'content'} and isinstance(item['content'], str)
+                    and len(item['content'].encode()) <= 20000, 'candidate-new-test-content-invalid')
+            expanded.append(dict(item))
+            continue
+        require(set(item) == {'path', 'patches'} and SOURCE.fullmatch(name) and name in original,
+                'candidate-patch-source-invalid')
+        patches = item['patches']
+        require(isinstance(patches, list) and 1 <= len(patches) <= 12, 'candidate-patches-invalid')
+        text = original[name].decode('utf-8')
+        edits = []
+        for patch in patches:
+            require(isinstance(patch, dict) and set(patch) == {'before', 'after'}, 'candidate-patch-invalid')
+            before, after = patch['before'], patch['after']
+            require(isinstance(before, str) and isinstance(after, str) and before and before != after
+                    and '\x00' not in before + after and len((before + after).encode()) <= 24000,
+                    'candidate-patch-content-invalid')
+            start = text.find(before)
+            require(start >= 0 and text.find(before, start + 1) == -1, 'candidate-patch-match-not-unique')
+            edits.append((start, start + len(before), after))
+        edits.sort()
+        require(all(left[1] <= right[0] for left, right in zip(edits, edits[1:])), 'candidate-patches-overlap')
+        for start, end, after in reversed(edits):
+            text = text[:start] + after + text[end:]
+        expanded.append(dict(path=name, content=text))
+    result = dict(proposal, files=expanded)
+    # No patch can bypass source ownership, fixture bounds or immutable test cases.
+    validate_proposal(result, original_sources)
+    return result
+
+
 def validate_proposal(proposal, original_sources):
     original = source_material(original_sources)
     require(isinstance(proposal, dict) and set(proposal) == {'disposition', 'diagnosis', 'files'}, 'candidate-proposal-invalid')

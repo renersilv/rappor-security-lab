@@ -12,6 +12,9 @@ summary counts. Missing dependency, syntax error, timeout or setup failure is
 not a valid baseline failure. New regression must exercise the implementation,
 not compare constants or simulate its own success.
 
+Source patches have already been materialized by exact unique, non-overlapping
+matches against the original; review the resulting complete sources as well as
+the raw patches. The compact format does not grant a wider edit scope.
 Original test bodies, imports and assertions must remain unchanged. Any permitted
 makeSnapshots fixture change must supply stronger valid inputs without removing
 negative coverage, bypassing checks or faking authority. Reject no-op assertions,
