@@ -293,7 +293,12 @@ def rereview_objective(root, snapshot):
     """A second opinion never appends duplicate product evidence or resets its streak."""
     old = C.artifact(snapshot['marker'], protected=True)
     for ref in snapshot['artifacts'].values():
-        C.artifact(ref, protected=True, text=True)
+        if not isinstance(ref, dict) or set(ref) != {'path', 'sha256'}:
+            raise ValueError('invalid-review-reference')
+        # Full review packets/events are bounded source artifacts, not short handoffs.
+        raw = read_source(Path(ref['path']), C.REVIEW_ROOT)
+        if sha(raw) != ref['sha256']:
+            raise ValueError('review-artifact-changed')
     if snapshot['sourceBinding'] != work_source_binding():
         raise ValueError('work-rereview-source-changed')
     records = OBJECTIVES._history(root)

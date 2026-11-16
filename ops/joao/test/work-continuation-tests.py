@@ -370,5 +370,58 @@ class WorkContinuationTests(unittest.TestCase):
         self.assertEqual(R.OBJECTIVES._history(self.state), before)
         self.assertFalse((R.job(self.state)[0] / 'result.json').exists())
 
+    def test_full_sized_historical_artifacts_are_verified_without_handoff_text_limit(self):
+        self.source.write_bytes(b'# bounded fixture source\n' * 9000)
+        notes = self.candidate_dir / 'review-context.md'
+        R.put(notes, b'Offline fixture evidence.\n' * 9000)
+        manifest = C.private(self.manifest)
+        manifest['files'].update({'worker.ps1': C.digest(self.source), notes.name: C.digest(notes)})
+        C.save(self.manifest, manifest)
+        directory = self.approval()
+        events = directory / 'events.jsonl'
+        reasoning = R.encoded(dict(type='item.completed', item=dict(type='reasoning', text='Bounded review. ' * 3000)))
+        events.write_bytes(reasoning + events.read_bytes())
+        self.finish()
+        retained = {p: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+        self.assertGreater(len(retained[directory / 'bundle.json']), 420000)
+        self.assertGreater(len(retained[directory / 'prompt.md']), 440000)
+        self.assertGreater(len(retained[events]), 32768)
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.prepare_work_review(self.state)
+        self.approval('web-entries'); self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+        for path, raw in retained.items():
+            self.assertEqual(path.read_bytes(), raw)
+        self.preserved()
+
+    def artifact_snapshot(self):
+        self.approval(); self.finish()
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.prepare_work_review(self.state)
+        directory, _ = R.job(self.state)
+        return C.private(directory / 'bundle.json')['workRereview']
+
+    def test_historical_full_artifact_hash_mismatch_is_rejected(self):
+        snapshot = self.artifact_snapshot()
+        snapshot['artifacts']['prompt.md']['sha256'] = '0' * 64
+        with self.assertRaises(ValueError):
+            R.rereview_objective(self.state, snapshot)
+
+    def test_historical_full_artifact_above_sixteen_mib_is_rejected(self):
+        snapshot = self.artifact_snapshot()
+        large = self.operator / 'oversized-full-artifact.txt'
+        R.put(large, b'x' * (16 * 1024 * 1024 + 1))
+        snapshot['artifacts']['prompt.md'] = R.reference(large)
+        with self.assertRaises(ValueError):
+            R.rereview_objective(self.state, snapshot)
+
+    def test_historical_full_artifact_symlink_is_rejected(self):
+        snapshot = self.artifact_snapshot()
+        link = self.operator / 'linked-full-artifact.txt'
+        link.symlink_to(snapshot['artifacts']['prompt.md']['path'])
+        snapshot['artifacts']['prompt.md']['path'] = str(link)
+        with self.assertRaises(ValueError):
+            R.rereview_objective(self.state, snapshot)
+
 if __name__ == '__main__':
     unittest.main()
