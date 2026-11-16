@@ -522,5 +522,128 @@ class WorkContinuationTests(unittest.TestCase):
                 R.prepare_work_review(self.state)
         self.assertEqual(C.private(self.state / 'campaign.json'), value)
 
+    def active_offline_rejection(self, *, saved_stall=False, **changes):
+        self.approval('web-entries'); self.finish()
+        self.packet(7)
+        fields = dict(objectiveId='web-entries', verdict='changes_requested',
+                      findings=['worker.ps1: the current offline regression fails its input validation.'],
+                      workContinuation=None)
+        fields.update(changes)
+        self.approval(**fields)
+        if saved_stall:
+            # Reproduce the exact archived pre-fix transition, without editing its result.
+            with mock.patch.object(R.WORK, 'select', return_value=None):
+                self.finish()
+        else:
+            self.finish()
+
+    def test_typed_same_target_rejection_consumes_remaining_offline_slot_without_selection(self):
+        self.active_offline_rejection()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+        grant = self.grant()
+        self.assertEqual((grant['targetObjectiveId'], grant['phase'], grant['offlineCheckpoints'], grant['runtimeCheckpoints']),
+                         ('web-entries', 'offline', 2, 0))
+        receipt = C.artifact(C.private(self.state / 'campaign.json')['reviewCheckpoint'], protected=True)
+        correction = C.artifact(receipt['correction'], protected=True)
+        self.assertEqual(correction['workContinuationDerivation'], 'same_target_offline_correction')
+        self.assertIsNone(C.artifact(receipt['diagnosis'], protected=True)['workContinuation'])
+        self.packet(8)
+        self.approval(objectiveId='web-entries', verdict='changes_requested',
+            findings=['The same offline defect remains unresolved.'], workContinuation=None)
+        self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            R.resume_correction(self.state)
+        self.assertEqual(output.getvalue().strip(), 'not_eligible')
+        self.assertEqual(self.grant()['offlineCheckpoints'], 2)
+        self.preserved()
+
+    def test_null_pass_does_not_derive_remaining_offline_or_runtime(self):
+        self.active_offline_rejection(verdict='pass', findings=[], scope='read_only_preflight')
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(self.grant()['offlineCheckpoints'], 1)
+
+    def test_null_rejection_for_another_target_does_not_derive_work(self):
+        self.active_offline_rejection(objectiveId='managed-technical')
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(self.grant()['offlineCheckpoints'], 1)
+
+    def test_null_rejection_with_unresolved_cleanup_does_not_derive_work(self):
+        self.active_offline_rejection(cleanupAssessment='unresolved')
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+        self.assertEqual(self.grant()['offlineCheckpoints'], 1)
+
+    def test_saved_same_target_rejection_resumes_without_rewriting_or_recounting(self):
+        self.active_offline_rejection(saved_stall=True)
+        directory, marker = R.job(self.state)
+        retained = {p: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+        history = R.OBJECTIVES._history(self.state)
+        self.retry_gate()
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.resume_correction(self.state)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+        self.assertEqual(R.job(self.state)[1]['unchangedReviews'], marker['unchangedReviews'])
+        self.assertEqual(R.OBJECTIVES._history(self.state), history)
+        self.assertEqual(self.grant()['offlineCheckpoints'], 2)
+        self.assertFalse((self.state / 'issue-retry').exists())
+        for path, raw in retained.items():
+            self.assertEqual(path.read_bytes(), raw)
+        checkpoint = C.private(self.state / 'campaign.json')['reviewCheckpoint']
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.resume_correction(self.state)
+        self.assertEqual(C.private(self.state / 'campaign.json')['reviewCheckpoint'], checkpoint)
+        self.controller('begin')
+        later = self.retry_gate(unrelated=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.resume_correction(self.state)
+        self.assertEqual((self.state / 'issue-retry').read_bytes(), later)
+        self.controller('phase')
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'review_pending')
+        self.preserved()
+
+    def test_saved_same_target_rejection_rejects_stale_campaign(self):
+        self.active_offline_rejection(saved_stall=True)
+        value = C.private(self.state / 'campaign.json')
+        value['lastSummary'] = 'Changed after the reviewed rejection.'
+        C.save(self.state / 'campaign.json', value)
+        with self.assertRaisesRegex(ValueError, 'review-snapshot-changed'):
+            R.resume_correction(self.state)
+        self.assertEqual(C.private(self.state / 'campaign.json'), value)
+        self.assertEqual(self.grant()['offlineCheckpoints'], 1)
+
+    def test_work_correction_recovers_after_checkpoint_before_marker_and_preserves_changed_gate(self):
+        self.active_offline_rejection(saved_stall=True)
+        original_retry = self.retry_gate()
+        save = C.save
+        def fail_marker(path, value):
+            if path == self.state / 'campaign-auto-review.json' and value.get('phase') == 'continued':
+                raise OSError('fixture crash after checkpoint')
+            save(path, value)
+        with mock.patch.object(C, 'save', side_effect=fail_marker):
+            with self.assertRaises(OSError):
+                R.resume_correction(self.state)
+        self.assertEqual((self.state / 'issue-retry').read_bytes(), original_retry)
+        changed = original_retry.replace(b'attempts=3', b'attempts=4')
+        (self.state / 'issue-retry').write_bytes(changed)
+        with self.assertRaisesRegex(ValueError, 'work-correction-retry-changed'):
+            R.resume_correction(self.state)
+        self.assertEqual((self.state / 'issue-retry').read_bytes(), changed)
+        self.assertEqual(self.grant()['offlineCheckpoints'], 2)
+        self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+
+    def test_work_correction_replay_does_not_release_gate_after_prompt_changes(self):
+        self.active_offline_rejection(saved_stall=True)
+        original_retry = self.retry_gate()
+        with mock.patch.object(R, 'release_work_correction_retry', return_value=False):
+            with contextlib.redirect_stdout(io.StringIO()):
+                R.resume_correction(self.state)
+        directory, _ = R.job(self.state)
+        with (directory / 'prompt.md').open('ab') as output:
+            output.write(b'changed')
+        with self.assertRaisesRegex(ValueError, 'review-artifact-changed'):
+            R.resume_correction(self.state)
+        self.assertEqual((self.state / 'issue-retry').read_bytes(), original_retry)
+        self.assertEqual(self.grant()['offlineCheckpoints'], 2)
+
 if __name__ == '__main__':
     unittest.main()

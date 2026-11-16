@@ -46,7 +46,7 @@ are delivered by the existing timer without an operator checkpoint. Existing
 stalled historical results remain immutable: installation may re-review an exact
 saved snapshot under the new typed contract in a separate protected job. It cannot
 parse old nextAction prose as authority, overwrite its result, reset counters, or
-open a new inference allowance. Only independently approved typed output activates
+open a new inference allowance. Only independently reviewed typed output activates
 the bounded handoff and releases the matching operational gate.
 
 ## Review context and corrected-source resumption
@@ -54,8 +54,9 @@ the bounded handoff and releases the matching operational gate.
 A tool-less work review receives the exact hash-bound original verdict and its
 reviewed objective as data. The proposed next target is separate; classifying the
 past evidence as the proposed target is invalid. An exhausted diagnostic branch
-cannot obtain another probe through a null work selection. Only a fresh valid
-typed selection authorizes the next work checkpoint.
+cannot obtain another probe through a null work selection. A fresh valid
+typed selection authorizes a new target or runtime checkpoint. The same-target
+offline correction below uses the existing grant and typed independent rejection.
 
 If a work review stalls because its installed source requires correction, a new
 job is allowed only after the bound source files change, with the original
@@ -65,6 +66,30 @@ forward before the new marker is exposed. A work re-review has a total ceiling o
 three model calls across these jobs, independent of generic recovery windows.
 Source changes, retries and new job names cannot renew that ceiling. An exhausted
 review remains stopped; no old verdict is rewritten or promoted to authority.
+
+## Same-target offline correction
+
+An independent `changes_requested` review already requests correction of its
+identified defects. Repeating the selected target in a nullable selection field
+must not prevent that existing work from returning to its executor. The host may
+derive exactly one same-target offline correction when the immediately active
+protected grant is offline with one preparation and zero runtime checkpoints,
+the reviewed pass equals that grant's next pass, and the validated review names
+the same objective, has nonempty findings, offline scope, clean cleanup and no
+owner request. Its source and evidence remain bound to the exact candidate.
+
+The host never reads nextAction prose to choose this route. A null selection still
+grants no new target or runtime. The derived checkpoint records
+`workContinuationDerivation=same_target_offline_correction`, consumes preparation
+slot two, and permits one executor launch. Further rejection cannot create a third
+preparation or fall back to a technical route to evade that limit.
+
+For an already stalled exact rejection, the host archives the stopped marker and
+matching operational retry, replays the reviewed result without rewriting it or
+adding objective history, persists the new checkpoint, and only then releases
+that exact gate. Findings, preparation counters, inference ledgers and prior
+review-call consumption remain unchanged. This recovery requires no new model
+review and does not promote the rejected candidate to runtime or acceptance.
 
 ## Verification
 

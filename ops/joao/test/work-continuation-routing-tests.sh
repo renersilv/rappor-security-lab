@@ -32,6 +32,13 @@ campaign_review_command() {
     settlement-mode) printf 'none\n' ;;
     resume-correction)
       record protected-release-check
+      if [[ $(cat "$STATE_ROOT/review-phase") == stalled && -f $STATE_ROOT/active-offline-correction ]]; then
+        [[ -f $STATE_ROOT/archived-retry && -f $STATE_ROOT/issue-retry ]] || return 65
+        cmp -s "$STATE_ROOT/archived-retry" "$STATE_ROOT/issue-retry" || return 65
+        printf 'continued\n' > "$STATE_ROOT/review-phase"
+        printf 'active\n' > "$STATE_ROOT/campaign-phase"
+        record protected-existing-grant-correction
+      fi
       if [[ $(cat "$STATE_ROOT/review-phase") == continued && -f $STATE_ROOT/issue-retry ]]; then
         [[ -f $STATE_ROOT/archived-retry ]] || return 65
         cmp -s "$STATE_ROOT/archived-retry" "$STATE_ROOT/issue-retry" || return 65
@@ -161,3 +168,17 @@ cycle_once 75
 assert_trace 'review:same-protected-review-job=0' 'executor=0' 'protected-gate-released=0' 'existing-recovery=1'
 cmp -s "$STATE_ROOT/issue-retry" "$STATE_ROOT/original-retry"
 printf 'PASS ineligible handoff preserves the existing recovery boundary\n'
+
+# The protected Python boundary derives this correction from the existing grant;
+# the shell must consume that result without commissioning another review.
+fresh_case active_offline_correction
+cp "$STATE_ROOT/issue-retry" "$STATE_ROOT/archived-retry"
+touch "$STATE_ROOT/active-offline-correction"
+cycle_once 0
+assert_trace 'protected-existing-grant-correction=1' 'protected-gate-released=1' \
+  'protected-existing-grant-correction<protected-gate-released' 'protected-gate-released<executor' \
+  'protected-prepare-work-review=0' 'review:same-protected-review-job=0' \
+  'existing-recovery=0' 'begin=1' 'executor=1'
+cmp -s "$STATE_ROOT/released-retry" "$STATE_ROOT/original-retry"
+[[ ! -e $STATE_ROOT/issue-retry ]]
+printf 'PASS existing target offline correction resumes normally without another review or recovery\n'

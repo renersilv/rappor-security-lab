@@ -71,10 +71,20 @@ def active(value, artifact):
 
 def select(value, verdict, selected, artifact):
     choice = selection(verdict)
-    if choice is None:
-        return None
     rows = history(value, artifact)
     previous = active(value, artifact)
+    if choice is None:
+        # A typed rejection can consume the remaining offline correction of its
+        # immediate active target; it cannot select another target or runtime.
+        if (not previous or previous['phase'] != 'offline'
+                or previous['offlineCheckpoints'] != 1 or previous['runtimeCheckpoints'] != 0
+                or value['executorPasses'] != previous['nextPass']
+                or verdict.get('objectiveId') != previous['targetObjectiveId']
+                or verdict['verdict'] != 'changes_requested' or not verdict.get('findings')
+                or verdict.get('ownerRequest') is not None or verdict['scope'] != 'offline'
+                or verdict['cleanupAssessment'] not in {'verified', 'not_required'}):
+            return None
+        choice = dict(targetObjectiveId=previous['targetObjectiveId'])
     target = choice['targetObjectiveId']
     same = previous and previous['targetObjectiveId'] == target
     if (verdict['verdict'] == 'owner_required' or verdict['cleanupAssessment'] not in {'verified', 'not_required'}

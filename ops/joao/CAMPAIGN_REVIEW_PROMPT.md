@@ -152,3 +152,10 @@ return the typed selection only when justified. This job cannot authorize anothe
 Windows/IDE probe, framebuffer inspection or diagnostic repetition. The diagnostic
 preparation allowance is exhausted. A null selection leaves work stopped; nextAction
 prose never grants a probe. Existing product acceptance and safety limits remain.
+
+For an immediate active target with one offline preparation consumed, a typed
+changes_requested verdict for that same objective, offline scope and clean cleanup
+can consume only its remaining offline correction slot, even when workContinuation
+is null. Keep findings concrete and cite the actual implementation. The host derives
+this correction from protected metadata; it cannot select another target, grant
+runtime, renew a budget or turn a pass/null response into authority.

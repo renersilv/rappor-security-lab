@@ -712,6 +712,34 @@ def release_work_retry(root, directory, marker, value):
     return True
 
 
+def release_work_correction_retry(root, directory, marker, value):
+    if (value['executorPasses'] > marker['executorPass'] or marker['phase'] != 'continued'
+            or value['phase'] != 'active' or not (directory / 'stalled-marker-before-work.json').exists()):
+        return False
+    correction = C.artifact(C.artifact(value['reviewCheckpoint'], protected=True)['correction'], protected=True)
+    if (value != C.private(directory / 'after.json')
+            or WORK.active(value, C.artifact) != marker.get('workContinuation')
+            or correction.get('workContinuationDerivation') != 'same_target_offline_correction'):
+        raise ValueError('unbound-work-correction-retry-release')
+    for ref in C.private(directory / 'work-correction-evidence.json').values():
+        full_review_artifact(ref)
+    selected = packet(value, root)
+    if (C.digest(directory / 'bundle.json') != marker['bundleSha256']
+            or C.digest(directory / 'prompt.md') != marker['promptSha256']
+            or selected['manifest'] != marker['manifest']
+            or selected['sourceFingerprint'] != marker['sourceFingerprint']
+            or encoded(result(directory / 'events.jsonl', C.private(directory / 'bundle.json')))
+                != (directory / 'result.json').read_bytes()):
+        raise ValueError('work-correction-release-evidence-changed')
+    retry = root / 'issue-retry'
+    if retry.exists():
+        saved = C.private(directory / 'work-correction-retry-before.json')
+        if sha(read_source(retry, root)) != saved['sha256']:
+            raise ValueError('work-correction-retry-changed')
+        retry.unlink()
+    return True
+
+
 def resume_correction(root):
     """Recover the exact saved rejection without rewriting its review or budgets."""
     if not (root / 'campaign-auto-review.json').exists():
@@ -720,7 +748,8 @@ def resume_correction(root):
     directory, marker = job(root)
     value = C.private(root / 'campaign.json')
     C.bound(root, value)
-    if release_work_retry(root, directory, marker, value):
+    if (release_work_retry(root, directory, marker, value) or
+            release_work_correction_retry(root, directory, marker, value)):
         print('resumed')
         return
     retry_path = root / 'issue-retry'
@@ -730,15 +759,28 @@ def resume_correction(root):
         finish(root, resume_technical=True)
         directory, marker = job(root)
         value = C.private(root / 'campaign.json')
+    if (marker['phase'] == 'stalled' and (directory / 'after.json').exists()
+            and (directory / 'stalled-marker-before-work.json').exists()):
+        finish(root, resume_work=True)
+        directory, marker = job(root)
+        value = C.private(root / 'campaign.json')
     if marker['phase'] == 'stalled':
         if (directory / 'after.json').exists() or value['phase'] != 'review_pending':
             print('not_eligible')
             return
         verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
-        route = technical_route(value, verdict, packet(value, root), exhausted=True, saved_rejection=True)
-        if not route or route['phase'] != 'correction':
+        selected = packet(value, root)
+        work = WORK.select(value, verdict, selected, C.artifact)
+        derived_work = work is not None and verdict.get('workContinuation') is None
+        if WORK.active(value, C.artifact) and not derived_work:
             print('not_eligible')
             return
+        route = technical_route(value, verdict, selected, exhausted=True, saved_rejection=True) if not derived_work else None
+        if not derived_work and (not route or route['phase'] != 'correction'):
+            print('not_eligible')
+            return
+        if derived_work:
+            archive = directory / 'work-correction-retry-before.json'
         # Release only this campaign's retry gate, never another operational error.
         if retry_path.exists():
             raw = read_source(retry_path, root)
@@ -752,9 +794,12 @@ def resume_correction(root):
                     or retry.get('error_class') != 'codex_exit' or retry.get('fingerprint') not in expected):
                 raise ValueError('unrelated-operational-retry-gate')
             put(archive, encoded(dict(sha256=sha(raw), content=raw.decode())))
-        finish(root, resume_technical=True)
+        finish(root, resume_technical=not derived_work, resume_work=derived_work)
         directory, marker = job(root)
         value = C.private(root / 'campaign.json')
+    if release_work_correction_retry(root, directory, marker, value):
+        print('resumed')
+        return
     # Also finish a crash between the protected checkpoint and retry release.
     if ((directory / 'stalled-marker-before-technical.json').exists()
             and marker['phase'] == 'continued' and value['phase'] == 'active'):
@@ -771,7 +816,7 @@ def resume_correction(root):
     print('not_eligible')
 
 
-def finish(root, *, resume_technical=False):
+def finish(root, *, resume_technical=False, resume_work=False):
     directory, marker = job(root)
     # Recover a completed atomic transition without another model or checkpoint.
     if (directory / 'after.json').exists():
@@ -783,8 +828,9 @@ def finish(root, *, resume_technical=False):
                 if selected['manifest'] != marker['manifest']:
                     raise ValueError('candidate-changed-before-recovery')
             C.bound(root, after)
-            if marker['phase'] == 'stalled' and not (resume_technical and
-                    (directory / 'stalled-marker-before-technical.json').exists()):
+            if marker['phase'] == 'stalled' and not ((resume_technical and
+                    (directory / 'stalled-marker-before-technical.json').exists()) or
+                    (resume_work and (directory / 'stalled-marker-before-work.json').exists())):
                 print('stalled')
                 return
             marker = C.private(directory / 'marker-after.json')
@@ -820,10 +866,10 @@ def finish(root, *, resume_technical=False):
     # objective history also retains preparation hidden by older marker resets.
     progressed = not rereview and verdict['progress'] == 'new_runtime_evidence' and objective['materialProgress']
     # Revalidate the immutable result above, but never count a finish replay twice.
-    if marker['phase'] == 'stalled' and not resume_technical:
+    if marker['phase'] == 'stalled' and not (resume_technical or resume_work):
         print('stalled')
         return
-    rounds = marker['unchangedReviews'] if (resume_technical or rereview) else 0 if progressed else max(marker['unchangedReviews'] + 1,
+    rounds = marker['unchangedReviews'] if (resume_technical or resume_work or rereview) else 0 if progressed else max(marker['unchangedReviews'] + 1,
                                      objective['preparationStreak'])
     replanning = 'objectiveId' in verdict and objective['diagnosticReplanning']
     exhausted = rounds >= (6 if replanning else 3)
@@ -840,6 +886,13 @@ def finish(root, *, resume_technical=False):
         C.save(root / 'campaign-auto-review.json', marker)
         print('stalled')
         return
+    if resume_work:
+        if not work or verdict.get('workContinuation') is not None:
+            raise ValueError('stopped-review-not-work-correctable')
+        put(directory / 'stalled-marker-before-work.json', encoded(marker))
+        put(directory / 'work-correction-evidence.json', encoded({
+            name: reference(directory / name) for name in
+            ('events.jsonl', 'result.json', 'bundle.json', 'prompt.md')}))
     if resume_technical:
         if not route or route['phase'] != 'correction':
             raise ValueError('stopped-review-not-technically-correctable')
@@ -890,6 +943,8 @@ def finish(root, *, resume_technical=False):
                            nextAction=verdict['nextAction'], scope=verdict['scope'],
                            **({'technicalRoute': route} if route else {}),
                            **({'workContinuation': work} if work else {}),
+                           **({'workContinuationDerivation': 'same_target_offline_correction'}
+                              if work and verdict.get('workContinuation') is None else {}),
                            **({'settlementBundle': settlement_bundle} if settlement_bundle else {})))),
                        cleanup=put(directory / 'cleanup.json', encoded(dict(
                            executorPass=value['executorPasses'], assessment=verdict['cleanupAssessment'],
