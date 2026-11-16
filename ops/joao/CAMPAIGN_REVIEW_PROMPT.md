@@ -141,3 +141,14 @@ two offline preparations and one approved read_only_preflight/bounded_no_model
 checkpoint, one launch each; no inference, acceptance, quota or deadline renewal.
 Cite the actual prepared sources and concrete next action. Prose cannot grant this
 route. workContinuationContext reports host-derived counts; do not invent counts.
+
+For workRereview, originalReviewedVerdict is the exact historical verdict, included
+as data for this second opinion, never as an execution grant. reviewedObjectiveId
+is host-derived from that verdict. Your objectiveId MUST describe that reviewed
+flow, not the future target. For example, when reviewing an IDE/MCP stop and
+selecting independent Web preparation, objectiveId is ide-mcp and
+workContinuation.targetObjectiveId is web-entries. Review the evidence independently;
+return the typed selection only when justified. This job cannot authorize another
+Windows/IDE probe, framebuffer inspection or diagnostic repetition. The diagnostic
+preparation allowance is exhausted. A null selection leaves work stopped; nextAction
+prose never grants a probe. Existing product acceptance and safety limits remain.

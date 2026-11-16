@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090,SC1091,SC2034,SC2329
+# shellcheck disable=SC1090,SC1091,SC2030,SC2031,SC2034,SC2329
 # Exercise the real campaign shell dispatcher with offline boundary doubles.
 set -euo pipefail
 
@@ -54,7 +54,7 @@ exec "$@"
 SH
 chmod 700 "$CODEX_BIN" "$TIMEOUT_BIN"
 
-source "$SCRIPT_DIR/campaign.sh"
+source "${JOAO_CAMPAIGN_SHELL_SOURCE:-$SCRIPT_DIR/campaign.sh}"
 
 record() { printf '%s\n' "$1" >> "$STATE_ROOT/trace"; }
 state_file() { printf '%s/%s\n' "$STATE_ROOT" "$1"; }
@@ -74,6 +74,8 @@ campaign_command() {
 campaign_review_command() {
   case $1 in
     settlement-mode) printf 'none\n' ;;
+    work-review-limit)
+      if [[ -f $STATE_ROOT/work-rereview ]]; then printf '3\n'; else printf 'none\n'; fi ;;
     resume-correction|prepare-work-review) printf 'not_eligible\n' ;;
     owner-claim-pending)
       if [[ -f $STATE_ROOT/unreviewed-owner ]]; then printf yes; else printf no; fi ;;
@@ -289,3 +291,52 @@ printf 'PASS unreviewed owner claim receives independent review before continuat
   assert_trace 'review-model=1' 'executor=1'
   printf 'PASS premature block cannot skip review or be silently cleared\n'
 )
+
+# Exercise the actual review loop with a protected-command double for the wider
+# recovery allowance. A work handoff cannot inherit that unrelated allowance.
+# SCRIPT_DIR changes intentionally stay inside each isolated subshell fixture.
+for recovery_limit in 6 9; do
+  (
+    fresh_case "work_budget_${recovery_limit}"
+    original_script_dir=$SCRIPT_DIR
+    SCRIPT_DIR="$STATE_ROOT/review-support"
+    mkdir -p "$SCRIPT_DIR" "$STATE_ROOT/job"
+    cp "$original_script_dir/CAMPAIGN_REVIEW_PROMPT.md" "$SCRIPT_DIR/"
+    printf 'print("Synthetic objective status.")\n' > "$SCRIPT_DIR/objectives.py"
+    printf 'import sys\nassert sys.argv[1] == "review-limit"\nprint(%s)\n' "$recovery_limit" > "$SCRIPT_DIR/recovery.py"
+    touch "$STATE_ROOT/work-rereview" "$STATE_ROOT/model-timeout"
+    printf '2\n' > "$STATE_ROOT/job/model-attempts"
+    result=0
+    run_campaign_review "$STATE_ROOT/worktree" || result=$?
+    [[ $result == 70 ]]
+    assert_trace 'review-model=1' 'review-finish=0' 'executor=0'
+    [[ $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
+    # Reload the real dispatcher as a service restart would; persisted use wins.
+    review_command_double=$(declare -f campaign_review_command)
+    source "${JOAO_CAMPAIGN_SHELL_SOURCE:-$original_script_dir/campaign.sh}"
+    eval "$review_command_double"
+    result=0
+    run_campaign_review "$STATE_ROOT/worktree" || result=$?
+    [[ $result == 70 ]]
+    assert_trace 'review-model=1' 'review-finish=0' 'executor=0'
+    [[ $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
+    printf 'PASS work review inherits two attempts and stops at three despite recovery limit %s across restart\n' "$recovery_limit"
+  )
+  (
+    fresh_case "work_budget_exhausted_${recovery_limit}"
+    original_script_dir=$SCRIPT_DIR
+    SCRIPT_DIR="$STATE_ROOT/review-support"
+    mkdir -p "$SCRIPT_DIR" "$STATE_ROOT/job"
+    cp "$original_script_dir/CAMPAIGN_REVIEW_PROMPT.md" "$SCRIPT_DIR/"
+    printf 'print("Synthetic objective status.")\n' > "$SCRIPT_DIR/objectives.py"
+    printf 'import sys\nassert sys.argv[1] == "review-limit"\nprint(%s)\n' "$recovery_limit" > "$SCRIPT_DIR/recovery.py"
+    touch "$STATE_ROOT/work-rereview" "$STATE_ROOT/model-timeout"
+    printf '3\n' > "$STATE_ROOT/job/model-attempts"
+    result=0
+    run_campaign_review "$STATE_ROOT/worktree" || result=$?
+    [[ $result == 70 ]]
+    assert_trace 'review-model=0' 'review-finish=0' 'executor=0'
+    [[ $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
+    printf 'PASS exhausted work review cannot inherit recovery limit %s\n' "$recovery_limit"
+  )
+done

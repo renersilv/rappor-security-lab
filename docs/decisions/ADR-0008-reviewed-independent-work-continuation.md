@@ -49,6 +49,23 @@ parse old nextAction prose as authority, overwrite its result, reset counters, o
 open a new inference allowance. Only independently approved typed output activates
 the bounded handoff and releases the matching operational gate.
 
+## Review context and corrected-source resumption
+
+A tool-less work review receives the exact hash-bound original verdict and its
+reviewed objective as data. The proposed next target is separate; classifying the
+past evidence as the proposed target is invalid. An exhausted diagnostic branch
+cannot obtain another probe through a null work selection. Only a fresh valid
+typed selection authorizes the next work checkpoint.
+
+If a work review stalls because its installed source requires correction, a new
+job is allowed only after the bound source files change, with the original
+campaign, executor result and candidate intact. The complete previous job is
+retained by a protected hash inventory. Its consumed review attempts are carried
+forward before the new marker is exposed. A work re-review has a total ceiling of
+three model calls across these jobs, independent of generic recovery windows.
+Source changes, retries and new job names cannot renew that ceiling. An exhausted
+review remains stopped; no old verdict is rewritten or promoted to authority.
+
 ## Verification
 
 Regressions must cross the real review/finish/checkpoint boundary: the previously

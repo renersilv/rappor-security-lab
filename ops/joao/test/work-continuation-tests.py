@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real independent review boundaries; no live worker, guest or model execution."""
 import contextlib
+import copy
 import importlib.util
 import io
 import os
@@ -422,6 +423,104 @@ class WorkContinuationTests(unittest.TestCase):
         snapshot['artifacts']['prompt.md']['path'] = str(link)
         with self.assertRaises(ValueError):
             R.rereview_objective(self.state, snapshot)
+
+    def failed_work_review(self, attempts=2):
+        self.approval(); self.finish()
+        original_directory, _ = R.job(self.state)
+        original = C.private(original_directory / 'result.json')
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.prepare_work_review(self.state)
+        self.approval(workContinuation=None); self.finish()
+        directory, marker = R.job(self.state)
+        self.assertEqual(marker['phase'], 'stalled')
+        (directory / 'model-attempts').write_text(str(attempts) + '\n')
+        return directory, original
+
+    def changed_review_source(self, *, revision_only=False):
+        binding = copy.deepcopy(R.work_source_binding())
+        binding['revision'] = 'a' * 40
+        if not revision_only:
+            binding['files']['CAMPAIGN_REVIEW_PROMPT.md'] = 'b' * 64
+        return mock.patch.object(R, 'work_source_binding', return_value=binding)
+
+    def test_original_review_context_exposes_flow_and_separate_next_target(self):
+        self.approval(); self.finish()
+        original_dir, _ = R.job(self.state)
+        original = C.private(original_dir / 'result.json')
+        with contextlib.redirect_stdout(io.StringIO()):
+            R.prepare_work_review(self.state)
+        directory, _ = R.job(self.state)
+        bundle = C.private(directory / 'bundle.json')
+        self.assertEqual(bundle['originalReviewedVerdict'], original)
+        self.assertEqual(bundle['reviewedObjectiveId'], 'ide-mcp')
+        self.assertIn(original['nextAction'], (directory / 'prompt.md').read_text())
+        self.approval('web-entries', objectiveId='web-entries')
+        with self.assertRaisesRegex(ValueError, 'work-rereview-objective-mismatch'):
+            R.result(directory / 'events.jsonl', bundle)
+        self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'review_pending')
+
+    def test_source_corrected_rereview_carries_two_attempts_and_preserves_rejected_job(self):
+        old_dir, original = self.failed_work_review()
+        retained = {p: p.read_bytes() for p in old_dir.rglob('*') if p.is_file()}
+        with self.changed_review_source():
+            with contextlib.redirect_stdout(io.StringIO()):
+                new_dir = R.prepare_work_review(self.state)
+            self.assertNotEqual(new_dir, old_dir)
+            bundle = C.private(new_dir / 'bundle.json')
+            self.assertEqual(bundle['originalReviewedVerdict'], original)
+            self.assertEqual(bundle['workRereview']['attemptsConsumed'], 2)
+            self.assertEqual(len(bundle['workRereview']['priorWorkReviews']), 1)
+            self.assertEqual((new_dir / 'model-attempts').read_text(), '2\n')
+            # A transport launch consumes the third slot before calling the model.
+            (new_dir / 'model-attempts').write_text('3\n')
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(R.prepare(self.state), new_dir)
+            self.assertEqual((new_dir / 'model-attempts').read_text(), '3\n')
+            self.approval('web-entries'); self.finish()
+            self.assertEqual(R.job(self.state)[1]['phase'], 'continued')
+            self.assertEqual(R.job(self.state)[1]['unchangedReviews'], 6)
+        for path, raw in retained.items():
+            self.assertEqual(path.read_bytes(), raw)
+        self.preserved()
+
+    def test_rejected_rereview_cannot_restart_without_changed_source_bytes(self):
+        directory, _ = self.failed_work_review()
+        marker = (self.state / 'campaign-auto-review.json').read_bytes()
+        self.assertIsNone(R.prepare_work_review(self.state))
+        with self.changed_review_source(revision_only=True):
+            self.assertIsNone(R.prepare_work_review(self.state))
+        self.assertEqual((self.state / 'campaign-auto-review.json').read_bytes(), marker)
+        self.assertEqual((directory / 'model-attempts').read_text(), '2\n')
+
+    def test_source_change_cannot_renew_three_consumed_review_calls(self):
+        directory, _ = self.failed_work_review(attempts=3)
+        marker = (self.state / 'campaign-auto-review.json').read_bytes()
+        with self.changed_review_source():
+            self.assertIsNone(R.prepare_work_review(self.state))
+        self.assertEqual((self.state / 'campaign-auto-review.json').read_bytes(), marker)
+        self.assertEqual((directory / 'model-attempts').read_text(), '3\n')
+
+    def test_rejected_history_change_rejects_later_approval(self):
+        old_dir, _ = self.failed_work_review()
+        with self.changed_review_source():
+            with contextlib.redirect_stdout(io.StringIO()):
+                R.prepare_work_review(self.state)
+            self.approval('web-entries')
+            with (old_dir / 'events.jsonl').open('ab') as output:
+                output.write(b'\n')
+            with self.assertRaisesRegex(ValueError, 'review-artifact-changed'):
+                self.finish()
+            self.assertEqual(C.private(self.state / 'campaign.json')['phase'], 'review_pending')
+
+    def test_source_corrected_rereview_rejects_stale_campaign(self):
+        self.failed_work_review()
+        value = C.private(self.state / 'campaign.json')
+        value['lastSummary'] = 'Changed after the failed review.'
+        C.save(self.state / 'campaign.json', value)
+        with self.changed_review_source():
+            with self.assertRaisesRegex(ValueError, 'stale-work-rereview-snapshot'):
+                R.prepare_work_review(self.state)
+        self.assertEqual(C.private(self.state / 'campaign.json'), value)
 
 if __name__ == '__main__':
     unittest.main()

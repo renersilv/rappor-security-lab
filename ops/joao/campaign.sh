@@ -88,7 +88,7 @@ campaign_review_flush_notice() {
 }
 
 run_campaign_review() {
-  local worktree=$1 directory phase archive validation attempts limit request result=0
+  local worktree=$1 directory phase archive validation attempts limit work_limit request result=0
   phase=$(campaign_review_command phase) || return $?
   if [[ $phase == stalled ]]; then
     campaign_review_command resume-correction >/dev/null || return $?
@@ -120,6 +120,12 @@ run_campaign_review() {
   if [[ ! -f $directory/model-completed ]]; then
     limit=$(python3 "$SCRIPT_DIR/recovery.py" review-limit "$STATE_ROOT") || return $?
     [[ $limit =~ ^(3|6|9)$ ]] || return 65
+    work_limit=$(campaign_review_command work-review-limit) || return $?
+    case $work_limit in
+      3) limit=3 ;;
+      none) ;;
+      *) return 65 ;;
+    esac
     if [[ -f $directory/model-attempts ]]; then
       attempts=$(cat "$directory/model-attempts") || return $?
       [[ $attempts =~ ^[0-9]$ ]] || return 65

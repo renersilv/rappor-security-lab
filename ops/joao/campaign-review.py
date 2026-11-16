@@ -260,7 +260,10 @@ def prepare(root, *, work_rereview=None):
                   result=result, candidate=value['candidate'], executorPass=value['executorPasses'],
                   unchangedExecutableReviews=same,
                   workContinuationContext=WORK.status(value, C.artifact),
-                  workRereview=work_rereview)
+                  workRereview=work_rereview,
+                  originalReviewedVerdict=C.artifact(work_rereview['artifacts']['result.json'], protected=True) if work_rereview else None)
+    if work_rereview:
+        bundle['reviewedObjectiveId'] = bundle['originalReviewedVerdict']['objectiveId']
     put(directory / 'bundle.json', encoded(bundle))
     prompt = (Path(__file__).with_name('CAMPAIGN_REVIEW_PROMPT.md').read_text() +
               '\nPRODUCT OBJECTIVE CONTEXT:\n' + encoded(OBJECTIVES.review_context(root)).decode() +
@@ -275,6 +278,8 @@ def prepare(root, *, work_rereview=None):
                   ownerClaimResultSha256=C.digest(root / 'campaign-result.json') if result.get('phase') == 'owner_required' else None,
                   bundleSha256=C.digest(directory / 'bundle.json'),
                   promptSha256=C.digest(directory / 'prompt.md'))
+    if work_rereview:
+        put(directory / 'model-attempts', (str(work_rereview.get('attemptsConsumed', 0)) + '\n').encode())
     C.save(marker_path, marker)
     print(directory)
     return directory
@@ -289,17 +294,52 @@ def work_source_binding():
     return dict(revision=revision, files={name: C.digest(Path(__file__).with_name(name)) for name in names})
 
 
-def rereview_objective(root, snapshot):
+def full_review_artifact(ref):
+    if not isinstance(ref, dict) or set(ref) != {'path', 'sha256'}:
+        raise ValueError('invalid-review-reference')
+    raw = read_source(Path(ref['path']), C.REVIEW_ROOT)
+    if sha(raw) != ref['sha256']:
+        raise ValueError('review-artifact-changed')
+    return raw
+
+
+def rereview_objective(root, snapshot, *, historical_source=False):
     """A second opinion never appends duplicate product evidence or resets its streak."""
     old = C.artifact(snapshot['marker'], protected=True)
     for ref in snapshot['artifacts'].values():
-        if not isinstance(ref, dict) or set(ref) != {'path', 'sha256'}:
-            raise ValueError('invalid-review-reference')
-        # Full review packets/events are bounded source artifacts, not short handoffs.
-        raw = read_source(Path(ref['path']), C.REVIEW_ROOT)
-        if sha(raw) != ref['sha256']:
-            raise ValueError('review-artifact-changed')
-    if snapshot['sourceBinding'] != work_source_binding():
+        full_review_artifact(ref)
+    binding = snapshot['sourceBinding']
+    if (not isinstance(binding, dict) or set(binding) != {'revision', 'files'}
+            or not re.fullmatch('[a-f0-9]{40}', binding['revision'])
+            or set(binding['files']) != set(work_source_binding()['files'])
+            or any(not re.fullmatch('[a-f0-9]{64}', digest) for digest in binding['files'].values())):
+        raise ValueError('invalid-work-rereview-source-binding')
+    prior = snapshot.get('priorWorkReviews', [])
+    if not isinstance(prior, list) or len(prior) > 2:
+        raise ValueError('invalid-work-rereview-history')
+    consumed = 0
+    for ref in prior:
+        record = C.artifact(ref, protected=True)
+        files = record['files']
+        prior_marker = C.artifact(record['marker'], protected=True)
+        prior_directory = Path(prior_marker['directory'])
+        if not isinstance(files, dict) or len(files) > 128:
+            raise ValueError('invalid-work-rereview-job-inventory')
+        for name, artifact_ref in files.items():
+            if Path(artifact_ref['path']) != prior_directory / name or '..' in Path(name).parts or Path(name).is_absolute():
+                raise ValueError('invalid-work-rereview-job-inventory')
+            full_review_artifact(artifact_ref)
+        if files['bundle.json']['sha256'] != prior_marker['bundleSha256']:
+            raise ValueError('work-review-history-bundle-changed')
+        attempts = full_review_artifact(files['model-attempts']).decode().strip()
+        if not re.fullmatch('[1-3]', attempts) or not consumed < int(attempts) <= 3:
+            raise ValueError('work-review-attempts-invalid')
+        consumed = int(attempts)
+        if record['attemptsConsumed'] != consumed:
+            raise ValueError('work-review-attempts-invalid')
+    if snapshot.get('attemptsConsumed', 0) != consumed:
+        raise ValueError('work-review-attempts-reset')
+    if not historical_source and snapshot['sourceBinding'] != work_source_binding():
         raise ValueError('work-rereview-source-changed')
     records = OBJECTIVES._history(root)
     matches = [row for row in records if row['manifestSha256'] == old['manifest']['sha256']]
@@ -317,9 +357,12 @@ def prepare_work_review(root):
     value = current(root, stalled_replay=True)
     old = C.private(directory / 'result.json')
     bundle = C.private(directory / 'bundle.json')
-    if ('workContinuation' in old or bundle.get('workRereview') is not None
+    previous_work = bundle.get('workRereview')
+    if previous_work is None and ('workContinuation' in old
             or old['verdict'] != 'pass' or old['scope'] != 'offline'
             or old['cleanupAssessment'] not in {'verified', 'not_required'}):
+        return None
+    if previous_work and old['verdict'] == 'owner_required':
         return None
     selected = packet(value, root)
     if (C.digest(root / 'campaign.json') != marker['beforeSha256']
@@ -329,6 +372,35 @@ def prepare_work_review(root):
             or C.digest(directory / 'prompt.md') != marker['promptSha256']
             or encoded(result(directory / 'events.jsonl', bundle)) != (directory / 'result.json').read_bytes()):
         raise ValueError('stale-work-rereview-snapshot')
+    if previous_work:
+        rereview_objective(root, previous_work, historical_source=True)
+        if reference(root / 'campaign-result.json') != previous_work['campaignResult']:
+            raise ValueError('work-rereview-executor-result-changed')
+        current_binding = work_source_binding()
+        if previous_work['sourceBinding']['files'] == current_binding['files']:
+            return None
+        attempts_raw = read_source(directory / 'model-attempts', C.REVIEW_ROOT)
+        if not re.fullmatch(b'[1-3]\n', attempts_raw):
+            raise ValueError('work-review-attempts-invalid')
+        attempts = int(attempts_raw)
+        if attempts <= previous_work.get('attemptsConsumed', 0):
+            raise ValueError('work-review-attempts-reset')
+        if attempts >= 3:
+            return None
+        entries = list(directory.rglob('*'))
+        if len(entries) > 128 or any(path.is_symlink() for path in entries):
+            raise ValueError('invalid-work-rereview-job-inventory')
+        files = {str(path.relative_to(directory)): dict(path=str(path), sha256=sha(read_source(path, C.REVIEW_ROOT)))
+                 for path in entries if path.is_file()}
+        archive_dir = Path(tempfile.mkdtemp(prefix='work-rereview-history-', dir=C.REVIEW_ROOT))
+        record = put(archive_dir / 'job.json', encoded(dict(
+            marker=put(archive_dir / 'marker.json', encoded(marker)),
+            files=files, attemptsConsumed=attempts)))
+        renewed = copy.deepcopy(previous_work)
+        renewed.update(sourceBinding=current_binding, attemptsConsumed=attempts,
+                       priorWorkReviews=[*previous_work.get('priorWorkReviews', []), record])
+        rereview_objective(root, renewed)
+        return prepare(root, work_rereview=renewed)
     # Snapshot beside the new job, never modify the original result/job.
     snapshot_dir = Path(tempfile.mkdtemp(prefix='work-rereview-snapshot-', dir=C.REVIEW_ROOT))
     retry_snapshot = None
@@ -404,6 +476,9 @@ def result(path, bundle):
         if parsed['objectiveId'] not in ids or parsed['evidenceLevel'] not in OBJECTIVES.LEVELS:
             raise ValueError('invalid-reviewed-objective')
     WORK.selection(parsed)
+    if bundle.get('workRereview') and parsed.get('objectiveId') != C.artifact(
+            bundle['workRereview']['artifacts']['result.json'], protected=True).get('objectiveId'):
+        raise ValueError('work-rereview-objective-mismatch')
     findings = parsed['findings']
     if (not isinstance(findings, list) or len(findings) > 8 or
             any(not isinstance(f, str) or not 1 <= len(f) <= 2000 for f in findings) or
@@ -1047,10 +1122,15 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'prepare-work-review', 'work-status'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'prepare-work-review', 'work-status', 'work-review-limit'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'prepare-work-review':
+    if args.action == 'work-review-limit':
+        directory, marker = job(args.root)
+        if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
+            raise ValueError('review-snapshot-changed')
+        print('3' if C.private(directory / 'bundle.json').get('workRereview') else 'none')
+    elif args.action == 'prepare-work-review':
         if prepare_work_review(args.root) is None:
             print('not_eligible')
     elif args.action == 'work-status':
@@ -1087,6 +1167,7 @@ def main():
         except ValueError as error:
             repairable = {'invalid-review-findings', 'invalid-independent-verdict',
                           'invalid-work-continuation-selection', 'unsafe-work-continuation',
+                          'work-rereview-objective-mismatch',
                           'work-continuation-predecessor-mismatch', 'work-continuation-target-not-enterable',
                           'work-continuation-source-citation-required', 'unapproved-work-runtime',
                           'work-continuation-budget-exhausted',
