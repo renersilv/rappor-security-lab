@@ -57,8 +57,10 @@ export async function prepareWebZipPackage({ requestPath, requestSha256, outputD
   assert.ok(Number.isSafeInteger(request.desktop.sessionId) && request.desktop.sessionId > 0);
   closed(request.previousReview, ['path', 'sha256'], 'checkpoint-reference');
   assert.ok(isAbsolute(request.previousReview.path)); assert.match(request.previousReview.sha256, HASH);
-  closed(request.product, ['productId', 'analysisDefinitionId', 'revisionId'], 'product-fields');
-  for (const value of Object.values(request.product)) assert.match(value, UUID);
+  closed(request.product, ['productId', 'analysisName', 'environment'], 'product-fields');
+  assert.match(request.product.productId, UUID);
+  assert.match(request.product.analysisName, /^Rappor Lab Web ZIP [A-Za-z0-9][A-Za-z0-9 ._-]{0,79}$/u, 'synthetic-analysis-name-required');
+  assert.equal(request.product.environment, 'Development', 'synthetic-analysis-environment-required');
   closed(request.sourceHashes, SOURCE_NAMES, 'source-inventory');
   const sources = {};
   for (const name of SOURCE_NAMES) {

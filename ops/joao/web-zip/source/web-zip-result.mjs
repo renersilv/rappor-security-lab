@@ -9,9 +9,11 @@ export function validateWebZipResult(primary, instruction) {
   const binding = primary.execution;
   assert.match(binding.id, UUID);
   assert.equal(binding.productId, instruction.product.productId);
-  assert.equal(binding.analysisDefinitionId, instruction.product.analysisDefinitionId);
-  assert.equal(binding.revisionId, instruction.product.revisionId);
-  assert.equal(binding.uploadPath, `/api/analysis-definitions/${instruction.product.analysisDefinitionId}/assessments/uploaded-code`);
+  assert.match(binding.analysisDefinitionId, UUID);
+  assert.match(binding.revisionId, UUID);
+  assert.equal(binding.analysisName, instruction.product.analysisName);
+  assert.equal(binding.environment, instruction.product.environment);
+  assert.equal(binding.uploadPath, `/api/products/${instruction.product.productId}/analysis-definitions/uploaded-code`);
   assert.match(binding.idempotencyKey, UUID);
   assert.match(primary.selectionFingerprint, HASH);
   assert.notEqual(primary.selectionFingerprint, instruction.archiveSha256, 'selection-is-not-archive-identity');
@@ -20,6 +22,7 @@ export function validateWebZipResult(primary, instruction) {
   assert.equal(primary.counts.uploads, 1); assert.equal(primary.counts.analyses, 1);
   assert.equal(primary.rendered.executionId, binding.id);
   assert.equal(primary.rendered.revisionId, binding.revisionId);
+  assert.equal(primary.rendered.analysisDefinitionId, binding.analysisDefinitionId);
   assert.equal(primary.rendered.productId, binding.productId);
   assert.equal(primary.rendered.pathname, `/executions/${binding.id}`);
   assert.equal(primary.rendered.historyExecutionId, binding.id);

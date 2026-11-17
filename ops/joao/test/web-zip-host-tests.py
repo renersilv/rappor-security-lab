@@ -60,8 +60,8 @@ class WebZipHostTests(unittest.TestCase):
             fixtureRoot=str(self.root / 'synthetic-fixture'),
             sourceHashes={name: C.digest(H.SOURCE_ROOT / name) for name in H.SOURCE_NAMES},
             desktop=dict(account='joao', sid='S-1-5-21-100-200-300-1001', sessionId=1),
-            product={name: f'00000000-0000-4000-8000-{index:012d}' for index, name in enumerate(
-                ('productId', 'analysisDefinitionId', 'revisionId'), 1)}, previousReview=receipt['previousReview'])
+            product=dict(productId='00000000-0000-4000-8000-000000000001',
+                         analysisName='Rappor Lab Web ZIP pass238', environment='Development'), previousReview=receipt['previousReview'])
         correction['webZipRequest'] = R.put(self.checkpoint_dir / 'web-zip-request.json', R.encoded(self.request))
         # The fixture materializes the same acyclic host-owned adoption used by the operator.
         correction_path = Path(receipt['correction']['path'])
@@ -89,14 +89,20 @@ class WebZipHostTests(unittest.TestCase):
         self.assertTrue((self.checkpoint_dir / 'web-zip-host-intent.json').is_file())
         self.output.mkdir(mode=0o700)
         instruction_ref = R.put(self.output / 'instruction.json', R.encoded(dict(executorPass=238,
-            candidate=self.request['candidate'])))
+            candidate=self.request['candidate'], product=self.request['product'])))
         images = {}
         for name in ('confirmation.png', 'execution.png', 'history.png'):
             images[name] = R.put(self.output / name, b'\x89PNG\r\n\x1a\n' + name.encode() * 20)['sha256']
         primary = dict(outcome='completed', requestSha256=self.request_ref['sha256'],
             sourceHashes=self.request['sourceHashes'], candidate=self.request['candidate'],
-            execution=dict(executionId='00000000-0000-4000-8000-000000000004'),
+            execution=dict(self.request['product'], id='00000000-0000-4000-8000-000000000004',
+                analysisDefinitionId='00000000-0000-4000-8000-000000000002', revisionId='00000000-0000-4000-8000-000000000003',
+                idempotencyKey='00000000-0000-4000-8000-000000000005',
+                uploadPath='/api/products/' + self.request['product']['productId'] + '/analysis-definitions/uploaded-code'),
             confirmationScreenshotSha256=images['confirmation.png'], rendered=dict(
+                executionId='00000000-0000-4000-8000-000000000004', historyExecutionId='00000000-0000-4000-8000-000000000004',
+                analysisDefinitionId='00000000-0000-4000-8000-000000000002', revisionId='00000000-0000-4000-8000-000000000003',
+                productId=self.request['product']['productId'],
                 executionScreenshotSha256=images['execution.png'], historyScreenshotSha256=images['history.png']))
         cleanup = dict(requestSha256=self.request_ref['sha256'], sourceHashes=self.request['sourceHashes'],
             instructionSha256=instruction_ref['sha256'], failureCode=None, credentialClosed=True,
@@ -319,5 +325,19 @@ class WebZipHostTests(unittest.TestCase):
         called = self.execute(lambda _: self.fail('corrupted run was relaunched'))
         self.assertEqual(called.call_count, 0)
         self.assertEqual(C.private(self.checkpoint_dir / 'web-zip-host-result.json')['outcome'], 'unresolved')
+
+    def test_created_revision_substitution_never_emits_runtime_evidence(self):
+        def corrupted(command):
+            result = self.invoke_success(command)
+            primary = C.private(self.output / 'primary.json')
+            primary['execution']['revisionId'] = '00000000-0000-4000-8000-000000000099'
+            C.save(self.output / 'primary.json', primary)
+            return result
+        with self.assertRaises(ValueError): self.execute(corrupted)
+        self.assertFalse((self.packet_dir / 'live-web-zip.json').exists())
+        called = self.execute(lambda _: self.fail('substituted revision was relaunched'))
+        self.assertEqual(called.call_count, 0)
+        self.assertEqual(C.private(self.checkpoint_dir / 'web-zip-host-result.json')['outcome'], 'unresolved')
+        self.assert_preserved()
 
 if __name__ == '__main__': unittest.main()

@@ -93,9 +93,10 @@ function Read-WebZipInstruction([string]$Path,[string]$Hash,[string]$OwnerSid) {
         if ($value.archiveSha256 -cne '8627e45b93043f90c664fb015901e68cb1cf82d1ba93453068e5a2f1ae508af6') { throw 'fixture-binding-invalid' }
         if ($value.totalMs -ne 600000 -or $value.cleanupReserveMs -ne 90000 -or $value.parentReserveMs -ne 15000) { throw 'deadline-binding-invalid' }
         if ($value.desktop.account -cne 'joao' -or $value.desktop.sid -cne $OwnerSid -or $value.desktop.sessionId -le 0) { throw 'desktop-binding-invalid' }
-        foreach ($id in @($value.product.productId,$value.product.analysisDefinitionId,$value.product.revisionId)) {
-            if ($id -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') { throw 'product-binding-invalid' }
-        }
+        Assert-WebZipKeys $value.product @('productId','analysisName','environment')
+        if ($value.product.productId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
+            $value.product.analysisName -cnotmatch '^Rappor Lab Web ZIP [A-Za-z0-9][A-Za-z0-9 ._-]{0,79}$' -or
+            $value.product.environment -cne 'Development') { throw 'product-binding-invalid' }
         return @{ File=$file; Value=$value }
     } catch { $file.Stream.Dispose(); throw }
 }
@@ -297,32 +298,124 @@ function Invoke-WebZipOfficialLogin($Cdp,$Instruction,$Clock,[string]$Root) {
         $login = $null; $expression = $null
     }
 }
+function Get-WebZipCreationExpression([string]$Action,$Product) {
+    # Public wizard controls only; no application state or direct upload calls.
+    $script = @'
+(input => {
+  const visible = element => element && element.getClientRects().length > 0;
+  const unique = (root, selector) => {
+    const items = [...(root?.querySelectorAll(selector) || [])].filter(visible);
+    if (items.length !== 1 || items[0].disabled) throw new Error("creation-control-unavailable");
+    return items[0];
+  };
+  const step = name => document.querySelector('[aria-labelledby="analysis-step-' + name + '"]');
+  const next = name => {
+    const buttons = [...(step(name)?.querySelectorAll('button[type="button"]') || [])]
+      .filter(button => visible(button) && !button.disabled && /^(Next|Pr.xima)$/iu.test(button.innerText.trim()));
+    if (buttons.length !== 1) throw new Error("creation-next-unavailable");
+    buttons[0].click(); return true;
+  };
+  const expectedPath = '/products/' + input.product.productId + '/analyses/new';
+  if (input.action === 'ready') return {path:location.pathname,version:document.body.innerText,ready:location.pathname === expectedPath && !!step('source')};
+  if (location.pathname !== expectedPath) throw new Error("creation-path-mismatch");
+  switch (input.action) {
+    case 'choose-zip': unique(step('source'), 'input[type="radio"][name="source-choice"][value="zip"]').click(); return true;
+    case 'zip-selected': return unique(step('source'), 'input[type="radio"][value="zip"]').checked;
+    case 'source-next': return next('source');
+    case 'details-ready': return !!step('details');
+    case 'fill-details': {
+      const name = unique(step('details'), 'input:not([type]), input[type="text"]');
+      const environment = unique(step('details'), 'select');
+      if (![...environment.options].some(option => option.value === input.product.environment)) throw new Error("creation-environment-unavailable");
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(name, input.product.analysisName);
+      name.dispatchEvent(new Event('input', {bubbles:true}));
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(environment, input.product.environment);
+      environment.dispatchEvent(new Event('change', {bubbles:true})); return true;
+    }
+    case 'details-match': return unique(step('details'), 'input:not([type]), input[type="text"]').value === input.product.analysisName && unique(step('details'), 'select').value === input.product.environment;
+    case 'details-next': return next('details');
+    case 'file-ready': return !!step('configuration')?.querySelector('input[type="file"]');
+    case 'open-picker': {
+      const file = unique(step('configuration'), 'input[type="file"]');
+      if (file.files.length || file.accept !== '.zip,application/zip') throw new Error("input-not-empty");
+      file.click(); return true;
+    }
+    case 'selection': {
+      const file = unique(step('configuration'), 'input[type="file"]').files[0];
+      return file ? {name:file.name,size:file.size,lastModified:file.lastModified} : null;
+    }
+    case 'configuration-next': return next('configuration');
+    case 'review': {
+      const review = step('review');
+      if (!review) return false;
+      const values = [...review.querySelectorAll('dd')].filter(visible).map(item => item.innerText.trim());
+      if (!values.includes(input.product.analysisName) || !values.includes('Development') && !values.includes('Desenvolvimento')) throw new Error("creation-review-mismatch");
+      unique(review, 'button[type="submit"]'); return true;
+    }
+    case 'confirm': unique(step('review'), 'button[type="submit"]').click(); return true;
+    default: throw new Error("creation-action-invalid");
+  }
+})
+'@
+    return '(' + $script + ')(' + (@{action=$Action;product=$Product} | ConvertTo-Json -Compress) + ')'
+}
+function Get-WebZipCoverageExpression {
+    $script = @'
+(() => {
+  const metrics = [...document.querySelectorAll('[data-summary-content="indicators"] h3')]
+    .filter(element => element.getClientRects().length && /^(Coverage|Cobertura)$/iu.test(element.innerText.trim()));
+  if (metrics.length !== 1) return false;
+  const paragraphs = [...metrics[0].parentElement.children].filter(element => element.tagName === 'P');
+  if (paragraphs.length !== 2 || !/^3 (of|de) 3 (tools|ferramentas)$/u.test(paragraphs[0].innerText.trim())) return false;
+  const statuses = [...paragraphs[1].querySelectorAll('span')].map(element => element.innerText.trim());
+  return statuses.some(text => /^(Complete|Completa)$/u.test(text)) &&
+    statuses.some(text => /^Gitleaks, Semgrep,? (and|e) Trivy (completed|concluíram)\.?$/u.test(text));
+})()
+'@
+    return $script
+}
+function Assert-WebZipUploadEvents($Cdp,[string]$Origin,[string]$ExpectedUpload,[switch]$BeforeSubmit) {
+    $mutations = @($Cdp.Events | Where-Object {
+        $_.method -ceq 'Network.requestWillBeSent' -and $_.params.request.url.StartsWith($Origin + '/') -and
+        $_.params.request.method -cin @('POST','PUT','PATCH','DELETE')
+    })
+    if ($BeforeSubmit -and $mutations.Count -ne 0) { throw 'mutation-before-confirmation' }
+    if ($mutations.Count -gt 1) { throw 'duplicate-or-unexpected-mutation' }
+    if ($mutations.Count -eq 1 -and ($mutations[0].params.request.url -cne $ExpectedUpload -or
+        $mutations[0].params.request.method -cne 'POST')) { throw 'unexpected-mutation' }
+}
 function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
     Initialize-WebZipUi
     $cdp = Connect-WebZipCdp $Binding $Clock
     try {
         $origin = $Instruction.candidate.origin
         $product = $Instruction.product
-        $path = '/products/' + $product.productId + '/analyses/' + $product.analysisDefinitionId
+        $path = '/products/' + $product.productId + '/analyses/new'
         $null = Invoke-WebZipCdp $cdp 'Page.enable' @{}
         Invoke-WebZipOfficialLogin $cdp $Instruction $Clock $Root
         $null = Invoke-WebZipCdp $cdp 'Network.enable' @{}
-        $null = Invoke-WebZipCdp $cdp 'Page.navigate' @{url=($origin + $path)}
+        $null = Invoke-WebZipCdp $cdp 'Page.navigate' @{url=($origin + $path + '?type=source-code')}
         $null = Wait-WebZip $Clock 30000 {
             $location = Invoke-WebZipCdp $cdp 'Runtime.evaluate' @{expression='location.origin';returnByValue=$true}
             return $location.result.value -ceq $origin
         }
         $null = Wait-WebZip $Clock 30000 {
-            $state = Invoke-WebZipExpression $cdp '({path:location.pathname,version:document.body.innerText,input:!!document.querySelector("#analysis-uploaded-package")})' $origin
+            $state = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'ready' $product) $origin
             if ($state.path -eq '/login') { throw 'authenticated-session-unavailable' }
             if ($state.path -ne $path) { return $false }
             if ($state.version -notmatch [regex]::Escape($Instruction.candidate.version)) { return $false }
-            return $state.input
+            return $state.ready
         }
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'choose-zip' $product) $origin
+        $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'zip-selected' $product) $origin }
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'source-next' $product) $origin
+        $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'details-ready' $product) $origin }
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'fill-details' $product) $origin
+        $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'details-match' $product) $origin }
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'details-next' $product) $origin
+        $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'file-ready' $product) $origin }
         # Exactly one native selection. CDP clicks the official file input; it never sets files.
-        $empty = Invoke-WebZipExpression $cdp '(() => { const x=document.querySelector("#analysis-uploaded-package"); if(!x || x.disabled || x.files.length) throw new Error("input-not-empty"); return true; })()' $origin
-        if (-not $empty) { throw 'input-not-empty' }
-        $null = Invoke-WebZipExpression $cdp 'document.querySelector("#analysis-uploaded-package").click()' $origin
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'open-picker' $product) $origin
         $dialog = Wait-WebZip $Clock 30000 {
             $windows = [Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$Binding.Id))
@@ -336,21 +429,27 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
             [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1148')))
         if ($edits.Count -ne 1) { throw 'picker-filename-control-unavailable' }
         Assert-WebZipWindow $dialog $Binding -Dialog
+        $null = Get-WebZipRemaining $Clock 90000
         $edits[0].GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue((Join-Path $Root $Instruction.archiveFileName))
         $buttons = @($dialog.FindAll([Windows.Automation.TreeScope]::Descendants,
             [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')))
         if ($buttons.Count -ne 1) { throw 'picker-confirm-control-unavailable' }
+        $null = Get-WebZipRemaining $Clock 90000
         $buttons[0].GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
         $selection = Wait-WebZip $Clock 10000 {
-            Invoke-WebZipExpression $cdp '(() => {const x=document.querySelector("#analysis-uploaded-package");const f=x?.files?.[0];return f?{name:f.name,size:f.size,lastModified:f.lastModified}:null;})()' $origin
+            Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'selection' $product) $origin
         }
         if ($selection.name -cne $Instruction.archiveFileName -or $selection.size -ne $Instruction.archiveSize) { throw 'selected-file-mismatch' }
         $selectionFingerprint = Get-WebZipHash ([Text.Encoding]::UTF8.GetBytes(($selection | ConvertTo-Json -Compress)))
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'configuration-next' $product) $origin
+        $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'review' $product) $origin }
         $confirmationScreenshot = Save-WebZipScreenshot $cdp (Join-Path $Root 'confirmation.png')
-        $null = Invoke-WebZipExpression $cdp '(() => {const section=document.querySelector("#analysis-next-execution-title")?.closest("section");const buttons=[...(section?.querySelectorAll("button")||[])].filter(b=>!b.disabled && /^(Run analysis|Execute analysis|Executar an.lise)$/iu.test(b.innerText.trim()));if(buttons.length!==1)throw new Error("confirmation-control-unavailable");buttons[0].click();return true;})()' $origin
-        $expectedUpload = $origin + '/api/analysis-definitions/' + $product.analysisDefinitionId + '/assessments/uploaded-code'
+        $expectedUpload = $origin + '/api/products/' + $product.productId + '/analysis-definitions/uploaded-code'
+        Assert-WebZipUploadEvents $cdp $origin $expectedUpload -BeforeSubmit
+        $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'confirm' $product) $origin
         $upload = Wait-WebZip $Clock 60000 {
             $null = Invoke-WebZipExpression $cdp '({path:location.pathname})' $origin
+            Assert-WebZipUploadEvents $cdp $origin $expectedUpload
             $requests = @($cdp.Events | Where-Object { $_.method -ceq 'Network.requestWillBeSent' -and $_.params.request.url -ceq $expectedUpload })
             if ($requests.Count -gt 1) { throw 'duplicate-upload' }
             if ($requests.Count -ne 1) { return $false }
@@ -358,26 +457,38 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
             $responses = @($cdp.Events | Where-Object { $_.method -ceq 'Network.responseReceived' -and $_.params.requestId -ceq $request.params.requestId })
             if ($responses.Count -ne 1) { return $false }
             if ($request.params.request.method -cne 'POST' -or $responses[0].params.response.status -lt 200 -or $responses[0].params.response.status -ge 300) { throw 'upload-rejected' }
+            $finished = @($cdp.Events | Where-Object { $_.method -ceq 'Network.loadingFinished' -and $_.params.requestId -ceq $request.params.requestId })
+            if ($finished.Count -ne 1) { return $false }
             $body = Invoke-WebZipCdp $cdp 'Network.getResponseBody' @{requestId=$request.params.requestId}
             if ($body.base64Encoded) { throw 'upload-response-encoding-invalid' }
             $execution = $body.body | ConvertFrom-Json
             $post = Invoke-WebZipCdp $cdp 'Network.getRequestPostData' @{requestId=$request.params.requestId}
             # Observe only these public multipart fields; never persist bodies, cookies or headers.
-            $revision = [regex]::Match($post.postData,'name="analysisDefinitionRevisionId"\r?\n\r?\n([a-f0-9-]{36})').Groups[1].Value
-            $idempotency = [regex]::Match($post.postData,'name="idempotencyKey"\r?\n\r?\n([a-f0-9-]{36})').Groups[1].Value
-            if ($revision -cne $product.revisionId -or $idempotency -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') { throw 'upload-revision-unavailable' }
-            if ($execution.productId -cne $product.productId -or $execution.analysisDefinitionId -cne $product.analysisDefinitionId -or
-                $execution.id -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') { throw 'upload-execution-mismatch' }
+            $fields = @{}
+            foreach ($name in @('name','environment','idempotencyKey')) {
+                $matches = [regex]::Matches($post.postData,'name="' + $name + '"\r?\n\r?\n([^\r\n]+)')
+                if ($matches.Count -ne 1) { throw 'upload-field-unavailable' }
+                $fields[$name] = $matches[0].Groups[1].Value
+            }
+            if ($fields.name -cne $product.analysisName -or $fields.environment -cne $product.environment -or
+                $fields.idempotencyKey -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
+                $post.postData -match 'name="analysisDefinitionRevisionId"') { throw 'upload-configuration-mismatch' }
+            foreach ($id in @($execution.id,$execution.analysisDefinitionId,$execution.analysisDefinitionRevisionId)) {
+                if ($id -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') { throw 'upload-execution-mismatch' }
+            }
+            if ($execution.productId -cne $product.productId -or $execution.profile -cne 'CodeBaseline' -or
+                $execution.executionMode -cne 'Managed' -or $execution.targetType -cne 'UploadedCode') { throw 'upload-execution-mismatch' }
             return @{id=$execution.id;productId=$execution.productId;analysisDefinitionId=$execution.analysisDefinitionId;
-                revisionId=$revision;idempotencyKey=$idempotency;uploadPath=([Uri]$expectedUpload).AbsolutePath}
+                revisionId=$execution.analysisDefinitionRevisionId;analysisName=$fields.name;environment=$fields.environment;
+                idempotencyKey=$fields.idempotencyKey;uploadPath=([Uri]$expectedUpload).AbsolutePath}
         }
         $executionPath = '/executions/' + $upload.id
         $rendered = Wait-WebZip $Clock 240000 {
-            $state = Invoke-WebZipExpression $cdp '(() => {const summary=[...document.querySelectorAll("summary")].find(e=>/Technical details|Detalhes t.cnicos/iu.test(e.innerText));if(summary && !summary.parentElement.open)summary.click();const pairs=[...document.querySelectorAll("dt")].filter(e=>e.getClientRects().length).map(e=>[e.innerText.trim(),e.parentElement.querySelector("dd")?.innerText.trim()]);const value=p=>pairs.find(([k])=>p.test(k))?.[1];return {pathname:location.pathname,text:document.body.innerText,executionId:value(/Execution identifier|Identificador da execu/iu),revisionId:value(/Exact configuration revision|Revis.o exata da configura/iu),productId:[...document.querySelectorAll("a[href]")].map(e=>new URL(e.href).pathname).find(x=>/^\/products\/[a-f0-9-]+$/.test(x))?.split("/").pop()};})()' $origin
+            $state = Invoke-WebZipExpression $cdp '(() => {const summary=[...document.querySelectorAll("summary")].find(e=>/Technical details|Detalhes t.cnicos/iu.test(e.innerText));if(summary && !summary.parentElement.open)summary.click();const pairs=[...document.querySelectorAll("dt")].filter(e=>e.getClientRects().length).map(e=>[e.innerText.trim(),e.parentElement.querySelector("dd")?.innerText.trim()]);const value=p=>pairs.find(([k])=>p.test(k))?.[1];return {pathname:location.pathname,text:document.body.innerText,executionId:value(/Execution identifier|Identificador da execu/iu),revisionId:value(/Exact configuration revision|Revis.o exata da configura/iu),analysisDefinitionId:[...document.querySelectorAll("a[href]")].map(e=>new URL(e.href).pathname).find(x=>/^\/products\/[a-f0-9-]+\/analyses\/[a-f0-9-]+$/.test(x))?.split("/").pop(),productId:[...document.querySelectorAll("a[href]")].map(e=>new URL(e.href).pathname).find(x=>/^\/products\/[a-f0-9-]+$/.test(x))?.split("/").pop()};})()' $origin
             if ($state.pathname -ne $executionPath) { return $false }
-            if (-not $state.executionId -or -not $state.revisionId -or -not $state.productId) { return $false }
-            if ($state.executionId -cne $upload.id -or $state.revisionId -cne $upload.revisionId -or $state.productId -cne $upload.productId) { throw 'rendered-execution-mismatch' }
-            if ($state.text -notmatch '3 (?:of|de) 3 (?:tools|ferramentas)' -or $state.text -notmatch 'Gitleaks, Semgrep, (?:and|e) Trivy (?:completed|conclu)') { return $false }
+            if (-not $state.executionId -or -not $state.revisionId -or -not $state.productId -or -not $state.analysisDefinitionId) { return $false }
+            if ($state.analysisDefinitionId -cne $upload.analysisDefinitionId -or $state.executionId -cne $upload.id -or $state.revisionId -cne $upload.revisionId -or $state.productId -cne $upload.productId) { throw 'rendered-execution-mismatch' }
+            if (-not (Invoke-WebZipExpression $cdp (Get-WebZipCoverageExpression) $origin)) { return $false }
             return $state
         }
         $scoreMatch = [regex]::Match($rendered.text,'(?i)(?:SCORE FOR THIS EXECUTION|NOTA DESTA EXECU|SCORE DESTA EXECU)[^0-9]{0,12}(\d+(?:[.,]\d+)?) (?:out of|de) 100')
@@ -391,10 +502,11 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
             $expr = 'location.pathname === ' + ($historyPath | ConvertTo-Json -Compress) + ' && [...document.querySelectorAll("a[href]")].some(a=>a.getClientRects().length && new URL(a.href).pathname === ' + ($executionPath | ConvertTo-Json -Compress) + ')'
             Invoke-WebZipExpression $cdp $expr $origin
         }
+        Assert-WebZipUploadEvents $cdp $origin $expectedUpload
         $historyScreenshot = Save-WebZipScreenshot $cdp (Join-Path $Root 'history.png')
         return @{execution=$upload;selectionFingerprint=$selectionFingerprint;confirmationObserved=$true;
             confirmationScreenshotSha256=$confirmationScreenshot;
-            rendered=@{executionId=$upload.id;revisionId=$upload.revisionId;productId=$upload.productId;pathname=$executionPath;
+            rendered=@{executionId=$upload.id;analysisDefinitionId=$upload.analysisDefinitionId;revisionId=$upload.revisionId;productId=$upload.productId;pathname=$executionPath;
                 historyExecutionId=$upload.id;coverageComplete=$true;score=[double]::Parse($scoreMatch.Groups[1].Value.Replace(',','.'),[Globalization.CultureInfo]::InvariantCulture);
                 problemCount=$problemCount;executionScreenshotSha256=$executionScreenshot;historyScreenshotSha256=$historyScreenshot}}
     } finally { $cdp.Socket.Abort(); $cdp.Socket.Dispose() }

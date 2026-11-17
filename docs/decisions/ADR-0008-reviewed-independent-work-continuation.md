@@ -143,7 +143,32 @@ permitted. A failed login is unresolved, not inferred owner action or acceptance
 Local Node/PowerShell process regressions use synthetic credentials and explicit
 Windows/DPAPI/UI doubles. Their passing result does not establish native Windows,
 PowerShell5.1, DPAPI transfer, an authenticated desktop, upload or scanner success.
-Actual observed SID/session and existing authorized product/definition/revision
-IDs are required before the protected runtime request can be admitted. Original
+Actual observed SID/session and the existing authorized product are required
+before the protected runtime request can be admitted. The first-upload correction
+below replaces the initial requirement for a pre-existing ZIP definition/revision. Original
 review237, earlier packets, all preparation counts and the inference ledger remain
 immutable. See `ops/joao/web-zip/README.md` and the host rollout procedure.
+
+
+## First-upload input correction
+
+The bounded official catalogue observation found one accessible product with eleven
+active LocalFolder/SelfHosted definitions and no UploadedZip/Managed definition.
+The first-upload Web journey already creates the definition and execution in one
+confirmed upload; requiring a pre-existing ZIP definition was a runner prerequisite
+error, not a product requirement or a reason to ask the owner to fabricate IDs.
+
+The same fixed entrypoint now binds an existing product, a restricted synthetic
+analysis name and `Development`. It follows the published v0.92.0 creation wizard,
+observes one `createUploaded` request, and obtains the definition and revision only
+from its response. Request metadata, returned product, rendered execution, exact
+revision, definition and history must agree. The host packet checks these bindings.
+No product creation, preparatory scan, separate configuration or old rerun branch
+is introduced. Full rendered coverage excludes partial Semgrep coverage even when
+all three tool processes completed.
+
+This source correction does not change the protected grant, launch allowance,
+600-second deadline, counters, historical evidence or installation. The existing
+reviewed host authority still controls runtime. Offline browser primitives and
+Windows process doubles do not establish native picker, DPAPI, login or live scan
+success; the real journey remains outstanding until its bound evidence is reviewed.

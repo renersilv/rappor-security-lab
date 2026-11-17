@@ -29,7 +29,7 @@ async function topology({wrongPredecessor=false}={}){
       candidate:WEB_ZIP_PASS237.candidate,executorPass:238,
       fixtureRoot:join(local,'fixture'),sourceHashes,
       desktop:{account:'joao',sid:'S-1-5-21-100-200-300-1001',sessionId:1},
-      product:{productId:uuid(1),analysisDefinitionId:uuid(2),revisionId:uuid(3)},
+      product:{productId:uuid(1),analysisName:'Rappor Lab Web ZIP pass238',environment:'Development'},
       previousReview:wrongPredecessor?otherPrevious:previous};
     const requestRef=await put('request',request);
     assert.equal(creation.includes('review'),false,'request is materialized before the current review exists');

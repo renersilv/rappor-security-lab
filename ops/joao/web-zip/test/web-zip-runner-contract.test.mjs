@@ -21,7 +21,7 @@ export async function makeRequest() {
   const request={schema:1,kind:'web_zip_execution_request',issue:19,authorizationId:WEB_ZIP_PASS237.authorizationId,
     candidate:WEB_ZIP_PASS237.candidate,executorPass:238,fixtureRoot:join(work,'fixture'),sourceHashes,
     desktop:{account:'joao',sid:'S-1-5-21-100-200-300-1001',sessionId:1},
-    product:{productId:uuid(1),analysisDefinitionId:uuid(2),revisionId:uuid(3)},
+    product:{productId:uuid(1),analysisName:'Rappor Lab Web ZIP pass238',environment:'Development'},
     previousReview:{path:join(root,'synthetic-previous-review.json'),sha256:'a'.repeat(64)}};
   return {root,request,async args(){const path=join(root,'request.json'); const bytes=Buffer.from(JSON.stringify(request));
     await writeFile(path,bytes,{mode:0o600}); return {requestPath:path,requestSha256:digest(bytes),outputDirectory:join(root,'output')};},
@@ -60,11 +60,11 @@ for(const [name,change] of Object.entries({
   }finally{await f.close();}
 });
 function resultFixture(){const instruction={requestSha256:'a'.repeat(64),archiveSha256:'b'.repeat(64),candidate:WEB_ZIP_PASS237.candidate,
-  product:{productId:uuid(1),analysisDefinitionId:uuid(2),revisionId:uuid(3)},sourceHashes:{worker:'c'.repeat(64)}};
-  const execution={id:uuid(4),...instruction.product,uploadPath:`/api/analysis-definitions/${uuid(2)}/assessments/uploaded-code`,idempotencyKey:uuid(5)};
+  product:{productId:uuid(1),analysisName:'Rappor Lab Web ZIP pass238',environment:'Development'},sourceHashes:{worker:'c'.repeat(64)}};
+  const execution={id:uuid(4),...instruction.product,analysisDefinitionId:uuid(2),revisionId:uuid(3),uploadPath:`/api/products/${uuid(1)}/analysis-definitions/uploaded-code`,idempotencyKey:uuid(5)};
   const primary={outcome:'completed',requestSha256:instruction.requestSha256,archiveSha256:instruction.archiveSha256,
     candidate:instruction.candidate,sourceHashes:instruction.sourceHashes,execution,selectionFingerprint:'d'.repeat(64),confirmationObserved:true,
-    counts:{pickerOpens:1,fileSelections:1,uploads:1,analyses:1},rendered:{executionId:execution.id,revisionId:execution.revisionId,
+    counts:{pickerOpens:1,fileSelections:1,uploads:1,analyses:1},rendered:{executionId:execution.id,analysisDefinitionId:execution.analysisDefinitionId,revisionId:execution.revisionId,
       productId:execution.productId,pathname:`/executions/${execution.id}`,historyExecutionId:execution.id,coverageComplete:true,
       score:58.9,problemCount:70,executionScreenshotSha256:'e'.repeat(64),historyScreenshotSha256:'f'.repeat(64)}};
   return {instruction,primary};}
@@ -74,7 +74,13 @@ test('ZIP result binds execution/revision/history and does not require workspace
 });
 for(const [name,mutate] of Object.entries({
   other_execution:p=>{p.rendered.executionId=uuid(99);},other_history:p=>{p.rendered.historyExecutionId=uuid(99);},
-  other_revision:p=>{p.execution.revisionId=uuid(99);},workspace_endpoint:p=>{p.execution.uploadPath='/api/workspace/operations';},
+  other_revision:p=>{p.execution.revisionId=uuid(99);},
+  missing_created_revision:p=>{delete p.execution.revisionId;},
+  missing_created_definition:p=>{delete p.execution.analysisDefinitionId;},
+  mismatched_created_definition:p=>{p.rendered.analysisDefinitionId=uuid(99);},
+  wrong_creation_name:p=>{p.execution.analysisName='Unreviewed';},
+  wrong_creation_environment:p=>{p.execution.environment='Production';},
+  workspace_endpoint:p=>{p.execution.uploadPath='/api/workspace/operations';},
   archive_as_selection:p=>{p.selectionFingerprint=p.archiveSha256;},missing_screenshot:p=>{delete p.rendered.executionScreenshotSha256;},
   unrelated_source:p=>{p.sourceHashes={worker:'0'.repeat(64)};},
 }))test(`ZIP provenance rejects ${name}`,()=>{const {instruction,primary}=resultFixture();mutate(primary);

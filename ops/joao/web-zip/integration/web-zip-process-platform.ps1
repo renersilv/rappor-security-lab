@@ -14,6 +14,8 @@ $script:FixtureOwned = $null
 $script:FixtureAuthenticated=$false
 $script:FixtureLoginSubmits=0
 $script:FixtureNetworkEnabled=$false
+$script:FixtureCreationStage='source'
+$script:FixtureUploadSubmits=0
 function Add-FixtureEvent([string]$Event) {
     [IO.File]::AppendAllText((Join-Path $script:FixtureRoot 'events.txt'),$Event + "`n")
 }
@@ -245,6 +247,8 @@ function Connect-WebZipCdp($Binding,$Clock) {
 function Invoke-WebZipCdp($Cdp,[string]$Method,$Parameters) {
     $i=$script:FixtureInstruction;$p=$i.product
     $execution='00000000-0000-4000-8000-000000000004'
+    $definition='00000000-0000-4000-8000-000000000002'
+    $revision='00000000-0000-4000-8000-000000000003'
     switch($Method){
       'Network.disable' {$script:FixtureNetworkEnabled=$false;Add-FixtureEvent 'network-disabled';return @{}}
       'Network.enable' {
@@ -259,8 +263,19 @@ function Invoke-WebZipCdp($Cdp,[string]$Method,$Parameters) {
         return @{}
       }
       'Page.captureScreenshot' {return @{data=[Convert]::ToBase64String([byte[]]::new(128))}}
-      'Network.getResponseBody' {return @{base64Encoded=$false;body=(@{id=$execution;productId=$p.productId;analysisDefinitionId=$p.analysisDefinitionId}|ConvertTo-Json -Compress)}}
-      'Network.getRequestPostData' {return @{postData=('name="analysisDefinitionRevisionId"' + "`r`n`r`n" + $p.revisionId + "`r`n" + 'name="idempotencyKey"' + "`r`n`r`n00000000-0000-4000-8000-000000000005`r`n")}}
+      'Network.getResponseBody' {
+        $response=@{id=$execution;productId=$p.productId;analysisDefinitionId=$definition;analysisDefinitionRevisionId=$revision;
+          profile='CodeBaseline';executionMode='Managed';targetType='UploadedCode'}
+        if($script:FixtureScenario -eq 'missing-created-revision'){$response.Remove('analysisDefinitionRevisionId')}
+        if($script:FixtureScenario -eq 'wrong-created-product'){$response.productId='00000000-0000-4000-8000-000000000099'}
+        if($script:FixtureScenario -eq 'wrong-created-mode'){$response.executionMode='SelfHosted'}
+        return @{base64Encoded=$false;body=($response|ConvertTo-Json -Compress)}
+      }
+      'Network.getRequestPostData' {
+        $name=if($script:FixtureScenario -eq 'wrong-upload-name'){'Unreviewed name'}else{$p.analysisName}
+        $environment=if($script:FixtureScenario -eq 'wrong-upload-environment'){'Production'}else{$p.environment}
+        return @{postData=('name="name"' + "`r`n`r`n" + $name + "`r`n" + 'name="environment"' + "`r`n`r`n" + $environment + "`r`n" + 'name="idempotencyKey"' + "`r`n`r`n00000000-0000-4000-8000-000000000005`r`n")}
+      }
       'Runtime.evaluate' {
         $expression=[string]$Parameters.expression
         if($expression -ceq 'location.origin') {
@@ -280,16 +295,49 @@ function Invoke-WebZipCdp($Cdp,[string]$Method,$Parameters) {
           $value=$script:FixtureAuthenticated
         }
         elseif($expression.Contains('#login-email')) {$value=$true}
-        elseif($expression.Contains('version:document.body.innerText')) {$value=@{path=('/products/'+$p.productId+'/analyses/'+$p.analysisDefinitionId);version=$i.candidate.version;input=$true}}
-        elseif($expression.Contains('lastModified')) {$value=@{name=$i.archiveFileName;size=$i.archiveSize;lastModified=1}}
-        elseif($expression.Contains('const pairs=')) {$value=@{pathname=('/executions/'+$execution);executionId=$execution;revisionId=$p.revisionId;productId=$p.productId;text='3 of 3 tools Gitleaks, Semgrep, and Trivy completed SCORE FOR THIS EXECUTION 58.9 out of 100 70 Problems'}}
-        elseif($expression.Contains('({path:location.pathname})')) {
-          if($Cdp.Events.Count -eq 0){
-            $Cdp.Events.Add([pscustomobject]@{method='Network.requestWillBeSent';params=@{requestId='fixture-request';request=@{url=($i.candidate.origin+'/api/analysis-definitions/'+$p.analysisDefinitionId+'/assessments/uploaded-code');method='POST'}}})
-            $Cdp.Events.Add([pscustomobject]@{method='Network.responseReceived';params=@{requestId='fixture-request';response=@{status=200}}})
+        elseif($expression.Contains('creation-action-invalid')) {
+          $action=[regex]::Match($expression,'"action":"([a-z-]+)"').Groups[1].Value
+          switch($action){
+            'ready' {$value=@{path=('/products/'+$p.productId+'/analyses/new');version=$i.candidate.version;ready=$true}}
+            'choose-zip' {if($script:FixtureCreationStage -ne 'source'){throw 'fixture-wrong-step'};Add-FixtureEvent 'zip-chosen';$value=$true}
+            'zip-selected' {$value=$true}
+            'source-next' {$script:FixtureCreationStage='details';$value=$true}
+            'details-ready' {$value=$script:FixtureCreationStage -eq 'details'}
+            'fill-details' {if($script:FixtureCreationStage -ne 'details'){throw 'fixture-wrong-step'};Add-FixtureEvent 'synthetic-details-filled';$value=$true}
+            'details-match' {$value=$true}
+            'details-next' {$script:FixtureCreationStage='configuration';$value=$true}
+            'file-ready' {$value=$script:FixtureCreationStage -eq 'configuration'}
+            'open-picker' {if($script:FixtureCreationStage -ne 'configuration'){throw 'fixture-wrong-step'};Add-FixtureEvent 'picker-opened';$value=$true}
+            'selection' {$value=@{name=$i.archiveFileName;size=$i.archiveSize;lastModified=1}}
+            'configuration-next' {$script:FixtureCreationStage='review';$value=$true}
+            'review' {$value=$script:FixtureCreationStage -eq 'review'}
+            'confirm' {
+              if($script:FixtureCreationStage -ne 'review'){throw 'fixture-wrong-step'}
+              $script:FixtureUploadSubmits++
+              if($script:FixtureUploadSubmits -ne 1){throw 'fixture-duplicate-submit'}
+              Add-FixtureEvent 'upload-submitted';$value=$true
+              $uploadUrl=$i.candidate.origin+'/api/products/'+$p.productId+'/analysis-definitions/uploaded-code'
+              if($script:FixtureScenario -eq 'unexpected-mutation'){$uploadUrl=$i.candidate.origin+'/api/products'}
+              $Cdp.Events.Add([pscustomobject]@{method='Network.requestWillBeSent';params=@{requestId='fixture-request';request=@{url=$uploadUrl;method='POST'}}})
+              if($script:FixtureScenario -eq 'duplicate-upload'){$Cdp.Events.Add($Cdp.Events[0])}
+              $Cdp.Events.Add([pscustomobject]@{method='Network.responseReceived';params=@{requestId='fixture-request';response=@{status=201}}})
+              $Cdp.Events.Add([pscustomobject]@{method='Network.loadingFinished';params=@{requestId='fixture-request'}})
+            }
+            default {throw 'fixture-unexpected-creation-action'}
           }
-          $value=@{path=('/executions/'+$execution)}
-        } else {$value=$true}
+        }
+        elseif($expression.Contains('const metrics =')) {
+          $value=$script:FixtureScenario -ne 'partial-coverage'
+          if(-not $value){Add-FixtureEvent 'partial-coverage-observed';$script:FixtureExpired=$true}
+        }
+        elseif($expression.Contains('const pairs=')) {
+          if($script:FixtureScenario -eq 'wrong-rendered-revision'){$revision='00000000-0000-4000-8000-000000000099'}
+          if($script:FixtureScenario -eq 'wrong-rendered-definition'){$definition='00000000-0000-4000-8000-000000000099'}
+          $coverage=if($script:FixtureScenario -eq 'partial-coverage'){'3 of 3 tools Gitleaks, Semgrep, and Trivy completed Semgrep limitation'}else{'3 of 3 tools Gitleaks, Semgrep, and Trivy completed'}
+          $value=@{pathname=('/executions/'+$execution);executionId=$execution;analysisDefinitionId=$definition;revisionId=$revision;productId=$p.productId;text=($coverage+' SCORE FOR THIS EXECUTION 58.9 out of 100 70 Problems')}
+        }
+        elseif($expression.Contains('({path:location.pathname})')) {$value=@{path=('/executions/'+$execution)}}
+        else {$value=$true}
         return @{result=@{value=$value}}
       }
       default {throw ('fixture-unexpected-cdp-method:'+$Method)}

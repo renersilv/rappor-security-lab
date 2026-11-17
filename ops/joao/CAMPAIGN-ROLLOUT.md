@@ -25,7 +25,8 @@ grant or launch Windows.
 
 Runtime admission is a separate protected operator checkpoint through the existing
 review verifier. Bind current observed desktop SID/session and one authorized
-existing UploadedZip/Managed definition/current revision. Serialize private request,
+existing product plus restricted synthetic analysis name and Development environment.
+The first upload returns the real definition and revision; do not pre-create them. Serialize private request,
 correction and review in that order; the request names the preserved predecessor.
 The fixed source closure lives in `ops/joao/web-zip/source/`. `web-zip-mode` reports
 only the exact bound host operation; `execute-web-zip` uses existing begin/finish

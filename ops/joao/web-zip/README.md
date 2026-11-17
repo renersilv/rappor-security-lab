@@ -7,15 +7,21 @@ Windows launch. Historical candidates remain unchanged.
 ## Public journey
 
 The selected product revision is `3105b01067ac415786d9c041cc922195c00c9cc4`,
-version `v0.92.0`. The existing-analysis Web route is
-`/products/{productId}/analyses/{analysisDefinitionId}`. Its file input is
-`analysis-uploaded-package`; the official confirmation invokes a single multipart
-POST to `/api/analysis-definitions/{id}/assessments/uploaded-code`. The public
-request carries the exact analysis definition revision and an idempotency key;
-the response identifies the execution, product and definition. This is the
-`runUploaded` contract in `web/rappor-web/src/lib/analysis-definitions-client.ts`
-and `analysis-definition-detail-workspace.tsx` at that revision.
+version `v0.92.0`. The first-upload Web route is
+`/products/{productId}/analyses/new?type=source-code`. The public wizard selects
+ZIP, a reviewed synthetic analysis name and `Development`, then opens its native
+file picker and shows the final confirmation. That single confirmation sends
+multipart `name`, `environment`, `idempotencyKey` and `package` to
+`/api/products/{productId}/analysis-definitions/uploaded-code`. The response supplies
+the new execution, definition and exact revision IDs. This is `createUploaded` in
+`web/rappor-web/src/lib/analysis-definitions-client.ts` and the creation wizard in
+`managed-analysis-panel.tsx` at that revision.
 
+The earlier adoption source selected the rerun route and required an existing ZIP
+definition. The bounded official catalogue observation found no such definition;
+this correction exercises the original first-upload journey without a preparatory
+upload or an invented definition. Historical packets remain unchanged. There is
+no retained rerun branch in this entrypoint.
 The ZIP route has no workspace-operation consent descriptor or descriptor expiry.
 The implementation observes the official confirmation, native picker, matching
 upload request/response, execution page, revision, product, scanner coverage,
@@ -30,6 +36,13 @@ materializes a private instruction, deterministic ZIP and exact source package.
 It does not contact Windows. The request is the closed shape enforced in
 `prepareWebZipPackage`; real product IDs and the authorized desktop SID/session
 must be supplied by protected host input, never invented from a title or prefix.
+The closed `product` input contains `productId`, `analysisName` and `environment`.
+The name must match `Rappor Lab Web ZIP [A-Za-z0-9][A-Za-z0-9 ._-]{0,79}` and the
+environment must be `Development`. Definition and revision IDs are response
+observations, never request inputs. Both must match the rendered execution, and
+the host packet preserves that binding. The visible coverage metric must say
+Complete/Completa with all three tools; three completed tools with partial
+Semgrep coverage cannot establish complete coverage.
 
 `run` has the same arguments and is host-only. The current protected campaign must
 be active at that exact executor pass, with an independently approved
@@ -94,8 +107,9 @@ no authentication screenshots are taken. It does not import cookies, call a bypa
 endpoint, solve MFA, reset a password, register an account or retry rejected login.
 The existing 600-second absolute budget covers this step as well. A rejected or
 unavailable login remains unresolved; no credential or owner-action requirement
-is inferred without real evidence. Product creation/configuration and inference
-remain outside this runner.
+is inferred without real evidence. Product creation, separate configuration changes and inference remain outside
+this runner. The reviewed first ZIP submission creates its own analysis definition
+and execution through the official Web form, within the same one-upload allowance.
 
 The safe channel exists but neither credential validity nor a usable desktop was
 proven in this offline correction. DPAPI CurrentUser transfer from the SSH process
@@ -114,17 +128,17 @@ The source closure and synthetic fixtures are versioned together. Fast Node
 contracts require no credentials, network, Windows or PowerShell:
 
 ```sh
-node --test --test-concurrency=1 ops/joao/web-zip/test/web-zip-runner-contract.test.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs
+node --test --test-concurrency=1 ops/joao/web-zip/test/web-zip-runner-contract.test.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs ops/joao/web-zip/test/web-zip-first-upload.test.mjs ops/joao/web-zip/test/web-zip-creation-browser.test.mjs
 ```
 
 The process regression requires local PowerShell (or the already approved isolated
 SDK container), with Windows APIs explicitly doubled and no network:
 
 ```sh
-PWSH_BIN=/usr/bin/pwsh node --test --test-concurrency=1 ops/joao/web-zip/integration/check-web-zip-linked-process.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs
+PWSH_BIN=/usr/bin/pwsh node --test --test-concurrency=1 ops/joao/web-zip/integration/check-web-zip-linked-process.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs ops/joao/web-zip/test/web-zip-first-upload.test.mjs ops/joao/web-zip/test/web-zip-creation-browser.test.mjs
 ```
 
 The linked-process file imports the contract file, so the second command includes
-all 59 behavioral cases without listing the contract a second time. Missing
+the contract, authority, first-upload and browser cases without listing the contract a second time. Missing
 PowerShell is a failed prerequisite, never a skipped acceptance test. These checks
 cannot prove native DPAPI, Windows UI or PowerShell5.1 integration.

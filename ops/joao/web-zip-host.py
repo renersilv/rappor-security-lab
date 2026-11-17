@@ -96,9 +96,12 @@ def checkpoint(R, root):
             or desktop['account'] != 'joao' or not isinstance(desktop['sid'], str)
             or not re.fullmatch(r'S-1-5-21-(?:[0-9]+-){3}[0-9]+', desktop['sid'])
             or type(desktop['sessionId']) is not int or desktop['sessionId'] <= 0
-            or not isinstance(product, dict) or set(product) != {'productId', 'analysisDefinitionId', 'revisionId'}
-            or any(not isinstance(item, str) or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', item)
-                   for item in product.values())):
+            or not isinstance(product, dict) or set(product) != {'productId', 'analysisName', 'environment'}
+            or not isinstance(product['productId'], str)
+            or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', product['productId'])
+            or not isinstance(product['analysisName'], str)
+            or not re.fullmatch(r'Rappor Lab Web ZIP [A-Za-z0-9][A-Za-z0-9 ._-]{0,79}', product['analysisName'])
+            or product['environment'] != 'Development'):
         raise ValueError('web-zip-runtime-input-missing')
     manifest = C.artifact(correction['manifest'])
     sources = request['sourceHashes']
@@ -223,6 +226,8 @@ def execute(R, root, *, resume_only=False):
                     or primary.get('sourceHashes') != request['sourceHashes']
                     or primary.get('candidate') != value['candidate']
                     or instruction.get('executorPass') != number or instruction.get('candidate') != value['candidate']
+                    or instruction.get('product') != request['product']
+                    or not first_upload_matches(primary, request['product'])
                     or cleanup.get('requestSha256') != expected['request']['sha256']
                     or cleanup.get('sourceHashes') != request['sourceHashes']
                     or cleanup.get('instructionSha256') != result['instruction']['sha256']
@@ -261,6 +266,25 @@ def reconcile(R, root):
             and value['executorPasses'] == request['executorPass']
             and value['lastFinishedPass'] < request['executorPass']):
         execute(R, root, resume_only=True)
+
+
+def first_upload_matches(primary, product):
+    execution, rendered = primary.get('execution', {}), primary.get('rendered', {})
+    if not isinstance(execution, dict) or not isinstance(rendered, dict):
+        return False
+    if any(not isinstance(execution.get(key), str)
+           or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', execution[key])
+           for key in ('id', 'analysisDefinitionId', 'revisionId', 'idempotencyKey')):
+        return False
+    return (execution.get('productId') == product['productId']
+            and execution.get('analysisName') == product['analysisName']
+            and execution.get('environment') == product['environment']
+            and execution.get('uploadPath') == '/api/products/' + product['productId'] + '/analysis-definitions/uploaded-code'
+            and rendered.get('executionId') == execution['id']
+            and rendered.get('historyExecutionId') == execution['id']
+            and rendered.get('analysisDefinitionId') == execution['analysisDefinitionId']
+            and rendered.get('revisionId') == execution['revisionId']
+            and rendered.get('productId') == product['productId'])
 
 
 def retain_packet(R, root, value, request, packet, completion, result):

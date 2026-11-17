@@ -1,3 +1,13 @@
+# Current correction — AB#301 first Web ZIP upload
+
+The fixed runner now uses the public first-upload wizard on an existing product.
+It binds a reviewed synthetic name and Development environment; the single upload
+creates its definition and execution and supplies their real IDs for rendered
+revision/history checks. The prior requirement for an existing ZIP definition was
+incorrect for the observed catalogue. No product data, protected grants, counters
+or historical evidence are changed by this source correction. Offline regressions
+and independent review precede installation and the separately authorized runtime.
+
 # Current correction — AB#301 fixed host Web ZIP execution
 
 The assisted repair of pass237 now has a concrete host dispatch path through the

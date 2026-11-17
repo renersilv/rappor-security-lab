@@ -25,7 +25,7 @@ function invokePowerShell(path,env) {
       });
   });
 }
-for(const scenario of ['success','discovery-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout']) {
+for(const scenario of ['success','discovery-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout','missing-created-revision','wrong-created-product','wrong-created-mode','wrong-upload-name','wrong-upload-environment','duplicate-upload','unexpected-mutation','wrong-rendered-revision','wrong-rendered-definition','partial-coverage']) {
   test(`linked runner and real PowerShell parent/worker processes: ${scenario}`,async t=>{
     assert.ok(process.env.PWSH_BIN,'PWSH_BIN is required; no Windows/SSH fallback is allowed');
     const f=await makeRequest();let sentinel;let executes=0;let transport;let transportFailure;let scenarioPassed=false;
@@ -128,8 +128,15 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
       }
       if(scenario==='login-cross-origin')assert.equal(events.includes('login-submitted'),false);
       if(['login-rejected','login-timeout'].includes(scenario))assert.equal(events.includes('network-enabled'),false);
-      if(scenario==='success')assert.equal(failure,undefined,debug);
+      if(scenario==='success'){
+        assert.equal(failure,undefined,debug);
+        assert.equal(events.split('upload-submitted').length-1,1);
+        assert.equal(events.split('picker-opened').length-1,1);
+        assert.ok(events.indexOf('zip-chosen')<events.indexOf('synthetic-details-filled'));
+        assert.ok(events.indexOf('synthetic-details-filled')<events.indexOf('upload-submitted'));
+      }
       else assert.ok(failure,`${scenario} must never be accepted as completed`);
+      if(scenario==='partial-coverage')assert.ok(events.includes('partial-coverage-observed'),'partial coverage must be observed before the synthetic work deadline expires');
       if(scenario==='foreign-dialog'){
         const primary=JSON.parse(await readFile(join(args.outputDirectory,'primary.json')));
         assert.notEqual(primary.outcome,'completed');
