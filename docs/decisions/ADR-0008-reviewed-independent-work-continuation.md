@@ -260,3 +260,60 @@ TrustedInstaller owner and effective CreateDirectories permission do not grant
 mutation of the existing private laboratory directory. Every laboratory component
 still rejects foreign effective mutation rights, including deletion, ACL/owner
 changes and generic write/all. The volume exception cannot apply below that root.
+
+## Owned browser profile disposal after pass240 — 2026-11-17
+
+Pass240 consumed the third Web ZIP attempt and remained inconclusive. Transport
+settled, but the parent rejected the scheduled task's account-name representation
+of the authorized SID. A later read-only observation also found an explicit
+capability-SID Modify ACE on the owned temporary profile's `Default/Cache`
+directory. Strict tree removal would reject that directory even after the task
+principal correction. This is a separate cleanup defect; it does not establish
+the cause of the browser journey failure or change its historical result.
+
+Keep the execution-time path validator strict. Do not allowlist capability SIDs
+or foreign write access generally. After the owned browser job and processes are
+verified quiescent, a disposal-only operation may restrict the DACL of the exact
+request-bound temporary profile and its descendants before the existing strict
+tree removal. It may not touch another profile, the runtime parent, product data,
+the machine's execution policy, or any credential contents.
+
+The operation binds the profile's canonical location, owner and creation identity
+to the owned runtime. Open each object with `OPEN_EXISTING`,
+`FILE_FLAG_OPEN_REPARSE_POINT` and `FILE_FLAG_BACKUP_SEMANTICS`, retaining its
+handle without sharing write or delete access. Validate the handle's final path,
+volume/file identity, creation time, owner and attributes before mutation. Reject
+reparse points, unexpected owners, changed identities and files with more than
+one hard link: changing a hard-linked file's DACL would affect names outside the
+profile. Reject foreign effective WRITE_DAC, WRITE_OWNER or GENERIC_ALL rights;
+share modes alone do not exclude handles with security-management rights.
+
+Use `SetSecurityInfo` on the verified handle, changing only a non-null protected
+DACL granting FullControl to the authorized desktop SID, SYSTEM and built-in
+Administrators. Preserve the owner. Open with `MAXIMUM_ALLOWED` so this operation
+does not propagate ACEs to uninspected children; the replacement ACEs also have no
+inheritance or propagation flags. Restrict and verify each directory before
+enumerating its children, and keep the handle until that object's restriction is
+verified. Denied sharing or any changed generation fails closed. This is removal
+of foreign access for disposal, not approval of the previous ACL for execution.
+
+Bound traversal by the existing cleanup deadline and an explicit entry limit.
+Read only identity, attributes and security metadata; do not inspect cookies or
+other profile contents. Revalidate restricted objects with the existing strict
+path validator before deletion. Any partial restriction, failed verification or
+remaining object yields unresolved cleanup with its own evidence; do not restore
+foreign permissions, broaden access, skip the object or report success. Protected
+history and original runtime receipts remain unchanged.
+
+Regression must cover the observed explicit capability Modify ACE, foreign
+security-management rights, reparse points, hard links, unexpected owners,
+generation changes, open writers and partial failure. Local doubles do not prove
+Windows handle/share/ACL behavior: use bounded native inert fixtures when that
+boundary requires verification, without a browser, login, product action or new
+Web ZIP journey. Microsoft documents the relevant boundaries in
+[CreateFileW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)
+and [SetSecurityInfo](https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-setsecurityinfo).
+
+This correction and exact residue settlement remain within the authorized
+laboratory repair. They grant no fourth Web ZIP attempt, replay, quota reset,
+inference call or new VM. Another journey requires a separate owner decision.

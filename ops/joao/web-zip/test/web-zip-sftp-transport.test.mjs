@@ -46,7 +46,7 @@ for(const [name,login] of Object.entries(logins))test(`production public packet 
   assert.match(source,/\$hash -cne \$h/u);assert.match(source,/\$hash -cne \$w/u);
   const packet=JSON.parse(await readFile(join(f.args.outputDirectory,'package.json')));
   return {stdout:JSON.stringify({schema:1,instructionSha256:packet.instructionSha256,primary:{outcome:'inconclusive',failureCode:'synthetic_no_journey'},
-   cleanup:{verified:true,loginMaterialAbsent:true,runtimeRootAbsent:true},taskAbsent:true,workerQuiescent:true,artifacts:{}}),stderr:'',settlement:quiet};
+   cleanup:{verified:true,ownedProcessesAbsent:true,loginMaterialAbsent:true,runtimeRootAbsent:true},taskAbsent:true,workerQuiescent:true,artifacts:{}}),stderr:'',settlement:quiet};
  });
  try{
   await assert.rejects(runWebZipPackage(f.args,{authorizeRuntime:async()=>({}),verifyHostIdentity:async()=>{},loadOfficialLogin:async()=>{loginEvents=[...events];return login;}}));

@@ -391,7 +391,7 @@ function Assert-WebZipUploadEvents($Cdp,[string]$Origin,[string]$ExpectedUpload,
     if ($mutations.Count -eq 1 -and ($mutations[0].params.request.url -cne $ExpectedUpload -or
         $mutations[0].params.request.method -cne 'POST')) { throw 'unexpected-mutation' }
 }
-function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
+function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root,$Progress) {
     Initialize-WebZipUi
     $cdp = Connect-WebZipCdp $Binding $Clock
     try {
@@ -399,7 +399,9 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
         $product = $Instruction.product
         $path = '/products/' + $product.productId + '/analyses/new'
         $null = Invoke-WebZipCdp $cdp 'Page.enable' @{}
+        $Progress.stage = 'login'
         Invoke-WebZipOfficialLogin $cdp $Instruction $Clock $Root
+        $Progress.stage = 'wizard_readiness'
         $null = Invoke-WebZipCdp $cdp 'Network.enable' @{}
         $null = Invoke-WebZipCdp $cdp 'Page.navigate' @{url=($origin + $path + '?type=source-code')}
         $null = Wait-WebZip $Clock 30000 {
@@ -413,6 +415,7 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
             if ($state.version -notmatch [regex]::Escape($Instruction.candidate.version)) { return $false }
             return $state.ready
         }
+        $Progress.stage = 'configuration'
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'choose-zip' $product) $origin
         $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'zip-selected' $product) $origin }
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'source-next' $product) $origin
@@ -422,6 +425,7 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'details-next' $product) $origin
         $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'file-ready' $product) $origin }
         # Exactly one native selection. CDP clicks the official file input; it never sets files.
+        $Progress.stage = 'file_selection'
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'open-picker' $product) $origin
         $dialog = Wait-WebZip $Clock 30000 {
             $windows = [Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,
@@ -451,6 +455,7 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'configuration-next' $product) $origin
         $null = Wait-WebZip $Clock 10000 { Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'review' $product) $origin }
         $confirmationScreenshot = Save-WebZipScreenshot $cdp (Join-Path $Root 'confirmation.png')
+        $Progress.stage = 'upload'
         $expectedUpload = $origin + '/api/products/' + $product.productId + '/analysis-definitions/uploaded-code'
         Assert-WebZipUploadEvents $cdp $origin $expectedUpload -BeforeSubmit
         $null = Invoke-WebZipExpression $cdp (Get-WebZipCreationExpression 'confirm' $product) $origin
@@ -490,6 +495,7 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
                 idempotencyKey=$fields.idempotencyKey;uploadPath=([Uri]$expectedUpload).AbsolutePath}
         }
         $executionPath = '/executions/' + $upload.id
+        $Progress.stage = 'result'
         $rendered = Wait-WebZip $Clock 240000 {
             $state = Invoke-WebZipExpression $cdp '(() => {const summary=[...document.querySelectorAll("summary")].find(e=>/Technical details|Detalhes t.cnicos/iu.test(e.innerText));if(summary && !summary.parentElement.open)summary.click();const pairs=[...document.querySelectorAll("dt")].filter(e=>e.getClientRects().length).map(e=>[e.innerText.trim(),e.parentElement.querySelector("dd")?.innerText.trim()]);const value=p=>pairs.find(([k])=>p.test(k))?.[1];return {pathname:location.pathname,text:document.body.innerText,executionId:value(/Execution identifier|Identificador da execu/iu),revisionId:value(/Exact configuration revision|Revis.o exata da configura/iu),analysisDefinitionId:[...document.querySelectorAll("a[href]")].map(e=>new URL(e.href).pathname).find(x=>/^\/products\/[a-f0-9-]+\/analyses\/[a-f0-9-]+$/.test(x))?.split("/").pop(),productId:[...document.querySelectorAll("a[href]")].map(e=>new URL(e.href).pathname).find(x=>/^\/products\/[a-f0-9-]+$/.test(x))?.split("/").pop()};})()' $origin
             if ($state.pathname -ne $executionPath) { return $false }
@@ -504,6 +510,7 @@ function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root) {
         $problemCount = if ($countMatch.Success) {[int]$countMatch.Groups[1].Value} elseif ($rendered.text -match 'No Problems|Nenhum problema') {0} else {throw 'rendered-problems-unavailable'}
         $executionScreenshot = Save-WebZipScreenshot $cdp (Join-Path $Root 'execution.png')
         $null = Invoke-WebZipCdp $cdp 'Page.navigate' @{url=($origin + '/products/' + $product.productId + '/executions')}
+        $Progress.stage = 'history'
         $historyPath = '/products/' + $product.productId + '/executions'
         $null = Wait-WebZip $Clock 30000 {
             $expr = 'location.pathname === ' + ($historyPath | ConvertTo-Json -Compress) + ' && [...document.querySelectorAll("a[href]")].some(a=>a.getClientRects().length && new URL(a.href).pathname === ' + ($executionPath | ConvertTo-Json -Compress) + ')'
@@ -593,10 +600,146 @@ function Stop-WebZipOwnedBrowser($Ownership,$Instruction,$Clock) {
     if ($listeners.Count -ne 0) { throw 'listener-not-absent' }
     return $true
 }
+function Initialize-WebZipProfileDisposal {
+    if ('WebZipProfileHandle' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+public sealed class WebZipProfileHandle : IDisposable {
+ [StructLayout(LayoutKind.Sequential)] struct FileTime { public uint low, high; }
+ [StructLayout(LayoutKind.Sequential)] struct Information {
+  public uint attributes; public FileTime creation, access, write;
+  public uint volume, sizeHigh, sizeLow, links, indexHigh, indexLow;
+ }
+ [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+ static extern SafeFileHandle CreateFileW(string path,uint access,uint share,IntPtr security,uint disposition,uint flags,IntPtr template);
+ [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle handle,out Information value);
+ [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+ static extern uint GetFinalPathNameByHandleW(SafeFileHandle handle,StringBuilder path,uint length,uint flags);
+ [DllImport("advapi32.dll", SetLastError=true)]
+ static extern uint GetSecurityInfo(SafeFileHandle handle,uint type,uint information,out IntPtr owner,out IntPtr group,out IntPtr dacl,out IntPtr sacl,out IntPtr descriptor);
+ [DllImport("advapi32.dll", SetLastError=true)] static extern uint GetSecurityDescriptorLength(IntPtr descriptor);
+ [DllImport("advapi32.dll", SetLastError=true)]
+ static extern uint SetSecurityInfo(SafeFileHandle handle,uint type,uint information,IntPtr owner,IntPtr group,IntPtr dacl,IntPtr sacl);
+ [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
+ readonly SafeFileHandle handle;
+ readonly string path, owner;
+ readonly string identity;
+ public bool IsDirectory {get; private set;}
+ public string Identity {get{return identity;}}
+ static Exception Invalid(){return new InvalidOperationException("profile-disposal-boundary");}
+ public WebZipProfileHandle(string expectedPath,string expectedOwner,string expectedIdentity,long expectedCreationTicks) {
+  path=expectedPath; owner=expectedOwner;
+  if(!path.StartsWith(@"C:\RapporLab\runtime\",StringComparison.Ordinal) || Path.GetFullPath(path)!=path)throw Invalid();
+  // MAXIMUM_ALLOWED suppresses SetSecurityInfo propagation to uninspected children.
+  // Share READ only: existing writers/deleters and new write/delete opens must fail.
+  handle=CreateFileW(path,0x02000000,1,IntPtr.Zero,3,0x02200000,IntPtr.Zero);
+  if(handle.IsInvalid){handle.Dispose();throw Invalid();}
+  try {
+   identity=Inspect(expectedCreationTicks);
+   if(!String.IsNullOrEmpty(expectedIdentity) && identity!=expectedIdentity)throw Invalid();
+   ValidateSecurity(ReadSecurity(),false);
+  } catch {handle.Dispose();throw;}
+ }
+ string Inspect(long expectedCreationTicks) {
+  Information value;
+  if(!GetFileInformationByHandle(handle,out value) || (value.attributes&0x400)!=0)throw Invalid();
+  bool directory=(value.attributes&0x10)!=0;
+  if(!directory && value.links!=1)throw Invalid();
+  IsDirectory=directory;
+  long ticks=DateTime.FromFileTimeUtc(unchecked((long)(((ulong)value.creation.high<<32)|value.creation.low))).Ticks;
+  if(expectedCreationTicks!=0 && ticks!=expectedCreationTicks)throw Invalid();
+  var buffer=new StringBuilder(32768);
+  uint count=GetFinalPathNameByHandleW(handle,buffer,(uint)buffer.Capacity,0);
+  if(count==0 || count>=buffer.Capacity || buffer.ToString()!=@"\\?\"+path)throw Invalid();
+  return path+"|"+value.volume+"|"+value.indexHigh+":"+value.indexLow+"|"+ticks+"|"+directory;
+ }
+ RawSecurityDescriptor ReadSecurity() {
+  IntPtr o,g,d,s,descriptor;
+  if(GetSecurityInfo(handle,1,5,out o,out g,out d,out s,out descriptor)!=0)throw Invalid();
+  try {
+   uint length=GetSecurityDescriptorLength(descriptor);
+   if(length==0 || length>1048576)throw Invalid();
+   byte[] bytes=new byte[length]; Marshal.Copy(descriptor,bytes,0,bytes.Length);
+   return new RawSecurityDescriptor(bytes,0);
+  } finally {LocalFree(descriptor);}
+ }
+ bool Trusted(SecurityIdentifier sid){return sid!=null && (sid.Value==owner || sid.Value=="S-1-5-18" || sid.Value=="S-1-5-32-544");}
+ void ValidateSecurity(RawSecurityDescriptor security,bool restricted) {
+  if(security.Owner==null || security.Owner.Value!=owner || security.DiscretionaryAcl==null)throw Invalid();
+  if(restricted && ((security.ControlFlags&ControlFlags.DiscretionaryAclProtected)==0 || security.DiscretionaryAcl.Count!=3))throw Invalid();
+  var found=new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+  foreach(GenericAce entry in security.DiscretionaryAcl) {
+   var ace=entry as CommonAce;
+   if(ace==null || ace.IsCallback)throw Invalid();
+   if(restricted) {
+    if(ace.AceQualifier!=AceQualifier.AccessAllowed || ace.AceFlags!=AceFlags.None || ace.AccessMask!=0x1f01ff || !Trusted(ace.SecurityIdentifier) || !found.Add(ace.SecurityIdentifier.Value))throw Invalid();
+   } else if((ace.AceFlags&AceFlags.InheritOnly)==0 && ace.AceQualifier==AceQualifier.AccessAllowed && !Trusted(ace.SecurityIdentifier) && (ace.AccessMask&0x100c0000)!=0)throw Invalid();
+  }
+ }
+ public void Restrict() {
+  if(Inspect(0)!=identity)throw Invalid();
+  ValidateSecurity(ReadSecurity(),false);
+  var acl=new RawAcl(2,3);
+  foreach(string sid in new[]{owner,"S-1-5-18","S-1-5-32-544"})
+   acl.InsertAce(acl.Count,new CommonAce(AceFlags.None,AceQualifier.AccessAllowed,0x1f01ff,new SecurityIdentifier(sid),false,null));
+  byte[] bytes=new byte[acl.BinaryLength]; acl.GetBinaryForm(bytes,0);
+  IntPtr memory=Marshal.AllocHGlobal(bytes.Length);
+  try {
+   Marshal.Copy(bytes,0,memory,bytes.Length);
+   if(SetSecurityInfo(handle,1,0x80000004,IntPtr.Zero,IntPtr.Zero,memory,IntPtr.Zero)!=0)throw Invalid();
+  } finally {Marshal.FreeHGlobal(memory);}
+  if(Inspect(0)!=identity)throw Invalid();
+  ValidateSecurity(ReadSecurity(),true);
+ }
+ public void Dispose(){handle.Dispose();}
+}
+'@
+}
+function Open-WebZipProfileHandle([string]$Path,[string]$OwnerSid,[string]$Identity,[long]$CreationTicks=0) {
+    Initialize-WebZipProfileDisposal
+    return [WebZipProfileHandle]::new($Path,$OwnerSid,$Identity,$CreationTicks)
+}
+function Get-WebZipProfileIdentity([string]$Profile,[string]$OwnerSid) {
+    $handle = Open-WebZipProfileHandle $Profile $OwnerSid $null
+    try { if (-not $handle.IsDirectory) { throw 'profile-directory-required' }; return $handle.Identity }
+    finally { $handle.Dispose() }
+}
+function Protect-WebZipProfileForDisposal([string]$Root,[string]$Profile,[string]$OwnerSid,[string]$Identity,$Clock,[bool]$Quiescent) {
+    if (-not $Quiescent -or [string]::IsNullOrEmpty($Identity) -or $Profile -cne (Join-Path $Root 'profile')) { throw 'profile-disposal-binding' }
+    Assert-WebZipPath $Root $OwnerSid
+    $pending = [Collections.Generic.Stack[object]]::new()
+    $pending.Push(@{Path=$Profile;Identity=$Identity;CreationTicks=0})
+    $count = 0
+    while ($pending.Count) {
+        $null = Get-WebZipRemaining $Clock 5000
+        if (++$count -gt 20000) { throw 'profile-disposal-limit' }
+        $entry = $pending.Pop()
+        $handle = Open-WebZipProfileHandle $entry.Path $OwnerSid $entry.Identity $entry.CreationTicks
+        try {
+            $handle.Restrict()
+            Assert-WebZipPath $entry.Path $OwnerSid
+            if ($handle.IsDirectory) {
+                foreach ($item in Get-ChildItem -LiteralPath $entry.Path -Force -ErrorAction Stop) {
+                    $null = Get-WebZipRemaining $Clock 5000
+                    if ($count + $pending.Count -ge 20000) { throw 'profile-disposal-limit' }
+                    if ((Split-Path -Parent $item.FullName) -cne $entry.Path -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'profile-disposal-child' }
+                    $pending.Push(@{Path=$item.FullName;Identity=$null;CreationTicks=$item.CreationTimeUtc.Ticks})
+                }
+            }
+        } finally { $handle.Dispose() }
+    }
+}
 function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256,[string]$OwnerSid,[long]$AbsoluteDeadlineUnixMs) {
     $clock = New-WebZipClock $AbsoluteDeadlineUnixMs
-    $bound = $null; $archive = $null; $ownership = @{Bindings=[Collections.Generic.List[object]]::new();Profile=$null;Job=$null}
+    $bound = $null; $archive = $null; $ownership = @{Bindings=[Collections.Generic.List[object]]::new();Profile=$null;ProfileIdentity=$null;Job=$null}
     $primary = @{schema=1;outcome='inconclusive';failureCode='admission_failed'}
+    $progress = @{stage='admission'}
     $cleanup = @{schema=1;verified=$false;failureCode='cleanup_unresolved';ownedProcessesAbsent=$false}
     $root = Split-Path -Parent $InstructionPath
     try {
@@ -609,6 +752,9 @@ function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256
         if (Test-Path -LiteralPath $ownership.Profile) { throw 'profile-preexists' }
         $existing = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq 9296 })
         if ($existing.Count -ne 0) { throw 'debug-port-preexists' }
+        Set-WebZipPrivateDirectory $ownership.Profile $OwnerSid
+        $ownership.ProfileIdentity = Get-WebZipProfileIdentity $ownership.Profile $OwnerSid
+        $progress.stage = 'browser_start'
         $ownership.Job = Start-WebZipBrowser $ownership.Profile $clock
         $launcher = $ownership.Job.Process
         # Retain the exact launched Process handle before any discovery or wait.
@@ -616,26 +762,34 @@ function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256
         $launchBinding = @{Process=$launcher;Id=[int]$launcher.Id;StartTicks=[string]$launcher.StartTime.ToUniversalTime().Ticks;
             SessionId=[int]$instruction.desktop.sessionId;OwnerSid=$OwnerSid;Profile=$ownership.Profile}
         $ownership.Bindings.Add($launchBinding)
+        $progress.stage = 'browser_readiness'
         $verified = Get-WebZipProcessBinding $launcher $instruction $ownership.Profile
         $null = Wait-WebZip $clock 25000 {
             @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq 9296 -and $_.OwningProcess -eq $launcher.Id }).Count -eq 1
         }
-        $observed = Invoke-WebZipJourney $instruction $clock $verified $root
+        $observed = Invoke-WebZipJourney $instruction $clock $verified $root $progress
         $primary = @{schema=1;outcome='completed';requestSha256=$instruction.requestSha256;candidate=$instruction.candidate;
             archiveSha256=$instruction.archiveSha256;sourceHashes=$instruction.sourceHashes;
             counts=@{pickerOpens=1;fileSelections=1;uploads=1;analyses=1};execution=$observed.execution;
             selectionFingerprint=$observed.selectionFingerprint;confirmationObserved=$observed.confirmationObserved;
             confirmationScreenshotSha256=$observed.confirmationScreenshotSha256;rendered=$observed.rendered}
-    } catch { $primary.failureCode = 'journey_unresolved' }
+    } catch { $primary.failureCode = 'journey_unresolved'; $primary.failureStage = $progress.stage }
     finally {
         # Primary persistence is independent of teardown; neither can suppress the other.
         try { Write-WebZipJson (Join-Path $root 'primary.json') $primary } catch { $primary = @{schema=1;outcome='inconclusive';failureCode='primary_persistence_failed'} }
         try {
             if ($bound) {
                 $null = Stop-WebZipOwnedBrowser $ownership $bound.Value $clock
+                $cleanup.ownedProcessesAbsent = $true
+                $cleanup.failureCode = 'profile_disposal_unresolved'
+                if ($ownership.ProfileIdentity) {
+                    Protect-WebZipProfileForDisposal $root $ownership.Profile $OwnerSid $ownership.ProfileIdentity $clock $true
+                } elseif ($ownership.Profile -and (Test-Path -LiteralPath $ownership.Profile)) {
+                    throw 'profile-identity-unbound'
+                }
                 $cleanup = @{schema=1;verified=$true;failureCode=$null;ownedProcessesAbsent=$true}
             }
-        } catch { $cleanup.failureCode='cleanup_unresolved' }
+        } catch { if (-not $cleanup.ownedProcessesAbsent) { $cleanup.failureCode='cleanup_unresolved' } }
         finally {
             try { if ($ownership.Job) { $ownership.Job.Dispose() } } catch { $cleanup.verified=$false; $cleanup.failureCode='job_close_failed' }
             try { if ($archive) { $archive.Stream.Dispose() } } catch { $cleanup.verified=$false; $cleanup.failureCode='archive_close_failed' }
@@ -660,6 +814,15 @@ function Remove-WebZipTree([string]$Root,[string]$OwnerSid,$Clock) {
     }
     foreach ($file in $files) { $null = Get-WebZipRemaining $Clock 5000; Remove-Item -LiteralPath $file -Force -ErrorAction Stop }
     for ($index=$directories.Count-1;$index -ge 0;$index--) { $null = Get-WebZipRemaining $Clock 5000; Remove-Item -LiteralPath $directories[$index] -Force -ErrorAction Stop }
+}
+function Resolve-WebZipPrincipalSid([string]$Identity) {
+    try {
+        if ([string]::IsNullOrWhiteSpace($Identity)) { throw 'task-principal-unresolved' }
+        if ($Identity -cmatch '^S-[0-9]+(?:-[0-9]+)+$') {
+            return [Security.Principal.SecurityIdentifier]::new($Identity).Value
+        }
+        return ([Security.Principal.NTAccount]::new($Identity)).Translate([Security.Principal.SecurityIdentifier]).Value
+    } catch { throw 'task-principal-unresolved' }
 }
 function Invoke-WebZipParent([string]$EnvelopeBase64) {
     $envelope = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($EnvelopeBase64)) | ConvertFrom-Json
@@ -760,18 +923,22 @@ function Invoke-WebZipParent([string]$EnvelopeBase64) {
         try {
             if ($ownedTask) {
                 $found = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -ceq $instruction.taskName })
-                if ($found.Count -ne 1 -or $found[0].Principal.UserId -cne $instruction.desktop.sid -or
+                if ($found.Count -ne 1 -or $found[0].TaskPath -cne '\' -or @($found[0].Actions).Count -ne 1 -or
+                    (Resolve-WebZipPrincipalSid $found[0].Principal.UserId) -cne $instruction.desktop.sid -or
+                    $found[0].Principal.LogonType -cne 'Interactive' -or $found[0].Principal.RunLevel -cne 'Limited' -or
+                    $found[0].Actions.Execute -cne $action.Execute -or
+                    [string]($found[0].Actions.WorkingDirectory) -cne [string]($action.WorkingDirectory) -or
                     $found[0].Actions.Arguments -cne $action.Arguments) { throw 'task-ownership-changed' }
                 if ($found[0].State -eq 'Running') {
                     $null = Get-WebZipRemaining $clock 5000
-                    Stop-ScheduledTask -TaskName $instruction.taskName -ErrorAction Stop
+                    Stop-ScheduledTask -TaskName $instruction.taskName -TaskPath '\' -ErrorAction Stop
                     $null = Wait-WebZip $clock 5000 {
-                        (Get-ScheduledTask -TaskName $instruction.taskName -ErrorAction Stop).State -ne 'Running'
+                        (Get-ScheduledTask -TaskName $instruction.taskName -TaskPath '\' -ErrorAction Stop).State -ne 'Running'
                     } 5000
                 }
                 $workerQuiet = $true
                 $null = Get-WebZipRemaining $clock 5000
-                Unregister-ScheduledTask -TaskName $instruction.taskName -Confirm:$false -ErrorAction Stop
+                Unregister-ScheduledTask -TaskName $instruction.taskName -TaskPath '\' -Confirm:$false -ErrorAction Stop
             }
             if (-not $ownedTask) {
                 $workerQuiet=$true

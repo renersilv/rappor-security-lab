@@ -199,6 +199,28 @@ async function verifyHostIdentity(timeoutMs) {
   assert.equal(receipt.listenerAddress, '127.0.0.1'); assert.equal(receipt.listenerPort, 2222);
   return receipt;
 }
+function failedRemoteDiagnostics(remote, prepared, remoteReceiptSha256) {
+  const phases = ['admission', 'browser_start', 'browser_readiness', 'login', 'wizard_readiness',
+    'configuration', 'file_selection', 'upload', 'result', 'history', 'evidence'];
+  const primaryCodes = ['admission_failed', 'journey_unresolved', 'parent_unresolved', 'primary_persistence_failed'];
+  const cleanupCodes = ['profile_disposal_unresolved', 'cleanup_unresolved', 'parent_cleanup_unresolved', 'login_cleanup_unresolved',
+    'job_close_failed', 'archive_close_failed', 'instruction_close_failed', 'root_ownership_unresolved'];
+  return {
+    primary: { schema: 1, outcome: 'inconclusive', requestSha256: prepared.requestSha256,
+      instructionSha256: prepared.package.instructionSha256, sourceHashes: prepared.request.sourceHashes,
+      remoteReceiptSha256,
+      remoteOutcome: ['completed', 'inconclusive'].includes(remote.primary?.outcome) ? remote.primary.outcome : 'unknown',
+      failureCode: primaryCodes.includes(remote.primary?.failureCode) ? remote.primary.failureCode : 'remote_unresolved',
+      failureStage: phases.includes(remote.primary?.failureStage) ? remote.primary.failureStage : 'unknown' },
+    cleanup: { schema: 1, verified: false, reportedVerified: remote.cleanup?.verified === true,
+      failureCode: remote.cleanup?.failureCode === null ? null :
+        (cleanupCodes.includes(remote.cleanup?.failureCode) ? remote.cleanup.failureCode : 'remote_cleanup_unresolved'),
+      workerQuiescent: remote.workerQuiescent === true, taskAbsent: remote.taskAbsent === true,
+      ownedProcessesAbsent: remote.cleanup?.ownedProcessesAbsent === true,
+      loginMaterialAbsent: remote.cleanup?.loginMaterialAbsent === true,
+      runtimeRootAbsent: remote.cleanup?.runtimeRootAbsent === true },
+  };
+}
 export async function runWebZipPackage(args, dependencies = {}) {
   const now = dependencies.now ?? (() => performance.now());
   const started = now();
@@ -247,9 +269,18 @@ export async function runWebZipPackage(args, dependencies = {}) {
     const remote = JSON.parse(lines[0]);
     closed(remote, ['schema', 'instructionSha256', 'primary', 'cleanup', 'taskAbsent', 'workerQuiescent', 'artifacts'], 'remote-receipt-fields');
     assert.equal(remote.schema, 1); assert.equal(remote.instructionSha256, prepared.package.instructionSha256);
+    // Keep only closed diagnostics from this exact receipt before settlement gates.
+    // A retained failure never admits screenshots or promotes reported cleanup.
+    ({ primary, cleanup } = failedRemoteDiagnostics(remote, prepared, sha256(Buffer.from(lines[0]))));
     assert.equal(remote.workerQuiescent, true); assert.equal(remote.taskAbsent, true);
-    primary = remote.primary; cleanup = remote.cleanup;
-    if (primary?.outcome === 'completed') {
+    assert.equal(remote.cleanup?.verified, true, 'guest-cleanup-unconfirmed');
+    assert.equal(remote.cleanup?.ownedProcessesAbsent, true, 'guest-owned-processes-unresolved');
+    assert.equal(remote.cleanup?.loginMaterialAbsent, true, 'guest-login-material-unresolved');
+    assert.equal(remote.cleanup?.runtimeRootAbsent, true, 'guest-root-unresolved');
+    cleanup.verified = true;
+    if (remote.primary?.outcome === 'completed') {
+      validateWebZipResult(remote.primary, prepared.instruction);
+      primary = remote.primary;
       closed(remote.artifacts, ['confirmation.png', 'execution.png', 'history.png'], 'rendered-artifacts');
       const expected = { 'confirmation.png': primary.confirmationScreenshotSha256,
         'execution.png': primary.rendered.executionScreenshotSha256, 'history.png': primary.rendered.historyScreenshotSha256 };
@@ -260,10 +291,6 @@ export async function runWebZipPackage(args, dependencies = {}) {
         await writeExclusive(resolve(args.outputDirectory, name), bytes);
       }
     }
-    assert.equal(cleanup?.verified, true, 'guest-cleanup-unconfirmed');
-    assert.equal(cleanup?.loginMaterialAbsent, true, 'guest-login-material-unresolved');
-    assert.equal(cleanup?.runtimeRootAbsent, true, 'guest-root-unresolved');
-    if (primary?.outcome === 'completed') validateWebZipResult(primary, prepared.instruction);
     else throw new Error('web-zip-inconclusive');
     if (credential) {
       stage = 'credential_revalidation';

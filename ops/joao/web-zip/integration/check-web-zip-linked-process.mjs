@@ -25,7 +25,8 @@ function invokePowerShell(path,env) {
       });
   });
 }
-for(const scenario of ['success','discovery-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout','missing-created-revision','wrong-created-product','wrong-created-mode','wrong-upload-name','wrong-upload-environment','duplicate-upload','unexpected-mutation','wrong-rendered-revision','wrong-rendered-definition','partial-coverage']) {
+const changedTaskScenarios=['task-principal-foreign','task-principal-unresolvable','task-arguments-changed','task-executable-changed','task-working-directory-changed','task-path-changed','task-logon-changed','task-runlevel-changed','task-multiple-actions'];
+for(const scenario of ['success','discovery-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout','missing-created-revision','wrong-created-product','wrong-created-mode','wrong-upload-name','wrong-upload-environment','duplicate-upload','unexpected-mutation','wrong-rendered-revision','wrong-rendered-definition','partial-coverage','task-principal-alias','task-default-working-directory',...changedTaskScenarios,'wizard-readiness-failure','profile-modify','profile-disposal-failure','browser-start-failure']) {
   test(`linked runner and real PowerShell parent/worker processes: ${scenario}`,async t=>{
     assert.ok(process.env.PWSH_BIN,'PWSH_BIN is required; no Windows/SSH fallback is allowed');
     const f=await makeRequest();let sentinel;let executes=0;let transport;let transportFailure;let scenarioPassed=false;
@@ -110,16 +111,48 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
         assert.equal(receipt.cleanup.verified,false);scenarioPassed=true;return;
       }
       assert.ok(events.includes('worker-started:'),`worker was not executed: ${debug}`);
+      if(scenario==='browser-start-failure'){
+        assert.ok(failure);assert.equal(events.includes('browser-started:'),false);
+        assert.equal(receipt.cleanup.verified,true);
+        assert.ok(events.includes('profile-restriction-started'));
+        scenarioPassed=true;return;
+      }
       assert.ok(events.includes('browser-started:'),`actual owned child missing: ${debug}`);
       assert.ok(events.includes('browser-stopped:'),`launched child was not settled: ${events}\n${debug}`);
+      if(changedTaskScenarios.includes(scenario)){
+        assert.ok(failure,'changed or unresolved task identity must fail closed');
+        assert.equal(events.includes('parent-task-removed'),false,'unconfirmed task must not be removed');
+        assert.equal(events.includes('parent-task-stop'),false,'unconfirmed task must not be stopped');
+        assert.equal(receipt.cleanup.verified,false);
+        assert.equal(receipt.cleanup.taskAbsent,false);
+        assert.equal(receipt.cleanup.loginMaterialAbsent,true);
+        const primary=JSON.parse(await readFile(join(args.outputDirectory,'primary.json')));
+        assert.equal(primary.outcome,'inconclusive');
+        assert.equal(primary.remoteOutcome,'completed');
+        assert.equal(primary.instructionSha256,receipt.instructionSha256);
+        assert.equal((await readdir(args.outputDirectory)).some(name=>name.endsWith('.png')),false);
+        scenarioPassed=true;return;
+      }
       assert.ok(events.includes('parent-task-removed'),`parent did not settle task: ${events}\n${debug}`);
       assert.equal(events.includes('parent-task-stop'),false,'worker must finish its own cleanup before parent removes task');
       assert.equal(receipt.remoteQuiescenceObserved,true);
       if(scenario==='remote-stderr'){
         assert.ok(failure);assert.equal(receipt.cleanup.verified,false);scenarioPassed=true;return;
       }
+      if(scenario==='profile-disposal-failure'){
+        assert.ok(failure);assert.equal(receipt.cleanup.verified,false);
+        assert.equal(receipt.cleanup.ownedProcessesAbsent,true);
+        assert.equal(receipt.cleanup.failureCode,'profile_disposal_unresolved');
+        assert.equal(receipt.cleanup.runtimeRootAbsent,false);
+        assert.ok(events.includes('profile-restriction-started'));
+        assert.equal((await readdir(args.outputDirectory)).some(name=>name.endsWith('.png')),false);
+        scenarioPassed=true;return;
+      }
       assert.equal(receipt.cleanup.verified,true,`${events}\n${debug}`);
-      if(['success','primary-write-failure','remote-stderr'].includes(scenario)){
+      if(scenario==='profile-modify'){
+        assert.ok(events.indexOf('browser-stopped:')<events.indexOf('profile-restriction-started'));
+      }
+      if(['success','profile-modify','task-principal-alias','task-default-working-directory','primary-write-failure','remote-stderr'].includes(scenario)){
         assert.ok(events.includes('login-submitted'),'official form was not submitted');
         assert.ok(events.indexOf('network-disabled')<events.indexOf('login-submitted'));
         assert.ok(events.indexOf('login-submitted')<events.indexOf('network-enabled'));
@@ -128,7 +161,7 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
       }
       if(scenario==='login-cross-origin')assert.equal(events.includes('login-submitted'),false);
       if(['login-rejected','login-timeout'].includes(scenario))assert.equal(events.includes('network-enabled'),false);
-      if(scenario==='success'){
+      if(['success','profile-modify','task-principal-alias','task-default-working-directory'].includes(scenario)){
         assert.equal(failure,undefined,debug);
         assert.equal(events.split('upload-submitted').length-1,1);
         assert.equal(events.split('picker-opened').length-1,1);
@@ -137,6 +170,17 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
       }
       else assert.ok(failure,`${scenario} must never be accepted as completed`);
       if(scenario==='partial-coverage')assert.ok(events.includes('partial-coverage-observed'),'partial coverage must be observed before the synthetic work deadline expires');
+      const expectedStage={
+        'discovery-failure':'browser_readiness','timeout':'browser_readiness','foreign-dialog':'file_selection',
+        'login-rejected':'login','login-timeout':'login','login-cross-origin':'login',
+        'wizard-readiness-failure':'wizard_readiness','wrong-upload-name':'upload',
+        'wrong-rendered-revision':'result','partial-coverage':'result',
+      }[scenario];
+      if(expectedStage){
+        const primary=JSON.parse(await readFile(join(args.outputDirectory,'primary.json')));
+        assert.equal(primary.failureStage,expectedStage);
+        assert.equal(JSON.stringify(primary).includes('synthetic-private-page-text'),false);
+      }
       if(scenario==='foreign-dialog'){
         const primary=JSON.parse(await readFile(join(args.outputDirectory,'primary.json')));
         assert.notEqual(primary.outcome,'completed');

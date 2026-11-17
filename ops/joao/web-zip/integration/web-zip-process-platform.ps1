@@ -16,6 +16,18 @@ $script:FixtureLoginSubmits=0
 $script:FixtureNetworkEnabled=$false
 $script:FixtureCreationStage='source'
 $script:FixtureUploadSubmits=0
+$script:FixtureTaskUserId=switch($script:FixtureScenario){
+    'task-principal-alias' {'LAB\joao'}
+    'task-principal-foreign' {'LAB\other'}
+    'task-principal-unresolvable' {'LAB\unknown'}
+    default {$script:FixtureSid}
+}
+function Resolve-WebZipPrincipalSid([string]$Identity) {
+    # Native Windows account translation is the only doubled identity operation.
+    if($Identity -ceq $script:FixtureSid -or $Identity -ceq 'LAB\joao'){return $script:FixtureSid}
+    if($Identity -ceq 'LAB\other'){return 'S-1-5-21-100-200-300-1999'}
+    throw 'fixture-principal-unresolvable'
+}
 function Add-FixtureEvent([string]$Event) {
     [IO.File]::AppendAllText((Join-Path $script:FixtureRoot 'events.txt'),$Event + "`n")
 }
@@ -33,9 +45,10 @@ function Get-WebZipDesktopObservation {
 }
 function Get-Acl {
     param([string]$LiteralPath)
-    $value = [pscustomobject]@{OwnerValue=$script:FixtureSid}
+    $foreign = $script:FixtureScenario -in @('profile-modify','profile-disposal-failure') -and $LiteralPath.EndsWith('Cache') -and -not [IO.File]::Exists((Join-Path $script:FixtureRoot 'profile-restricted'))
+    $value = [pscustomobject]@{OwnerValue=$script:FixtureSid;Foreign=$foreign}
     $value | Add-Member ScriptMethod GetOwner { param($Type) [pscustomobject]@{Value=$this.OwnerValue} }
-    $value | Add-Member ScriptMethod GetAccessRules { param($Inherited,$Explicit,$Type) @() }
+    $value | Add-Member ScriptMethod GetAccessRules { param($Inherited,$Explicit,$Type) if($this.Foreign){[pscustomobject]@{PropagationFlags=0;AccessControlType=0;IdentityReference=[pscustomobject]@{Value='S-1-15-3-1024-1'};FileSystemRights=1245631}}else{@()} }
     return $value
 }
 function Set-WebZipPrivateDirectory([string]$Path,[string]$OwnerSid) {
@@ -61,7 +74,11 @@ function Get-Content {
 }
 function Get-ChildItem {
     [CmdletBinding()]param([string]$LiteralPath,[switch]$Force)
-    Microsoft.PowerShell.Management\Get-ChildItem -LiteralPath (Resolve-WebZipPhysicalPath $LiteralPath) -Force -ErrorAction Stop
+    foreach($item in Microsoft.PowerShell.Management\Get-ChildItem -LiteralPath (Resolve-WebZipPhysicalPath $LiteralPath) -Force -ErrorAction Stop){
+        if($LiteralPath -match '^C:\\'){
+            [pscustomobject]@{FullName=(Join-Path $LiteralPath $item.Name);Attributes=$item.Attributes;PSIsContainer=$item.PSIsContainer;CreationTimeUtc=$item.CreationTimeUtc}
+        }else{$item}
+    }
 }
 function Remove-Item {
     [CmdletBinding()]param([string]$LiteralPath,[switch]$Force)
@@ -70,8 +87,8 @@ function Remove-Item {
     if($physical.EndsWith('/login.dpapi')){Add-FixtureEvent 'login-material-removed'}
     Microsoft.PowerShell.Management\Remove-Item -LiteralPath $physical -Force -ErrorAction Stop
 }
-function New-ScheduledTaskAction {param($Execute,$Argument) [pscustomobject]@{Execute=$Execute;Arguments=$Argument}}
-function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) [pscustomobject]@{UserId=$UserId}}
+function New-ScheduledTaskAction {param($Execute,$Argument) [pscustomobject]@{Execute=$Execute;Arguments=$Argument;WorkingDirectory=''}}
+function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) [pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
 function New-ScheduledTaskSettingsSet {param($ExecutionTimeLimit)
     if($script:FixtureScenario -eq 'deadline-before-register'){$script:FixtureExpired=$true}
     [pscustomobject]@{ExecutionTimeLimit=$ExecutionTimeLimit}
@@ -79,11 +96,13 @@ function New-ScheduledTaskSettingsSet {param($ExecutionTimeLimit)
 function Register-ScheduledTask {
     [CmdletBinding()]param($TaskName,$Action,$Principal,$Settings)
     if ($script:FixtureWorker) {throw 'worker-must-not-register-task'}
-    $script:FixtureTask=[pscustomobject]@{TaskName=$TaskName;TaskPath='\';Actions=$Action;Principal=$Principal;State='Ready'}
+    $script:FixtureTask=[pscustomobject]@{TaskName=$TaskName;TaskPath='\';
+        Actions=[pscustomobject]@{Execute=$Action.Execute;Arguments=$Action.Arguments;WorkingDirectory=$Action.WorkingDirectory};
+        Principal=[pscustomobject]@{UserId=$script:FixtureTaskUserId;LogonType=$Principal.LogonType;RunLevel=$Principal.RunLevel};State='Ready'}
     Add-FixtureEvent 'task-registered'
 }
 function Get-ScheduledTask {
-    [CmdletBinding()]param($TaskName)
+    [CmdletBinding()]param($TaskName,$TaskPath)
     if ($script:FixtureTask) {
         if ($script:FixtureTaskProcess -and $script:FixtureTaskProcess.HasExited) {
             $script:FixtureTask.State='Ready'
@@ -91,6 +110,16 @@ function Get-ScheduledTask {
                 [IO.File]::WriteAllText((Join-Path $script:FixtureRoot 'worker-stderr.txt'),$script:FixtureTaskProcess.StandardError.ReadToEnd())
                 [IO.File]::WriteAllText((Join-Path $script:FixtureRoot 'worker-stdout.txt'),$script:FixtureTaskProcess.StandardOutput.ReadToEnd())
                 $script:WorkerOutputSaved=$true
+                switch($script:FixtureScenario){
+                    'task-arguments-changed' {$script:FixtureTask.Actions.Arguments+=' # changed'}
+                    'task-executable-changed' {$script:FixtureTask.Actions.Execute='unrelated.exe'}
+                    'task-working-directory-changed' {$script:FixtureTask.Actions.WorkingDirectory='C:\Unrelated'}
+                    'task-default-working-directory' {$script:FixtureTask.Actions.WorkingDirectory=$null}
+                    'task-path-changed' {$script:FixtureTask.TaskPath='\Unrelated\'}
+                    'task-logon-changed' {$script:FixtureTask.Principal.LogonType='ServiceAccount'}
+                    'task-runlevel-changed' {$script:FixtureTask.Principal.RunLevel='Highest'}
+                    'task-multiple-actions' {$script:FixtureTask.Actions=@($script:FixtureTask.Actions,$script:FixtureTask.Actions)}
+                }
             }
         }
         return $script:FixtureTask
@@ -122,7 +151,7 @@ function Start-ScheduledTask {
     Add-FixtureEvent ('worker-started:' + $script:FixtureTaskProcess.Id)
 }
 function Stop-ScheduledTask {
-    [CmdletBinding()]param($TaskName)
+    [CmdletBinding()]param($TaskName,$TaskPath)
     if ($script:FixtureWorker) {throw 'worker-must-not-stop-own-task'}
     Add-FixtureEvent 'parent-task-stop'
     if ($script:FixtureTaskProcess -and -not $script:FixtureTaskProcess.HasExited) {
@@ -131,7 +160,7 @@ function Stop-ScheduledTask {
     $script:FixtureTask.State='Ready'
 }
 function Unregister-ScheduledTask {
-    [CmdletBinding(SupportsShouldProcess)]param($TaskName)
+    [CmdletBinding(SupportsShouldProcess)]param($TaskName,$TaskPath)
     if ($script:FixtureWorker) {throw 'worker-must-not-remove-own-task'}
     if ($script:FixtureTaskProcess -and -not $script:FixtureTaskProcess.HasExited) {throw 'task-removed-before-worker-quiescence'}
     Add-FixtureEvent 'parent-task-removed';$script:FixtureTask=$null
@@ -188,7 +217,26 @@ function Get-WebZipRemaining($Clock,[int]$Reserve=0) {
     if ($script:FixtureScenario -eq 'timeout' -and $script:FixtureOwned -and $Reserve -eq 90000) {return 1}
     return & $script:ProductionRemaining $Clock $Reserve
 }
+function Open-WebZipProfileHandle([string]$Path,[string]$OwnerSid,[string]$Identity,[long]$CreationTicks=0) {
+    # Only native handle/security APIs are doubled. Production traversal and worker ordering execute unchanged.
+    $item=Get-Item -LiteralPath $Path -Force
+    $actual=$Path+'|fixture-native-generation-1'
+    if($Identity -and $Identity -cne $actual){throw 'fixture-profile-identity'}
+    $handle=[pscustomobject]@{Identity=$actual;IsDirectory=$item.PSIsContainer;Path=$Path}
+    $handle|Add-Member ScriptMethod Restrict {
+        if($script:FixtureOwned -and -not $script:FixtureOwned.HasExited){throw 'fixture-browser-still-running'}
+        Add-FixtureEvent 'profile-restriction-started'
+        if($script:FixtureScenario -eq 'profile-disposal-failure' -and $this.Path.EndsWith('Cache')){throw 'fixture-native-restriction-failed'}
+        if($this.Path.EndsWith('Cache')){[IO.File]::WriteAllText((Join-Path $script:FixtureRoot 'profile-restricted'),'restricted')}
+    }
+    $handle|Add-Member ScriptMethod Dispose {}
+    return $handle
+}
 function Start-WebZipBrowser([string]$Profile) {
+    if($script:FixtureScenario -eq 'browser-start-failure'){throw 'fixture-browser-start-failed'}
+    if($script:FixtureScenario -in @('profile-modify','profile-disposal-failure')){
+        [IO.Directory]::CreateDirectory((Resolve-WebZipPhysicalPath (Join-Path $Profile 'Default/Cache')))|Out-Null
+    }
     $process=Start-Process -FilePath 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' -ArgumentList @('--user-data-dir='+$Profile) -PassThru
     $job=[pscustomobject]@{Process=$process}
     $job|Add-Member ScriptProperty Active {if($this.Process.HasExited){0}else{1}}
@@ -298,7 +346,10 @@ function Invoke-WebZipCdp($Cdp,[string]$Method,$Parameters) {
         elseif($expression.Contains('creation-action-invalid')) {
           $action=[regex]::Match($expression,'"action":"([a-z-]+)"').Groups[1].Value
           switch($action){
-            'ready' {$value=@{path=('/products/'+$p.productId+'/analyses/new');version=$i.candidate.version;ready=$true}}
+            'ready' {
+              if($script:FixtureScenario -eq 'wizard-readiness-failure'){throw 'synthetic-private-page-text'}
+              $value=@{path=('/products/'+$p.productId+'/analyses/new');version=$i.candidate.version;ready=$true}
+            }
             'choose-zip' {if($script:FixtureCreationStage -ne 'source'){throw 'fixture-wrong-step'};Add-FixtureEvent 'zip-chosen';$value=$true}
             'zip-selected' {$value=$true}
             'source-next' {$script:FixtureCreationStage='details';$value=$true}
