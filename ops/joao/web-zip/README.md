@@ -144,7 +144,7 @@ The process regression requires local PowerShell (or the already approved isolat
 SDK container), with Windows APIs explicitly doubled and no network:
 
 ```sh
-PWSH_BIN=/usr/bin/pwsh node --test --test-concurrency=1 ops/joao/web-zip/integration/check-web-zip-linked-process.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs ops/joao/web-zip/test/web-zip-first-upload.test.mjs ops/joao/web-zip/test/web-zip-creation-browser.test.mjs
+PWSH_BIN=/usr/bin/pwsh node --test --test-concurrency=1 ops/joao/web-zip/integration/check-web-zip-linked-process.mjs ops/joao/web-zip/integration/check-web-zip-task-loader.mjs ops/joao/web-zip/integration/check-web-zip-path-acl.mjs ops/joao/web-zip/integration/check-web-zip-login-frame.mjs ops/joao/web-zip/test/web-zip-adoption-final-authority.test.mjs ops/joao/web-zip/test/web-zip-first-upload.test.mjs ops/joao/web-zip/test/web-zip-creation-browser.test.mjs
 ```
 
 The linked-process file imports the contract file, so the second command includes

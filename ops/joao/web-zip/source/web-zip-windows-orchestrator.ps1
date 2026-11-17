@@ -20,14 +20,21 @@ function Assert-WebZipPath([string]$Path, [string]$OwnerSid, [switch]$File) {
     while ($current) {
         $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'reparse-path' }
-        # Volume/Windows ancestors are trusted only when administrators or SYSTEM own them.
+        # Only the exact system volume has the Windows ancestor exception.
+        $systemVolume = $current -ceq 'C:\'
         $acl = Get-Acl -LiteralPath $current -ErrorAction Stop
         $owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($owner -notin @($OwnerSid,'S-1-5-18','S-1-5-32-544')) { throw 'path-owner-invalid' }
+        $allowedOwners = @($OwnerSid,'S-1-5-18','S-1-5-32-544')
+        if ($systemVolume) {
+            $allowedOwners += 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+        }
+        if ($owner -notin $allowedOwners) { throw 'path-owner-invalid' }
+        $mutationMask = if ($systemVolume) { 0x500D0152 } else { 0x500D0156 }
         foreach ($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
+            if (($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0) { continue }
             if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
                 $rule.IdentityReference.Value -notin @($OwnerSid,'S-1-5-18','S-1-5-32-544') -and
-                ([int]$rule.FileSystemRights -band 0x116) -ne 0) { throw 'path-not-private' }
+                ([int]$rule.FileSystemRights -band $mutationMask) -ne 0) { throw 'path-not-private' }
         }
         $parent = Split-Path -Parent $current
         if (-not $parent -or $parent -eq $current) { break }
@@ -699,11 +706,19 @@ function Invoke-WebZipParent([string]$EnvelopeBase64) {
         if ($envelope.workerSha256 -cne $instruction.sourceHashes.'web-zip-windows-orchestrator.ps1' -or
             $envelope.archiveSha256 -cne $instruction.archiveSha256) { throw 'materialization-binding-mismatch' }
         $quote = { param([string]$value) "'" + $value.Replace("'","''") + "'" }
-        $command = '. ' + (& $quote (Resolve-WebZipPhysicalPath (Join-Path $root 'worker.ps1'))) + '; Invoke-WebZipWorker -InstructionPath ' +
+        # Load the exact bound bytes as a command, without executing a script file
+        # or changing the desktop account's execution policy.
+        $command = '$ErrorActionPreference=''Stop''; $webZipWorkerBytes=[IO.File]::ReadAllBytes(' +
+            (& $quote (Resolve-WebZipPhysicalPath (Join-Path $root 'worker.ps1'))) + '); $webZipWorkerHasher=[Security.Cryptography.SHA256]::Create(); ' +
+            'try{$webZipWorkerHash=[BitConverter]::ToString($webZipWorkerHasher.ComputeHash($webZipWorkerBytes)).Replace(''-'','''').ToLowerInvariant()}finally{$webZipWorkerHasher.Dispose()}; ' +
+            'if($webZipWorkerHash -cne ' + (& $quote $envelope.workerSha256) + '){throw ''worker-source-hash-mismatch''}; ' +
+            '. ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($webZipWorkerBytes))); Invoke-WebZipWorker -InstructionPath ' +
             (& $quote (Join-Path $root 'instruction.json')) + ' -InstructionSha256 ' + (& $quote $envelope.instructionSha256) +
             ' -OwnerSid ' + (& $quote $instruction.desktop.sid) + ' -AbsoluteDeadlineUnixMs ' + [string]$envelope.absoluteDeadlineUnixMs
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoProfile -NonInteractive -EncodedCommand ' + $encoded)
+        $arguments = '-NoLogo -NoProfile -NonInteractive -EncodedCommand ' + $encoded
+        if (('powershell.exe ' + $arguments).Length -ge 8191) { throw 'worker-command-size-invalid' }
+        $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
         $principal = New-ScheduledTaskPrincipal -UserId $instruction.desktop.sid -LogonType Interactive -RunLevel Limited
         $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::FromMilliseconds((Get-WebZipRemaining $clock 10000)))
         $null = Get-WebZipRemaining $clock 90000

@@ -69,6 +69,10 @@ Versioned decisions take precedence over assumptions. Work on one Issue at a tim
   work after an inconclusive branch stops. The host binds each selection to its
   source/checkpoint and one executor launch, deriving two offline preparation and
   one runtime allowance per eligible target from the complete protected history.
+  The owner's 2026-11-17 amendment permits at most three total Web ZIP runtimes;
+  each retry requires a concrete corrected cause, comparable failing-before and
+  passing-after regression, verified cleanup and independent review. Other target
+  allowances are unchanged; previous Web ZIP attempts remain consumed.
   Targets cannot be revisited to renew that allowance. Prose does not route work;
   technical repairs do not reset it. Preparation counts, inference budgets and
   acceptance remain unchanged. Historical stalled reviews are re-reviewed in a

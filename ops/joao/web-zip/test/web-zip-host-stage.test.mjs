@@ -32,6 +32,83 @@ async function fixture() {
   return { root, args: { requestPath, requestSha256: digest(bytes), outputDirectory: join(root, 'output') } };
 }
 
+test('guest deadline leaves the parent receipt margin before real transport termination', async () => {
+  const f = await fixture();
+  try {
+    const prepared = await prepareWebZipPackage(f.args);
+    const nowUnixMs = 1800000000000;
+    const remainingMs = 600000;
+    const source = buildRemoteScript(prepared, remainingMs, nowUnixMs,
+      { email: 'synthetic-login@example.invalid', password: 'SyntheticPassword!42' });
+    const envelope = JSON.parse(Buffer.from(/Invoke-WebZipParent -EnvelopeBase64 '([A-Za-z0-9+/=]+)'\n$/u.exec(source)[1], 'base64'));
+    // Exercise the real timer calculation with a fast local process, never SSH or a sleep.
+    const transport = await new SettlementTransport('').execute(process.execPath, ['-e', 'process.stdin.resume()'],
+      { input: '', timeout: remainingMs, terminationGraceMs: 1500, maxOutputBytes: 1024 });
+    assert.equal(transport.settlement.cause, 'accepted');
+    assert.equal(transport.settlement.terminationRequestDeadlineMs, remainingMs - 3000);
+    assert.equal(nowUnixMs + transport.settlement.terminationRequestDeadlineMs - envelope.absoluteDeadlineUnixMs,
+      prepared.instruction.parentReserveMs);
+    assert.equal(prepared.instruction.totalMs, 600000);
+    assert.equal(prepared.instruction.cleanupReserveMs, 90000);
+    assert.ok(envelope.absoluteDeadlineUnixMs > nowUnixMs + prepared.instruction.cleanupReserveMs);
+    assert.ok(envelope.absoluteDeadlineUnixMs < nowUnixMs + remainingMs);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test('guest deadline refuses admission after preparation consumed the cleanup and receipt margins', async () => {
+  const f = await fixture();
+  try {
+    const prepared = await prepareWebZipPackage(f.args);
+    const login = { email: 'synthetic-login@example.invalid', password: 'SyntheticPassword!42' };
+    const minimum = prepared.instruction.cleanupReserveMs + prepared.instruction.parentReserveMs + 3000;
+    assert.throws(() => buildRemoteScript(prepared, minimum, 1800000000000, login), /remaining-budget-insufficient/);
+    const source = buildRemoteScript(prepared, minimum + 1, 1800000000000, login);
+    const envelope = JSON.parse(Buffer.from(/Invoke-WebZipParent -EnvelopeBase64 '([A-Za-z0-9+/=]+)'\n$/u.exec(source)[1], 'base64'));
+    assert.equal(envelope.absoluteDeadlineUnixMs, 1800000000000 + prepared.instruction.cleanupReserveMs + 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test('transport failure retains closed byte and lifecycle metadata without raw output', async () => {
+  const f = await fixture();
+  const stdout = 'SyntheticPrivateStdout!42';
+  const stderr = 'SyntheticPrivateStderr!42';
+  let remoteCalls = 0;
+  try {
+    await assert.rejects(runWebZipPackage(f.args, {
+      authorizeRuntime: async () => ({}), verifyHostIdentity: async () => ({}),
+      loadOfficialLogin: async () => ({ email: 'synthetic-login@example.invalid', password: 'SyntheticPassword!42' }),
+      executeRemote: async () => {
+        remoteCalls++;
+        throw Object.assign(new Error('SyntheticPrivateError!42'), { stdout, stderr,
+          settlement: { cause: 'timeout', localProcessTerminated: true, remoteQuiescenceObserved: false,
+            closeObserved: true, spawnObserved: true, stdinEndCallbackObserved: false, elapsedMs: 12,
+            arbitrarySecret: 'SyntheticPrivateSettlement!42' } });
+      },
+    }), /web_zip_unresolved/);
+    const receipt = JSON.parse(await readFile(join(f.args.outputDirectory, 'cleanup.json')));
+    assert.deepEqual(receipt.transportFailure, { cause: 'timeout', localProcessTerminated: true,
+      remoteQuiescenceObserved: false, closeObserved: true, spawnObserved: true, stdinEndCallbackObserved: false,
+      stdoutBytes: Buffer.byteLength(stdout), stderrBytes: Buffer.byteLength(stderr), elapsedMs: 12 });
+    assert.equal(remoteCalls, 1);
+    assert.equal(receipt.stage, 'remote_transport');
+    assert.equal(receipt.remoteDispatchAttempted, true);
+    assert.equal(receipt.remoteQuiescenceObserved, false);
+    assert.deepEqual(receipt.cleanup, { verified: false });
+    for (const name of await readdir(f.args.outputDirectory)) {
+      const bytes = await readFile(join(f.args.outputDirectory, name));
+      for (const value of [stdout, stderr, 'SyntheticPrivateError!42', 'SyntheticPrivateSettlement!42']) {
+        assert.equal(bytes.includes(Buffer.from(value)), false, `private diagnostic leaked into ${name}`);
+      }
+    }
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test('real prepared worker reaches the stdin transport adapter without weakening its ASCII guard', async () => {
   const f = await fixture();
   let calls = 0;

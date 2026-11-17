@@ -107,7 +107,7 @@ function Start-ScheduledTask {
     $parts=$command -split '; Invoke-WebZipWorker',2
     if ($parts.Count -ne 2) {throw 'fixture-generated-worker-command-unrecognized'}
     $scriptText=$parts[0] + "; . '" + $env:WEB_ZIP_PLATFORM_FIXTURE.Replace("'","''") + "'; Invoke-WebZipWorker" + $parts[1]
-    $scriptText=$scriptText.Replace(". 'C:\RapporLab\runtime\", ". '" + (Join-Path $script:FixtureRoot 'drive/RapporLab/runtime/'))
+    $scriptText=$scriptText.Replace("[IO.File]::ReadAllBytes('C:\RapporLab\runtime\", "[IO.File]::ReadAllBytes('" + (Join-Path $script:FixtureRoot 'drive/RapporLab/runtime/'))
     $scriptText=$scriptText.Replace("\worker.ps1'", "/worker.ps1'")
     $path=Join-Path $script:FixtureRoot 'worker-launch.ps1'
     [IO.File]::WriteAllText($path,$scriptText)

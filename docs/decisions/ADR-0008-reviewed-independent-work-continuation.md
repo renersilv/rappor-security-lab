@@ -214,3 +214,49 @@ authorization. It does not add autonomous source-repair scheduling after runtime
 failure or create another offline correction grant. Failed runtime still requires
 the concrete correction, regression, current cleanup and independent review before
 the next available attempt can be admitted.
+
+
+## Windows packet transport correction — 2026-11-17
+
+Pass239 did not reach a verified Web upload. A separate inert 167161-byte script
+reproduced the Windows PowerShell stdin stall. Bounded native probes also failed
+both text-to-EOF and exact-byte-count reads of 131072 synthetic bytes; changing
+only the reader is therefore not an accepted correction. These diagnostics do not
+consume another Web ZIP journey or establish product acceptance.
+
+Use the existing SSH/SFTP connection to stage only the nonsecret, hash-bound
+worker and package. The staging directory is a separate request-bound sibling
+under the already authorized laboratory runtime parent; it must not pre-create
+the journey root, adopt an existing directory or follow reparse points. Establish
+ownership before writing, verify the actual bytes before execution, and remove
+only the owned staging resources under the original deadline. Failed or partial
+transfer cannot authorize execution, verified cleanup or a repeated journey.
+
+The official login remains runtime-only input to a short bootstrap, never SFTP
+content, a command-line argument, diagnostic output or a plaintext guest file.
+The bootstrap combines it with the verified public package in memory; the existing
+worker still writes only its bounded DPAPI-protected temporary login artifact.
+Prove the same bootstrap with synthetic credentials at the allowed maximum size,
+including Unicode, before consuming the last authorized Web ZIP attempt.
+Use the existing validated field limits with a compact UTF-8, newline-delimited
+runtime frame (at most 4034 bytes); reject malformed encoding and extra fields.
+JSON escaping must not enlarge this runtime input beyond the native reader's
+proven bound. Reserve shell-wrapper space below the Windows command-line limit;
+the encoded payload length alone does not measure the complete SSH invocation.
+
+The parent and scheduled worker load only exact hash-verified source bytes through
+ScriptBlock.Create. This avoids depending on execution of unsigned script files
+under the observed Restricted policy without changing machine, user or process
+execution policy. The existing 600-second total includes staging, invocation and
+cleanup. No new service, VM, account, inference allowance, history reset, public
+product endpoint or automatic repair budget is introduced. Offline and inert
+transport evidence remain distinct from a successful Web ZIP journey.
+
+The native setup also exposed inherited Authenticated Users Modify access on the
+existing laboratory parent directories. Repair only their DACLs, preserving owners,
+contents and the volume configuration. Path validation ignores InheritOnly ACEs
+for the current object and distinguishes the exact C:\ volume: its observed
+TrustedInstaller owner and effective CreateDirectories permission do not grant
+mutation of the existing private laboratory directory. Every laboratory component
+still rejects foreign effective mutation rights, including deletion, ACL/owner
+changes and generic write/all. The volume exception cannot apply below that root.

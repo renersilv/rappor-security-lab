@@ -1,3 +1,17 @@
+# Current correction — AB#301 Windows packet transport
+
+The second authorized Web ZIP journey, pass239, ended in a transport timeout.
+Inert native checks reproduced large-input stalls in both EOF and exact-count
+PowerShell readers. The current repair stages only nonsecret packet bytes through
+the existing SFTP connection and keeps login material in the short runtime input.
+The scheduled worker must also load hash-verified bytes without changing the
+observed Restricted execution policy. ADR-0008 records these boundaries.
+
+Source repair and its regressions are in progress. Installation, native packet
+validation, independent admission and the third (last authorized) Web ZIP journey
+remain separate gates. Historical failures and the consumption ledger are retained;
+no product acceptance or automatic repair scheduling is established by this work.
+
 # Current correction — AB#301 bounded Web ZIP retries
 
 The owner authorized at most three Web ZIP attempts in total on 2026-11-17.
