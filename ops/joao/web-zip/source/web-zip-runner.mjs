@@ -192,23 +192,31 @@ export async function runWebZipPackage(args, dependencies = {}) {
   const intent = { schema: 1, requestSha256: prepared.requestSha256, sourceHashes: prepared.request.sourceHashes };
   await writeExclusive(intentPath, encode(intent));
   let credential, result, primary = null, cleanup = null, failure = null, credentialClosed = false, transportFailure = null;
+  let stage = 'host_identity', remoteDispatchAttempted = false;
   try {
     await (dependencies.verifyHostIdentity ?? verifyHostIdentity)(remaining());
     let executeRemote = dependencies.executeRemote;
     if (!executeRemote) {
+      stage = 'ssh_credential';
       credential = await openStablePrivateCredential(process.env.RAPPOR_WINDOWS_SSH_KEY);
       await credential.assertStable();
       const adapter = new SettlementTransport(credential.consumerPath);
       executeRemote = ({ source, timeoutMs }) => executePowerShellStdin(adapter, source,
         { timeout: timeoutMs, terminationGraceMs: 1500, maxOutputBytes: 4 * 1024 * 1024 });
     }
+    stage = 'official_login';
     // Injected transport tests must supply synthetic login; never read host credentials.
     assert.ok(!dependencies.executeRemote || dependencies.loadOfficialLogin, 'test-login-loader-required');
     let login = await (dependencies.loadOfficialLogin ?? loadOfficialLogin)();
+    stage = 'remote_script';
     const timeoutMs = remaining();
     const source = buildRemoteScript(prepared, timeoutMs, Date.now(), login);
     login = null;
+    stage = 'remote_transport';
+    // This records a local dispatch attempt, never proof of guest execution or quiescence.
+    remoteDispatchAttempted = true;
     result = await executeRemote({ source, timeoutMs });
+    stage = 'remote_receipt';
     if (result.stderr) {
       transportFailure = { cause: 'remote_stderr', stderrBytes: Buffer.byteLength(result.stderr), stderrSha256: sha256(Buffer.from(result.stderr)) };
       throw new Error('remote-stderr');
@@ -238,7 +246,11 @@ export async function runWebZipPackage(args, dependencies = {}) {
     assert.equal(cleanup?.runtimeRootAbsent, true, 'guest-root-unresolved');
     if (primary?.outcome === 'completed') validateWebZipResult(primary, prepared.instruction);
     else throw new Error('web-zip-inconclusive');
-    if (credential) await credential.assertStable();
+    if (credential) {
+      stage = 'credential_revalidation';
+      await credential.assertStable();
+    }
+    stage = 'completed';
   } catch (error) {
     failure = 'web_zip_unresolved';
     const settlement = error?.settlement;
@@ -263,14 +275,17 @@ export async function runWebZipPackage(args, dependencies = {}) {
     }
   }
   finally {
-    if (credential) { try { await credential.close(); credentialClosed = true; } catch { failure = 'credential_close_failed'; } }
+    if (credential) {
+      try { await credential.close(); credentialClosed = true; }
+      catch { failure = 'credential_close_failed'; stage = 'credential_close'; }
+    }
     else credentialClosed = true;
     // A primary write failure cannot suppress the independent cleanup receipt.
     try { await writeExclusive(resolve(args.outputDirectory, 'primary.json'), encode(primary ?? { outcome: 'inconclusive', failureCode: failure })); }
-    catch { failure = 'primary_persistence_failed'; }
+    catch { failure = 'primary_persistence_failed'; stage = 'primary_persistence'; }
     const settled = { schema: 1, kind: 'web_zip_host_settlement', requestSha256: prepared.requestSha256,
       sourceHashes: prepared.request.sourceHashes, instructionSha256: prepared.package.instructionSha256,
-      elapsedMs: Math.ceil(now() - started), credentialClosed, transportFailure,
+      elapsedMs: Math.ceil(now() - started), stage, remoteDispatchAttempted, credentialClosed, transportFailure,
       remoteQuiescenceObserved: result?.settlement?.remoteQuiescenceObserved === true,
       cleanup: cleanup ?? { verified: false }, failureCode: failure };
     await writeExclusive(resolve(args.outputDirectory, 'cleanup.json'), encode(settled));

@@ -369,7 +369,7 @@ function Get-WebZipCoverageExpression {
   if (paragraphs.length !== 2 || !/^3 (of|de) 3 (tools|ferramentas)$/u.test(paragraphs[0].innerText.trim())) return false;
   const statuses = [...paragraphs[1].querySelectorAll('span')].map(element => element.innerText.trim());
   return statuses.some(text => /^(Complete|Completa)$/u.test(text)) &&
-    statuses.some(text => /^Gitleaks, Semgrep,? (and|e) Trivy (completed|concluíram)\.?$/u.test(text));
+    statuses.some(text => /^Gitleaks, Semgrep,? (and|e) Trivy (completed|conclu\u00edram)\.?$/u.test(text));
 })()
 '@
     return $script
