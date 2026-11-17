@@ -7,7 +7,7 @@ TARGETS = ('web-entries', 'managed-technical', 'negative-consent-cleanup')
 
 
 def runtime_limit(target):
-    return 3 if target == 'web-entries' else 1
+    return 4 if target == 'web-entries' else 1
 
 
 def runtime_retry(previous_ref, previous, current, verdict, artifact):

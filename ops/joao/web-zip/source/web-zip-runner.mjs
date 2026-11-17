@@ -152,7 +152,7 @@ export function validateRuntimeAuthority(prepared, { campaign, receipt, correcti
   const grant = correction.workContinuation;
   assert.equal(grant?.targetObjectiveId, 'web-entries'); assert.equal(grant?.phase, 'runtime');
   assert.equal(grant?.scope, 'bounded_no_model'); assert.equal(grant?.nextPass, prepared.request.executorPass);
-  assert.ok(Number.isSafeInteger(grant?.runtimeCheckpoints) && grant.runtimeCheckpoints >= 1 && grant.runtimeCheckpoints <= 3,
+  assert.ok(Number.isSafeInteger(grant?.runtimeCheckpoints) && grant.runtimeCheckpoints >= 1 && grant.runtimeCheckpoints <= 4,
     'web-zip-runtime-attempt-limit');
   if (grant.runtimeCheckpoints > 1) {
     const proof = diagnosis.technicalCorrection;

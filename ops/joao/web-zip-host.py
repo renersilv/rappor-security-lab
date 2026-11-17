@@ -88,7 +88,7 @@ def checkpoint(R, root):
     if (grant != correction.get('workContinuation') or not grant
             or grant['targetObjectiveId'] != 'web-entries' or grant['phase'] != 'runtime'
             or grant['scope'] != 'bounded_no_model' or grant['nextPass'] != request['executorPass']
-            or not 1 <= grant['runtimeCheckpoints'] <= 3 or correction.get('scope') != 'bounded_no_model'
+            or not 1 <= grant['runtimeCheckpoints'] <= 4 or correction.get('scope') != 'bounded_no_model'
             or diagnosis.get('verdict') != 'pass' or diagnosis.get('scope') != 'bounded_no_model'
             or diagnosis.get('cleanupAssessment') != 'verified' or diagnosis.get('ownerRequest') is not None
             or diagnosis.get('workContinuation') != {'targetObjectiveId': 'web-entries'}):

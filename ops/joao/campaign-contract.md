@@ -42,8 +42,9 @@ zero findings. The remaining issue is not a reason to repeat the accepted cycle.
 
 ## Work to execute now
 
-The owner's 2026-11-17 AB#301 authorization permits at most three Web ZIP attempts
-in total, counting consumed pass238 as the first. Each later attempt requires an
+The owner's later 2026-11-17 AB#301 authorization permits at most four Web ZIP
+attempts in total. Pass238, pass239 and pass240 remain consumed; one additional
+attempt of at most 600 seconds is authorized, and a fifth is rejected. Each later attempt requires an
 actual corrected executable, the same regression failing before and passing after,
 current verified cleanup and independent review bound to the prior checkpoint,
 failed request and exact source/log hashes under ADR-0008. Each fresh request is

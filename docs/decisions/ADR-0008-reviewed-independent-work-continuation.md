@@ -317,3 +317,27 @@ and [SetSecurityInfo](https://learn.microsoft.com/en-us/windows/win32/api/aclapi
 This correction and exact residue settlement remain within the authorized
 laboratory repair. They grant no fourth Web ZIP attempt, replay, quota reset,
 inference call or new VM. Another journey requires a separate owner decision.
+
+
+## One additional owner-authorized Web ZIP journey — 2026-11-17
+
+After pass240 settlement and the reviewed source repair, the owner explicitly
+approved one more Web ZIP journey of at most ten minutes, without an AI model,
+API key or new VM. This later authorization supersedes only the three-attempt
+Web ZIP ceiling above: the total is now four, with pass238, pass239 and pass240
+still consumed. A fifth Web ZIP attempt is rejected. The three prior outcomes,
+request intents, receipts, protected checkpoint chain and inference ledger remain
+unchanged; this is one additional allowance, not a refund or a reset.
+
+The fourth attempt retains every existing admission requirement: exact reviewed
+source and request, a completed predecessor, bound causal before/after regression,
+current verified cleanup and independent review. It has one launch and the same
+600-second absolute deadline. The installed repair and the green inert profile
+boundary tests do not themselves authorize dispatch or establish journey success.
+
+Only `web-entries` receives the raised runtime ceiling. Other independent targets
+retain one runtime checkpoint, each target retains two offline preparation slots,
+and model/review/recovery budgets are unchanged. No new endpoint, general retry
+policy, automatic repair scheduling, account, product edit or deployment is added.
+The host must derive the fourth checkpoint from the entire preserved history;
+source changes do not write protected grants, counters or historical outcomes.

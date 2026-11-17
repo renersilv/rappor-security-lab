@@ -1,3 +1,19 @@
+# Current authorization — AB#301 one additional Web ZIP journey
+
+After the reviewed source repair and verified pass240 settlement, the owner
+explicitly authorized one additional Web ZIP journey of at most ten minutes on
+2026-11-17. The total ceiling is four; pass238, pass239 and pass240 stay consumed
+and inconclusive, and a fifth attempt is rejected. ADR-0008 records the later
+amendment. Other targets, offline preparation, review/recovery and inference
+budgets are unchanged. No AI model, API key, new VM or historical rewrite is
+permitted by this extension.
+
+The source changes only the Web ZIP ceiling at the history, host and runner
+boundaries. Existing exact-source review, causal regression, cleanup, one-launch
+request and 600-second deadline gates remain mandatory. Source tests do not
+establish installation, dispatch or success of the fourth journey. Earlier
+sections below retain the historical authorizations and outcomes.
+
 # Current correction — AB#301 Windows packet transport
 
 The second authorized Web ZIP journey, pass239, ended in a transport timeout.

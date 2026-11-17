@@ -88,7 +88,7 @@ class WebZipRetryTests(F.WebZipHostTests):
         self.assertEqual(R.WORK.active(value, C.artifact), grant)
         return grant
 
-    def test_second_third_reviewed_runtime_and_fourth_rejected_without_reset(self):
+    def test_second_third_fourth_reviewed_runtime_and_fifth_rejected_without_reset(self):
         original = self.checkpoint
         history = {p: p.read_bytes() for p in self.operator.rglob('*') if p.is_file()}
         second = self.retry_material()
@@ -98,8 +98,11 @@ class WebZipRetryTests(F.WebZipHostTests):
         self.assertEqual(self.admit(third)['runtimeCheckpoints'], 3)
         with mock.patch.object(H, 'SOURCE_ROOT', third['sources']):
             fourth = self.retry_material()
+        self.assertEqual(self.admit(fourth)['runtimeCheckpoints'], 4)
+        with mock.patch.object(H, 'SOURCE_ROOT', fourth['sources']):
+            fifth = self.retry_material()
         with self.assertRaisesRegex(ValueError, 'budget-exhausted'):
-            R.WORK.select(fourth['before'], fourth['verdict'], fourth['selected'], C.artifact)
+            R.WORK.select(fifth['before'], fifth['verdict'], fifth['selected'], C.artifact)
         self.assertEqual(C.artifact(original, protected=True)['reviewedThroughPass'], 237)
         for path, raw in {**history, **self.preserved}.items():
             self.assertEqual(path.read_bytes(), raw)
