@@ -138,7 +138,16 @@ negative-consent-cleanup). Its only field is targetObjectiveId. The first select
 requires pass, clean cleanup, offline scope and a different objectiveId. Subsequent
 reviews describe the actual target objective. Host history limits each target to
 two offline preparations and one approved read_only_preflight/bounded_no_model
-checkpoint, one launch each; no inference, acceptance, quota or deadline renewal.
+checkpoint, one launch each. The owner's 2026-11-17 amendment permits at most
+three total Web ZIP runtime checkpoints, with consumed pass238 retained as one;
+other targets remain at one. Each extra Web ZIP checkpoint requires pass,
+bounded_no_model, verified current cleanup, changed actual Web ZIP source and the
+ADR-0008 closed before/after regression receipts in the exact manifest. Use the
+existing technicalCorrection fields: incident is the previous runtime checkpoint
+SHA, regressionBefore and regressionAfter cite the failed/passed receipts. The
+same regression and command must fail before and pass after with no skips; hashes
+bind the failed request, both source inventories and logs. Missing proof cannot
+authorize retry. No offline, inference, acceptance or deadline renewal is allowed.
 Cite the actual prepared sources and concrete next action. Prose cannot grant this
 route. workContinuationContext reports host-derived counts; do not invent counts.
 

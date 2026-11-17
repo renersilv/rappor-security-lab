@@ -54,6 +54,15 @@ source closure in its manifest. Output is fixed to
 cannot repeat the launch. Model sandboxes cannot write this protected authority.
 No dispatcher integration or runtime approval is delivered by this packet.
 
+The owner amendment dated 2026-11-17 permits three Web ZIP attempts in total,
+including consumed pass238. Attempt two or three requires independently reviewed
+changed executable source and the same regression failing before and passing after,
+bound to the prior checkpoint/request and exact manifest artifacts. Every request
+still has one launch and its own immutable intent; source repair cannot replay an
+old request or refund an attempt. Current verified cleanup remains mandatory.
+The fourth attempt is rejected; other targets and offline/model budgets are
+unchanged. See ADR-0008 for the closed retry proof and assisted admission boundary.
+
 The request binds the existing `previousReview`, not the future checkpoint that
 will reference it. Materialize request, correction, review and campaign in that
 order. The runtime receipt must name the same predecessor; the current receipt is

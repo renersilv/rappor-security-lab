@@ -205,6 +205,21 @@ class WorkContinuationTests(unittest.TestCase):
         self.approval('web-entries', objectiveId='web-entries', scope='read_only_preflight')
         self.rejected()
 
+    def assert_other_target_runtime_limit(self, target):
+        self.approval(target); self.finish()
+        self.packet(7)
+        self.approval(target, objectiveId=target, scope='read_only_preflight'); self.finish()
+        self.assertEqual(self.grant()['runtimeCheckpoints'], 1)
+        self.packet(8)
+        self.approval(target, objectiveId=target, scope='read_only_preflight')
+        self.rejected()
+
+    def test_managed_technical_keeps_one_runtime(self):
+        self.assert_other_target_runtime_limit('managed-technical')
+
+    def test_negative_consent_keeps_one_runtime(self):
+        self.assert_other_target_runtime_limit('negative-consent-cleanup')
+
     def test_all_three_versioned_targets_can_receive_one_independent_offline_selection(self):
         previous = 'ide-mcp'
         for number, target in enumerate(('web-entries', 'managed-technical', 'negative-consent-cleanup'), 6):

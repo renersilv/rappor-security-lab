@@ -42,6 +42,16 @@ zero findings. The remaining issue is not a reason to repeat the accepted cycle.
 
 ## Work to execute now
 
+The owner's 2026-11-17 AB#301 authorization permits at most three Web ZIP attempts
+in total, counting consumed pass238 as the first. Each later attempt requires an
+actual corrected executable, the same regression failing before and passing after,
+current verified cleanup and independent review bound to the prior checkpoint,
+failed request and exact source/log hashes under ADR-0008. Each fresh request is
+limited to one launch and 600 seconds without a remediation model. No replay,
+offline-slot renewal, inference, API key, VM or account is authorized. Other
+independent targets retain their one-runtime limit. This authorizes assisted
+repair/admission; it does not create automatic source-repair scheduling.
+
 1. Execute the authorized real IDE cycle first in the existing Windows IDE and
    official client, using the existing isolated synthetic fixture and connection.
    Obtain the baseline through Rappor, ask the IDE AI to fix a specific reported

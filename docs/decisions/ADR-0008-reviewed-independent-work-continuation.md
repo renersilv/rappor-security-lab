@@ -25,7 +25,8 @@ different eligible objective. The host derives its identity and budget from the
 immutable protected checkpoint chain, not a model count or an editable file. Each
 target can be entered at most once for this preserved campaign. There are at most
 two offline preparation checkpoints and one independently approved runtime
-checkpoint per target. Each checkpoint permits exactly one executor launch,
+checkpoint per target, except for the explicitly authorized Web ZIP retry amendment
+below. Each checkpoint permits exactly one executor launch,
 including interrupted launches. Runtime retains the existing read_only_preflight
 or bounded_no_model safety/evidence/cleanup validation. The reviewer must bind the
 actual prepared source and describe the exact permitted next action; a handoff is
@@ -172,3 +173,44 @@ This source correction does not change the protected grant, launch allowance,
 reviewed host authority still controls runtime. Offline browser primitives and
 Windows process doubles do not establish native picker, DPAPI, login or live scan
 success; the real journey remains outstanding until its bound evidence is reviewed.
+
+## Owner-authorized Web ZIP retry ceiling — 2026-11-17
+
+Under AB#301 the owner explicitly authorized up to three Web ZIP attempts in total.
+The consumed pass238 is attempt one, including its failed ASCII framing before SSH.
+This amendment changes only the Web ZIP ceiling within `web-entries`; other targets
+retain one runtime checkpoint. It does not reset the two offline preparation slots,
+the historical runtime checkpoint, intents, results, review history or inference
+ledger. Each additional checkpoint still permits one named executor pass and one
+fresh protected request, with the same 600-second limit and no remediation model,
+API key, new VM or account. The fourth attempt is rejected.
+
+A second or third attempt requires a completed predecessor, an independent `pass`
+with `bounded_no_model`, verified current cleanup, no owner request, changed actual
+Web ZIP executable bytes and a recomputed different source fingerprint. The
+existing `technicalCorrection` fields carry proof: `incident` is the exact prior
+runtime checkpoint SHA; `regressionBefore` and `regressionAfter` name JSON receipts
+in the new manifest. The correction binds that manifest; the review binds the
+diagnosis and correction. A changed name, counter or error description is not proof.
+
+Each closed receipt has `schema: 1`, `kind: web_zip_runtime_retry_regression`, the
+failed `requestSha256`, tested `sourceFingerprint`, identical `command`, `outcome`
+(`failed` before, `passed` after), integer `passed`, `failed`, `skipped`, identical
+`regression` and `regressionSha256`, and `log: {name, sha256}`. The same regression
+must fail before and pass after with equal test totals and zero skips. Regression
+source and nonempty bounded logs are read through the existing checked artifact
+reader and bound in the manifest. Before/after source fingerprints must match the
+old/new executable inventories; one of the actual Web ZIP source hashes must change.
+
+The complete protected history revalidates each extra checkpoint, its consumed
+predecessor, exact current request and all proof hashes before dispatch. The new
+request binds the prior checkpoint and the next pass; replay never creates another
+intent or refunds an attempt. Old one-attempt records remain valid without adding
+proof retroactively. Historical unresolved cleanup is preserved; a new verified
+observation is a separate admission prerequisite, not a rewritten old result.
+
+This amendment supports assisted repair and admission within the existing owner
+authorization. It does not add autonomous source-repair scheduling after runtime
+failure or create another offline correction grant. Failed runtime still requires
+the concrete correction, regression, current cleanup and independent review before
+the next available attempt can be admitted.

@@ -107,6 +107,24 @@ test('runtime authority binds reviewed request, source closure and a single chec
   assert.ok(SOURCE_NAMES.includes('windows-settlement-transport.mjs'));
   assert.deepEqual(validateRuntimeAuthority(prepared,authority),{intentPath:'/synthetic/protected/checkpoint/web-zip-pass238.intent.json'});
 });
+for (const count of [2, 3]) test(`runtime authority requires bound independent retry proof for attempt ${count}`, () => {
+  const { prepared, authority } = authorityFixture();
+  authority.correction.workContinuation.runtimeCheckpoints = count;
+  assert.throws(() => validateRuntimeAuthority(prepared, authority), /web-zip-retry-proof-required/);
+  authority.diagnosis.technicalCorrection = { incident: authority.receipt.previousReview.sha256,
+    regressionBefore: 'before.json', regressionAfter: 'after.json' };
+  authority.diagnosis.evidence = ['before.json', 'after.json'];
+  authority.manifest.files['before.json'] = 'b'.repeat(64);
+  authority.manifest.files['after.json'] = 'c'.repeat(64);
+  assert.ok(validateRuntimeAuthority(prepared, authority));
+  authority.diagnosis.technicalCorrection.incident = '0'.repeat(64);
+  assert.throws(() => validateRuntimeAuthority(prepared, authority), /web-zip-retry-predecessor-mismatch/);
+});
+test('runtime authority rejects a fourth Web ZIP attempt', () => {
+  const { prepared, authority } = authorityFixture();
+  authority.correction.workContinuation.runtimeCheckpoints = 4;
+  assert.throws(() => validateRuntimeAuthority(prepared, authority), /web-zip-runtime-attempt-limit/);
+});
 for(const [name,mutate] of Object.entries({
   changed_request_hash:f=>{f.prepared.requestSha256='d'.repeat(64);},
   substituted_request_path:f=>{f.prepared.requestPath='/synthetic/protected/checkpoint/unreviewed.json';},

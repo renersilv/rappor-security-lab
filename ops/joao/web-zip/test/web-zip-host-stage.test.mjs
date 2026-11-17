@@ -49,7 +49,14 @@ test('real prepared worker reaches the stdin transport adapter without weakening
         assert.equal(options.timeout, 600000);
         return 'synthetic-transport-observed';
       } };
-    assert.equal(await executePowerShellStdin(adapter, source, { timeout: 600000 }), 'synthetic-transport-observed');
+    let result;
+    try { result = await executePowerShellStdin(adapter, source, { timeout: 600000 }); }
+    catch (error) {
+      // Keep regression logs bounded; never dump the synthetic wire envelope.
+      assert.fail(error.message.startsWith('powershell-source-must-be-ascii')
+        ? 'powershell-source-must-be-ascii' : 'wire-framing-unresolved');
+    }
+    assert.equal(result, 'synthetic-transport-observed');
     assert.equal(calls, 1);
     await assert.rejects(executePowerShellStdin(adapter, source + '\n# \u00ed'), /powershell-source-must-be-ascii/);
     assert.equal(calls, 1);

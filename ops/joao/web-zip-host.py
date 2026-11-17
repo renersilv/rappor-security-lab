@@ -59,6 +59,8 @@ def checkpoint(R, root):
     if value.get('reviewCheckpoint') is None:
         return None
     C.reviewed_checkpoint(value)
+    # Reject an incomplete retry before the optional dispatch branch can fall back.
+    R.WORK.history(value, C.artifact)
     receipt = C.artifact(value['reviewCheckpoint'], protected=True)
     try:
         correction = C.artifact(receipt['correction'], protected=True)
@@ -86,7 +88,7 @@ def checkpoint(R, root):
     if (grant != correction.get('workContinuation') or not grant
             or grant['targetObjectiveId'] != 'web-entries' or grant['phase'] != 'runtime'
             or grant['scope'] != 'bounded_no_model' or grant['nextPass'] != request['executorPass']
-            or grant['runtimeCheckpoints'] != 1 or correction.get('scope') != 'bounded_no_model'
+            or not 1 <= grant['runtimeCheckpoints'] <= 3 or correction.get('scope') != 'bounded_no_model'
             or diagnosis.get('verdict') != 'pass' or diagnosis.get('scope') != 'bounded_no_model'
             or diagnosis.get('cleanupAssessment') != 'verified' or diagnosis.get('ownerRequest') is not None
             or diagnosis.get('workContinuation') != {'targetObjectiveId': 'web-entries'}):

@@ -1,3 +1,13 @@
+# Current correction — AB#301 bounded Web ZIP retries
+
+The owner authorized at most three Web ZIP attempts in total on 2026-11-17.
+Pass238 remains consumed and inconclusive. Each additional attempt requires a
+different corrected executable source, the same regression failing before and
+passing after, exact hash-bound proof, current verified cleanup and independent
+review. Other targets retain one runtime checkpoint; offline and inference budgets
+remain unchanged. ADR-0008 defines the amendment. Source validation does not prove
+installation, another runtime, product acceptance or autonomous repair scheduling.
+
 # Current correction — AB#301 first Web ZIP upload
 
 The fixed runner now uses the public first-upload wizard on an existing product.

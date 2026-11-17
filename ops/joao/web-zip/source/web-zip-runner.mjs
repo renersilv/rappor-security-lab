@@ -148,7 +148,20 @@ export function validateRuntimeAuthority(prepared, { campaign, receipt, correcti
   const grant = correction.workContinuation;
   assert.equal(grant?.targetObjectiveId, 'web-entries'); assert.equal(grant?.phase, 'runtime');
   assert.equal(grant?.scope, 'bounded_no_model'); assert.equal(grant?.nextPass, prepared.request.executorPass);
-  assert.equal(grant?.runtimeCheckpoints, 1);
+  assert.ok(Number.isSafeInteger(grant?.runtimeCheckpoints) && grant.runtimeCheckpoints >= 1 && grant.runtimeCheckpoints <= 3,
+    'web-zip-runtime-attempt-limit');
+  if (grant.runtimeCheckpoints > 1) {
+    const proof = diagnosis.technicalCorrection;
+    closed(proof, ['incident', 'regressionBefore', 'regressionAfter'], 'web-zip-retry-proof-required');
+    assert.equal(proof.incident, receipt.previousReview.sha256, 'web-zip-retry-predecessor-mismatch');
+    assert.notEqual(proof.regressionBefore, proof.regressionAfter, 'web-zip-retry-proof-not-distinct');
+    for (const name of [proof.regressionBefore, proof.regressionAfter]) {
+      assert.equal(typeof name, 'string');
+      assert.ok(diagnosis.evidence?.includes(name), 'web-zip-retry-proof-not-cited');
+      assert.match(manifest.files[name], HASH, 'web-zip-retry-proof-not-bound');
+    }
+    assert.notEqual(manifest.files[proof.regressionBefore], manifest.files[proof.regressionAfter], 'web-zip-retry-proof-not-distinct');
+  }
   assert.deepEqual(grant.manifest, correction.manifest);
   assert.equal(diagnosis.verdict, 'pass'); assert.equal(diagnosis.scope, 'bounded_no_model');
   assert.equal(diagnosis.cleanupAssessment, 'verified');
