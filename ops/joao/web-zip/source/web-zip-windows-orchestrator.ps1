@@ -145,6 +145,19 @@ function Get-WebZipRemaining($Clock,[int]$Reserve=0) {
     if ($remaining -le 0) { throw 'absolute-deadline' }
     return $remaining
 }
+function Get-WebZipReadinessDiagnostic($Progress,[string]$Message) {
+    $steps = @('process_binding','listener_wait','ui_initialization','cdp_process','cdp_listener','cdp_targets','cdp_socket','page_enable')
+    $reasons = @('process-inventory-missing','process-identity-mismatch','process-owner-unavailable',
+        'process-generation-mismatch','operation-deadline','absolute-deadline','browser-exited',
+        'debug-listener-ownership-mismatch','debug-page-not-unique','debug-target-mismatch',
+        'cdp-channel-closed','cdp-output-limit','cdp-command-rejected')
+    $diagnostic = @{step='unknown';reason='unknown'}
+    if ($Progress.stage -ceq 'browser_readiness') {
+        if ($steps -ccontains $Progress.step) { $diagnostic.step = $Progress.step }
+        if ($reasons -ccontains $Message) { $diagnostic.reason = $Message }
+    }
+    return $diagnostic
+}
 function Get-WebZipProcessBinding($Process,$Instruction,[string]$Profile) {
     $null = $Process.Handle
     $ticks = [string]$Process.StartTime.ToUniversalTime().Ticks
@@ -201,16 +214,20 @@ function Wait-WebZip($Clock,[int]$Limit,[scriptblock]$Condition,[int]$Reserve=90
     }
     throw 'operation-deadline'
 }
-function Connect-WebZipCdp($Binding,$Clock) {
+function Connect-WebZipCdp($Binding,$Clock,$Progress) {
+    $Progress.step = 'cdp_process'
     if (-not (Assert-WebZipProcess $Binding)) { throw 'browser-exited' }
+    $Progress.step = 'cdp_listener'
     $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 9296 -ErrorAction Stop)
     if ($listeners.Count -ne 1 -or $listeners[0].LocalAddress -cne '127.0.0.1' -or
         $listeners[0].OwningProcess -ne $Binding.Id) { throw 'debug-listener-ownership-mismatch' }
+    $Progress.step = 'cdp_targets'
     $targets = Invoke-RestMethod -Uri 'http://127.0.0.1:9296/json/list' -TimeoutSec 3 -ErrorAction Stop
     $pages = @($targets | Where-Object { $_.type -ceq 'page' -and $_.url -eq 'about:blank' })
     if ($pages.Count -ne 1) { throw 'debug-page-not-unique' }
     $uri = [Uri]$pages[0].webSocketDebuggerUrl
     if ($uri.Scheme -cne 'ws' -or $uri.Host -cne '127.0.0.1' -or $uri.Port -ne 9296) { throw 'debug-target-mismatch' }
+    $Progress.step = 'cdp_socket'
     $socket = [Net.WebSockets.ClientWebSocket]::new()
     $cancel = [Threading.CancellationTokenSource]::new([int][Math]::Min(5000,(Get-WebZipRemaining $Clock 90000)))
     try { $socket.ConnectAsync($uri,$cancel.Token).GetAwaiter().GetResult() } finally { $cancel.Dispose() }
@@ -392,12 +409,14 @@ function Assert-WebZipUploadEvents($Cdp,[string]$Origin,[string]$ExpectedUpload,
         $mutations[0].params.request.method -cne 'POST')) { throw 'unexpected-mutation' }
 }
 function Invoke-WebZipJourney($Instruction,$Clock,$Binding,[string]$Root,$Progress) {
+    $Progress.step = 'ui_initialization'
     Initialize-WebZipUi
-    $cdp = Connect-WebZipCdp $Binding $Clock
+    $cdp = Connect-WebZipCdp $Binding $Clock $Progress
     try {
         $origin = $Instruction.candidate.origin
         $product = $Instruction.product
         $path = '/products/' + $product.productId + '/analyses/new'
+        $Progress.step = 'page_enable'
         $null = Invoke-WebZipCdp $cdp 'Page.enable' @{}
         $Progress.stage = 'login'
         Invoke-WebZipOfficialLogin $cdp $Instruction $Clock $Root
@@ -739,7 +758,7 @@ function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256
     $clock = New-WebZipClock $AbsoluteDeadlineUnixMs
     $bound = $null; $archive = $null; $ownership = @{Bindings=[Collections.Generic.List[object]]::new();Profile=$null;ProfileIdentity=$null;Job=$null}
     $primary = @{schema=1;outcome='inconclusive';failureCode='admission_failed'}
-    $progress = @{stage='admission'}
+    $progress = @{stage='admission';step='unknown'}
     $cleanup = @{schema=1;verified=$false;failureCode='cleanup_unresolved';ownedProcessesAbsent=$false}
     $root = Split-Path -Parent $InstructionPath
     try {
@@ -763,7 +782,9 @@ function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256
             SessionId=[int]$instruction.desktop.sessionId;OwnerSid=$OwnerSid;Profile=$ownership.Profile}
         $ownership.Bindings.Add($launchBinding)
         $progress.stage = 'browser_readiness'
+        $progress.step = 'process_binding'
         $verified = Get-WebZipProcessBinding $launcher $instruction $ownership.Profile
+        $progress.step = 'listener_wait'
         $null = Wait-WebZip $clock 25000 {
             @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq 9296 -and $_.OwningProcess -eq $launcher.Id }).Count -eq 1
         }
@@ -773,7 +794,12 @@ function Invoke-WebZipWorker([string]$InstructionPath,[string]$InstructionSha256
             counts=@{pickerOpens=1;fileSelections=1;uploads=1;analyses=1};execution=$observed.execution;
             selectionFingerprint=$observed.selectionFingerprint;confirmationObserved=$observed.confirmationObserved;
             confirmationScreenshotSha256=$observed.confirmationScreenshotSha256;rendered=$observed.rendered}
-    } catch { $primary.failureCode = 'journey_unresolved'; $primary.failureStage = $progress.stage }
+    } catch {
+        # Never persist raw exception text, paths, commands, URLs or credentials.
+        $diagnostic = Get-WebZipReadinessDiagnostic $progress $_.Exception.Message
+        $primary.failureCode = 'journey_unresolved'; $primary.failureStage = $progress.stage
+        $primary.failureStep = $diagnostic.step; $primary.failureReason = $diagnostic.reason
+    }
     finally {
         # Primary persistence is independent of teardown; neither can suppress the other.
         try { Write-WebZipJson (Join-Path $root 'primary.json') $primary } catch { $primary = @{schema=1;outcome='inconclusive';failureCode='primary_persistence_failed'} }

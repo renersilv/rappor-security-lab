@@ -26,7 +26,7 @@ function invokePowerShell(path,env) {
   });
 }
 const changedTaskScenarios=['task-principal-foreign','task-principal-unresolvable','task-arguments-changed','task-executable-changed','task-working-directory-changed','task-path-changed','task-logon-changed','task-runlevel-changed','task-multiple-actions'];
-for(const scenario of ['success','discovery-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout','missing-created-revision','wrong-created-product','wrong-created-mode','wrong-upload-name','wrong-upload-environment','duplicate-upload','unexpected-mutation','wrong-rendered-revision','wrong-rendered-definition','partial-coverage','task-principal-alias','task-default-working-directory',...changedTaskScenarios,'wizard-readiness-failure','profile-modify','profile-disposal-failure','browser-start-failure']) {
+for(const scenario of ['success','discovery-failure','ui-initialization-failure','cdp-listener-failure','cdp-target-failure','cdp-socket-failure','page-enable-failure','primary-write-failure','timeout','foreign-dialog','desktop-drift','tampered-instruction','tampered-archive','unbound-root','partial-root-creation','deadline-before-register','transport-timeout','remote-stderr','missing-login','login-rejected','login-cross-origin','login-timeout','missing-created-revision','wrong-created-product','wrong-created-mode','wrong-upload-name','wrong-upload-environment','duplicate-upload','unexpected-mutation','wrong-rendered-revision','wrong-rendered-definition','partial-coverage','task-principal-alias','task-default-working-directory',...changedTaskScenarios,'wizard-readiness-failure','profile-modify','profile-disposal-failure','browser-start-failure']) {
   test(`linked runner and real PowerShell parent/worker processes: ${scenario}`,async t=>{
     assert.ok(process.env.PWSH_BIN,'PWSH_BIN is required; no Windows/SSH fallback is allowed');
     const f=await makeRequest();let sentinel;let executes=0;let transport;let transportFailure;let scenarioPassed=false;
@@ -172,6 +172,8 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
       if(scenario==='partial-coverage')assert.ok(events.includes('partial-coverage-observed'),'partial coverage must be observed before the synthetic work deadline expires');
       const expectedStage={
         'discovery-failure':'browser_readiness','timeout':'browser_readiness','foreign-dialog':'file_selection',
+        'ui-initialization-failure':'browser_readiness','cdp-listener-failure':'browser_readiness',
+        'cdp-target-failure':'browser_readiness','cdp-socket-failure':'browser_readiness','page-enable-failure':'browser_readiness',
         'login-rejected':'login','login-timeout':'login','login-cross-origin':'login',
         'wizard-readiness-failure':'wizard_readiness','wrong-upload-name':'upload',
         'wrong-rendered-revision':'result','partial-coverage':'result',
@@ -179,6 +181,26 @@ for(const scenario of ['success','discovery-failure','primary-write-failure','ti
       if(expectedStage){
         const primary=JSON.parse(await readFile(join(args.outputDirectory,'primary.json')));
         assert.equal(primary.failureStage,expectedStage);
+        if(scenario==='discovery-failure'){assert.equal(primary.failureStep,'process_binding');assert.equal(primary.failureReason,'unknown');}
+        if(scenario==='timeout'){assert.equal(primary.failureStep,'listener_wait');assert.equal(primary.failureReason,'operation-deadline');}
+        const readinessFaults={
+          'ui-initialization-failure':['ui_initialization','unknown'],
+          'cdp-listener-failure':['cdp_listener','debug-listener-ownership-mismatch'],
+          'cdp-target-failure':['cdp_targets','debug-target-mismatch'],
+          'cdp-socket-failure':['cdp_socket','unknown'],
+          'page-enable-failure':['page_enable','unknown'],
+        };
+        if(readinessFaults[scenario]){
+          assert.deepEqual([primary.failureStep,primary.failureReason],readinessFaults[scenario]);
+        }
+        if(expectedStage==='browser_readiness'){
+          assert.equal(events.includes('login-submitted'),false);
+          assert.equal(events.includes('upload-submitted'),false);
+          assert.equal(JSON.stringify(primary).includes('Synthetic-Private-Readiness-Detail'),false);
+          assert.equal(receipt.cleanup.verified,true);
+        }else{
+          assert.equal(primary.failureStep,'unknown','readiness step cannot leak into a later stage');
+        }
         assert.equal(JSON.stringify(primary).includes('synthetic-private-page-text'),false);
       }
       if(scenario==='foreign-dialog'){

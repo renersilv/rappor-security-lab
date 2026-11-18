@@ -203,6 +203,13 @@ function failedRemoteDiagnostics(remote, prepared, remoteReceiptSha256) {
   const phases = ['admission', 'browser_start', 'browser_readiness', 'login', 'wizard_readiness',
     'configuration', 'file_selection', 'upload', 'result', 'history', 'evidence'];
   const primaryCodes = ['admission_failed', 'journey_unresolved', 'parent_unresolved', 'primary_persistence_failed'];
+  const readinessSteps = ['process_binding', 'listener_wait', 'ui_initialization', 'cdp_process',
+    'cdp_listener', 'cdp_targets', 'cdp_socket', 'page_enable'];
+  const readinessReasons = ['process-inventory-missing', 'process-identity-mismatch', 'process-owner-unavailable',
+    'process-generation-mismatch', 'operation-deadline', 'absolute-deadline', 'browser-exited',
+    'debug-listener-ownership-mismatch', 'debug-page-not-unique', 'debug-target-mismatch',
+    'cdp-channel-closed', 'cdp-output-limit', 'cdp-command-rejected'];
+  const isReadinessFailure = remote.primary?.failureStage === 'browser_readiness';
   const cleanupCodes = ['profile_disposal_unresolved', 'cleanup_unresolved', 'parent_cleanup_unresolved', 'login_cleanup_unresolved',
     'job_close_failed', 'archive_close_failed', 'instruction_close_failed', 'root_ownership_unresolved'];
   return {
@@ -211,7 +218,9 @@ function failedRemoteDiagnostics(remote, prepared, remoteReceiptSha256) {
       remoteReceiptSha256,
       remoteOutcome: ['completed', 'inconclusive'].includes(remote.primary?.outcome) ? remote.primary.outcome : 'unknown',
       failureCode: primaryCodes.includes(remote.primary?.failureCode) ? remote.primary.failureCode : 'remote_unresolved',
-      failureStage: phases.includes(remote.primary?.failureStage) ? remote.primary.failureStage : 'unknown' },
+      failureStage: phases.includes(remote.primary?.failureStage) ? remote.primary.failureStage : 'unknown',
+      failureStep: isReadinessFailure && readinessSteps.includes(remote.primary?.failureStep) ? remote.primary.failureStep : 'unknown',
+      failureReason: isReadinessFailure && readinessReasons.includes(remote.primary?.failureReason) ? remote.primary.failureReason : 'unknown' },
     cleanup: { schema: 1, verified: false, reportedVerified: remote.cleanup?.verified === true,
       failureCode: remote.cleanup?.failureCode === null ? null :
         (cleanupCodes.includes(remote.cleanup?.failureCode) ? remote.cleanup.failureCode : 'remote_cleanup_unresolved'),

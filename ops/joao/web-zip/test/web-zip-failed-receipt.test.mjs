@@ -20,7 +20,9 @@ for(const variant of ['inconclusive','completed','unknown-diagnostics','wrong-bi
             workerQuiescent:true,taskAbsent:variant==='owned-processes-unconfirmed',
             primary:{schema:1,outcome:variant==='completed'?'completed':'inconclusive',
               failureCode:variant==='unknown-diagnostics'?privateText:'journey_unresolved',
-              failureStage:variant==='unknown-diagnostics'?privateText:'wizard_readiness',
+              failureStage:variant==='unknown-diagnostics'?privateText:'browser_readiness',
+              failureStep:variant==='unknown-diagnostics'?privateText:'listener_wait',
+              failureReason:variant==='unknown-diagnostics'?privateText:'operation-deadline',
               arbitrary:privateText,execution:{untrusted:privateText}},
             cleanup:{schema:1,verified:['completed','owned-processes-unconfirmed'].includes(variant),failureCode:'parent_cleanup_unresolved',
               ownedProcessesAbsent:variant!=='owned-processes-unconfirmed',loginMaterialAbsent:true,
@@ -43,7 +45,9 @@ for(const variant of ['inconclusive','completed','unknown-diagnostics','wrong-bi
         assert.equal(Object.hasOwn(primary,'remoteOutcome'),false);
       }else{
         assert.equal(primary.failureCode,variant==='unknown-diagnostics'?'remote_unresolved':'journey_unresolved');
-        assert.equal(primary.failureStage,variant==='unknown-diagnostics'?'unknown':'wizard_readiness');
+        assert.equal(primary.failureStage,variant==='unknown-diagnostics'?'unknown':'browser_readiness');
+        assert.equal(primary.failureStep,variant==='unknown-diagnostics'?'unknown':'listener_wait');
+        assert.equal(primary.failureReason,variant==='unknown-diagnostics'?'unknown':'operation-deadline');
         assert.equal(primary.remoteOutcome,variant==='completed'?'completed':'inconclusive');
         assert.equal(primary.requestSha256,args.requestSha256);
         assert.equal(primary.instructionSha256,receipt.instructionSha256);

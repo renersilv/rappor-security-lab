@@ -254,9 +254,12 @@ $script:ProductionTcp=${function:Get-NetTCPConnection}
 function Get-NetTCPConnection {
     [CmdletBinding()]param($State,$LocalPort)
     if($script:FixtureScenario -eq 'timeout'){return @()}
-    & $script:ProductionTcp -State $State -LocalPort $LocalPort
+    $value = & $script:ProductionTcp -State $State -LocalPort $LocalPort
+    if($script:FixtureScenario -eq 'cdp-listener-failure' -and $LocalPort -eq 9296 -and $value){$value.LocalAddress='0.0.0.0'}
+    return $value
 }
 function Initialize-WebZipUi {
+    if($script:FixtureScenario -eq 'ui-initialization-failure'){throw 'Synthetic-Private-Readiness-Detail'}
     Add-Type -TypeDefinition @'
 using System;
 namespace Windows.Automation {
@@ -283,7 +286,16 @@ public static class WebZipNative {
     [Windows.Automation.AutomationElement]::OwnedPid=$script:FixtureOwned.Id
     [Windows.Automation.AutomationElement]::Foreign=$script:FixtureScenario -eq 'foreign-dialog'
 }
-function Connect-WebZipCdp($Binding,$Clock) {
+$script:ProductionConnect=${function:Connect-WebZipCdp}
+function Invoke-RestMethod {
+    [CmdletBinding()]param($Uri,$TimeoutSec)
+    if($script:FixtureScenario -eq 'cdp-target-failure'){
+        return [pscustomobject]@{type='page';url='about:blank';webSocketDebuggerUrl='wss://127.0.0.1:9296/fixture'}
+    }
+    return [pscustomobject]@{type='page';url='about:blank';webSocketDebuggerUrl='ws://127.0.0.1:9296/fixture'}
+}
+function Connect-WebZipCdp($Binding,$Clock,$Progress) {
+    if($script:FixtureScenario -like 'cdp-*-failure') {return & $script:ProductionConnect $Binding $Clock $Progress}
     Add-FixtureEvent ('cdp-connected:'+$Binding.Id)
     $file=Microsoft.PowerShell.Management\Get-ChildItem -LiteralPath (Join-Path $script:FixtureRoot 'drive/RapporLab/runtime') -Filter instruction.json -Recurse
     $script:FixtureInstruction=[IO.File]::ReadAllText($file.FullName)|ConvertFrom-Json
@@ -303,7 +315,7 @@ function Invoke-WebZipCdp($Cdp,[string]$Method,$Parameters) {
         if(-not $script:FixtureAuthenticated){throw 'fixture-network-capture-before-authentication'}
         $script:FixtureNetworkEnabled=$true;Add-FixtureEvent 'network-enabled';return @{}
       }
-      'Page.enable' {return @{}}
+      'Page.enable' {if($script:FixtureScenario -eq 'page-enable-failure'){throw 'Synthetic-Private-Readiness-Detail'};return @{}}
       'Page.navigate' {
         if($Parameters.url.EndsWith('/login')){Add-FixtureEvent 'login-navigation'}
         elseif(-not $script:FixtureAuthenticated){throw 'fixture-navigation-before-login'}
