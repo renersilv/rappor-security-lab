@@ -61,6 +61,20 @@ campaign_pending_review_dispatch() {
 
 # Review a preserved handoff before an operational gate can suppress it.
 # The protected controller alone decides eligibility and releases the exact gate.
+campaign_work_stop_dispatch() {
+  local stop
+  stop=$(campaign_review_command work-stop) || return $?
+  case $stop in
+    none) return 0 ;;
+    offline_preparation_exhausted)
+      campaign_review_command record-work-stop >/dev/null || return $?
+      campaign_review_flush_notice || return $?
+      log "Authorized offline preparations exhausted; preserving rejected evidence and stopping without operational recovery"
+      return 75 ;;
+    *) return 65 ;;
+  esac
+}
+
 campaign_work_review_dispatch() {
   local worktree=$1 phase result=0
   phase=$(campaign_review_command phase) || return $?
@@ -76,6 +90,9 @@ campaign_work_review_dispatch() {
       campaign_review_command prepare-work-review >/dev/null || return $?
       phase=$(campaign_review_command phase) || return $?
     fi
+  fi
+  if [[ $phase == stalled ]]; then
+    campaign_work_stop_dispatch || return $?
   fi
   if [[ $phase == review_pending ]]; then
     run_campaign_review "$worktree" || result=$?
@@ -114,6 +131,15 @@ campaign_review_notice() {
     owner_required) message=$(campaign_review_command notice-body) || return $? ;;
     *) return 65 ;;
   esac
+  if [[ $phase == stalled ]]; then
+    local stop
+    stop=$(campaign_review_command work-stop) || return $?
+    if [[ $stop == offline_preparation_exhausted ]]; then
+      message='As duas preparações offline autorizadas foram consumidas e a revisão ainda encontrou defeitos no pacote de teste. A tarefa está parada; o timer não corrigirá esse pacote sem uma extensão explícita desse limite. Nenhum teste real ou nova tentativa de IA foi autorizado. O diagnóstico e os contadores foram preservados.'
+    elif [[ $stop != none ]]; then
+      return 65
+    fi
+  fi
   message+=$'\n\n'$(python3 "$SCRIPT_DIR/objectives.py" public "$STATE_ROOT") || return $?
   queue_comment 19 "$marker" "$message"
 }

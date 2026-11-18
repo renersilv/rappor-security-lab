@@ -142,6 +142,11 @@ execute_staged_item() {
       candidate_repair_dispatch || repair_result=$?
       if (( repair_result == 75 )); then return 0; fi
       (( repair_result == 0 )) || return "$repair_result"
+      # A valid rejection at the protected preparation ceiling is not a failed model transport.
+      repair_result=0
+      campaign_work_stop_dispatch || repair_result=$?
+      if (( repair_result == 75 )); then return 0; fi
+      (( repair_result == 0 )) || return "$repair_result"
       incident=$(campaign_review_command incident-key) || incident="campaign_$result"
       record_issue_failure "$issue" "$branch" codex_exit "$incident"
       return 70

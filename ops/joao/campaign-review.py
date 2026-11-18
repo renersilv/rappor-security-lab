@@ -493,6 +493,54 @@ def prepare_work_review(root):
     return prepare(root, work_rereview=snapshot)
 
 
+def work_stop(root):
+    """Classify a bound rejected preparation without granting more work."""
+    if not (root / 'campaign-auto-review.json').exists():
+        return 'none'
+    directory, marker = job(root)
+    if marker['phase'] != 'stalled':
+        return 'none'
+    value = C.private(root / 'campaign.json')
+    C.bound(root, value)
+    grant = WORK.active(value, C.artifact)
+    if (not grant or grant['phase'] != 'offline' or grant['offlineCheckpoints'] != 2
+            or grant['runtimeCheckpoints'] != 0):
+        return 'none'
+    if (value['phase'] != 'review_pending' or value['executorPasses'] != value['lastFinishedPass']
+            or value['executorPasses'] != grant['nextPass']
+            or marker['executorPass'] != value['executorPasses']
+            or C.digest(root / 'campaign.json') != marker['beforeSha256']
+            or C.digest(directory / 'bundle.json') != marker['bundleSha256']
+            or C.digest(directory / 'prompt.md') != marker['promptSha256']):
+        raise ValueError('work-stop-snapshot-changed')
+    verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+    if verdict != C.private(directory / 'result.json'):
+        raise ValueError('work-stop-result-changed')
+    selected = packet(value, root)
+    if (selected['manifest'] != marker['manifest']
+            or selected['sourceFingerprint'] != marker['sourceFingerprint']):
+        raise ValueError('work-stop-source-changed')
+    if (verdict['verdict'] != 'changes_requested' or verdict['scope'] != 'offline'
+            or verdict['ownerRequest'] is not None or not verdict['findings']
+            or verdict['objectiveId'] != grant['targetObjectiveId']
+            or verdict.get('workContinuation') is not None):
+        return 'none'
+    return 'offline_preparation_exhausted'
+
+
+def record_work_stop(root):
+    """Persist one notification intent without changing a grant or retry gate."""
+    stop = work_stop(root)
+    if stop == 'none':
+        return stop
+    _, marker = job(root)
+    if marker.get('workStop') != stop:
+        marker['workStop'] = stop
+        marker['noticePending'] = True
+        C.save(root / 'campaign-auto-review.json', marker)
+    return stop
+
+
 def work_status(root):
     value = C.private(root / 'campaign.json')
     C.reviewed_checkpoint(value)
@@ -1602,10 +1650,14 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion', 'pending-completed-review', 'retry-disposition'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion', 'pending-completed-review', 'retry-disposition', 'work-stop', 'record-work-stop'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'retry-disposition':
+    if args.action == 'work-stop':
+        print(work_stop(args.root))
+    elif args.action == 'record-work-stop':
+        print(record_work_stop(args.root))
+    elif args.action == 'retry-disposition':
         print(reviewed_retry_disposition(args.root))
     elif args.action == 'pending-completed-review':
         print('yes' if pending_completed_review(args.root) else 'no')

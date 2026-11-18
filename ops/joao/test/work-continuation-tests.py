@@ -196,6 +196,59 @@ class WorkContinuationTests(unittest.TestCase):
             findings=['The same offline source still fails its regression.'])
         self.rejected()
 
+    def exhausted_offline_work(self):
+        self.approval('negative-consent-cleanup'); self.finish()
+        self.packet(7)
+        self.approval(objectiveId='negative-consent-cleanup', verdict='changes_requested',
+            findings=['The offline adapter does not bind the requested origin.'])
+        self.finish()
+        self.packet(8)
+        self.approval(objectiveId='negative-consent-cleanup', verdict='changes_requested',
+            findings=['The corrected adapter can initiate authentication.'])
+        self.finish()
+        self.assertEqual(R.job(self.state)[1]['phase'], 'stalled')
+
+    def test_exhausted_offline_work_is_a_bound_stop_not_a_transport_failure(self):
+        self.exhausted_offline_work()
+        before = {p: p.read_bytes() for p in self.state.rglob('*') if p.is_file()}
+        for _ in range(3):
+            self.assertEqual(R.work_stop(self.state), 'offline_preparation_exhausted')
+        self.assertEqual(before, {p: p.read_bytes() for p in self.state.rglob('*') if p.is_file()})
+        self.assertEqual(self.grant()['offlineCheckpoints'], 2)
+        self.preserved()
+
+    def test_exhausted_offline_work_notice_is_durable_and_not_renewed_after_delivery(self):
+        self.exhausted_offline_work()
+        _, marker = R.job(self.state)
+        marker['noticePending'] = False
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        campaign = (self.state / 'campaign.json').read_bytes()
+        self.assertEqual(R.record_work_stop(self.state), 'offline_preparation_exhausted')
+        self.assertTrue(R.job(self.state)[1]['noticePending'])
+        R.record_work_stop(self.state)
+        self.assertTrue(R.job(self.state)[1]['noticePending'])
+        _, marker = R.job(self.state)
+        marker['noticePending'] = False
+        C.save(self.state / 'campaign-auto-review.json', marker)
+        R.record_work_stop(self.state)
+        self.assertFalse(R.job(self.state)[1]['noticePending'])
+        self.assertEqual(campaign, (self.state / 'campaign.json').read_bytes())
+        self.preserved()
+
+    def test_exhausted_offline_work_rejects_changed_review(self):
+        self.exhausted_offline_work()
+        folder, _ = R.job(self.state)
+        result = C.private(folder / 'result.json')
+        result['findings'] = ['Changed after the completed review.']
+        C.save(folder / 'result.json', result)
+        with self.assertRaisesRegex(ValueError, 'work-stop-result-changed'):
+            R.work_stop(self.state)
+
+    def test_unfinished_or_first_offline_work_is_not_an_exhausted_stop(self):
+        self.assertEqual(R.work_stop(self.state), 'none')
+        self.approval('negative-consent-cleanup'); self.finish()
+        self.assertEqual(R.work_stop(self.state), 'none')
+
     def test_second_runtime_checkpoint_cannot_renew_target_budget(self):
         self.approval('web-entries'); self.finish()
         self.packet(7)

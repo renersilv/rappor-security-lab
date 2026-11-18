@@ -81,3 +81,17 @@ runtime while permitting status, and exhausted review routing preserves bounds.
 Install only reviewed, tested source under existing locks. Preserve pass241 and all
 historical state; no fifth Web ZIP journey is authorized. Installed operation and
 full product acceptance are separate evidence gates.
+
+## Exhausted offline preparation is a terminal work limit
+
+The wrapper classifies a current bound offline rejection after both ADR-0008
+preparations as `offline_preparation_exhausted`. It retains the complete review,
+checkpoint chain and any previous retry/recovery records. Repeated activations
+stop before operational recovery, without recording a new `codex_exit` or invoking
+an implementation repair that cannot edit the rejected candidate. Status and the
+review notice expose this limit explicitly. A later authorized independent work
+selection is evaluated by its existing review route before this stop.
+
+This classification supplies no third preparation, technical fallback, independent
+candidate repair allowance, runtime or renewal. Correcting the rejected packet
+beyond the consumed allowance requires an explicit extension of that contract.

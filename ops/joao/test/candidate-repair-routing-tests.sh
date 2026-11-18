@@ -10,7 +10,7 @@ source "$ROOT/ops/joao/run.sh"
 campaign_enabled() { return 0; }
 candidate_repair_dispatch() { printf 'repair\n' >> "$TEST_ROOT/events"; return 75; }
 execute_campaign_item() { printf 'executor\n' >> "$TEST_ROOT/events"; return 70; }
-campaign_review_command() { if [[ $1 == pending-completed-review ]]; then printf 'no\n'; else printf 'campaign_70_fixture'; fi; }
+campaign_review_command() { if [[ $1 == work-stop ]]; then printf 'none\n'; elif [[ $1 == pending-completed-review ]]; then printf 'no\n'; else printf 'campaign_70_fixture'; fi; }
 record_issue_failure() { printf 'transport-failure\n' >> "$TEST_ROOT/events"; }
 clear_issue_retry() { printf 'clear-retry\n' >> "$TEST_ROOT/events"; }
 recover_campaign_failure() { printf 'wrong-recovery\n' >> "$TEST_ROOT/events"; }

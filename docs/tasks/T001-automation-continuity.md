@@ -13,6 +13,7 @@ maintenance supervision using existing services. ADR-0009 is the work contract.
 - [ ] A fresh independently reviewed offline target supersedes only its exact historical executor gate, with immutable archive and unchanged quotas.
 - [ ] Review transport exhaustion reaches the bounded matching recovery lane.
 - [ ] Notification outage cannot suppress authorized technical diagnosis.
+- [ ] A rejected candidate at the offline preparation ceiling stops explicitly without operational retry inflation or impossible recovery; its current notice survives delivery failure.
 - [ ] Pending notices survive failure and are acknowledged only after delivery.
 - [ ] Maintenance preserves supervision and prevents every execution lane.
 - [ ] Candidate publication remains mandatory before dependent work.

@@ -5,6 +5,15 @@ The owner authorized correction of recurring chat dependencies on 2026-11-18.
 regression and installed proof. Pass241 remains unresolved, with cleanup verified;
 the four Web ZIP attempts remain consumed. No product readiness is claimed.
 
+# Current correction — exhausted offline preparation classification
+
+Pass243 exhausted the two `negative-consent-cleanup` offline preparations and
+received a valid rejected review. It is not an operational model failure. The
+T001 correction distinguishes this stop before generic recovery, preserves all
+quotas and history, and supplies a durable one-time updated notice. It does not
+authorize another preparation, candidate repair fallback or runtime. Source
+validation and installed proof remain separate; the product is not accepted.
+
 # Current authorization — AB#301 one additional Web ZIP journey
 
 After the reviewed source repair and verified pass240 settlement, the owner

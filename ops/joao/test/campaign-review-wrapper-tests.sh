@@ -75,7 +75,7 @@ campaign_command() {
 
 campaign_review_command() {
   case $1 in
-    settlement-mode|web-zip-mode) printf 'none\n' ;;
+    settlement-mode|web-zip-mode|work-stop) printf 'none\n' ;;
     web-zip-reconcile) : ;;
     pending-completed-review) printf 'yes\n' ;;
     transport-status) printf '%s\n' "${REVIEW_TRANSPORT_STATUS:-pending}" ;;
