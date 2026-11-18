@@ -14,7 +14,7 @@ read_value() {
 
 status() {
   local phase branch issue batch_count session_state suspended_state retry_state retry_attempts retry_error_class
-  local maintenance review_phase review_transport
+  local maintenance review_phase review_transport retry_disposition
   maintenance=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/maintenance.py" status "$STATE_ROOT") || return $?
   printf 'maintenance=%s\n' "$maintenance"
   phase=$(read_value phase)
@@ -66,6 +66,8 @@ status() {
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" work-status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/objectives.py" status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/recovery.py" status "$STATE_ROOT"
+    retry_disposition=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" retry-disposition "$STATE_ROOT") || return $?
+    printf 'recovery_incident_disposition=%s\n' "$retry_disposition"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/candidate-repair.py" status "$STATE_ROOT"
   else
   python3 "$(dirname -- "${BASH_SOURCE[0]}")/stage-control.py" status "$STATE_ROOT"

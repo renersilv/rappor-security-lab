@@ -67,6 +67,7 @@ campaign_work_review_dispatch() {
   if [[ $phase == continued ]]; then
     # Finish a crash after the checkpoint was committed but before gate release.
     campaign_review_command resume-correction >/dev/null || return $?
+    campaign_review_flush_notice || return $?
   fi
   if [[ $phase == stalled ]]; then
     campaign_review_command resume-correction >/dev/null || return $?

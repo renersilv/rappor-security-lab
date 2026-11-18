@@ -939,6 +939,231 @@ def release_work_correction_retry(root, directory, marker, value):
     return True
 
 
+def reviewed_continuation_retry_binding(root, directory, marker, value):
+    """Bind supersession of a stopped objective, never claim its defect was repaired."""
+    grant = marker.get('workContinuation')
+    if (marker['phase'] != 'continued' or value['phase'] != 'active' or
+            value['executorPasses'] != marker['executorPass'] or not isinstance(grant, dict)):
+        return None
+    number = value['executorPasses']
+    if (grant.get('phase') != 'offline' or grant.get('scope') != 'offline' or
+            grant.get('offlineCheckpoints') != 1 or grant.get('runtimeCheckpoints') != 0 or
+            grant.get('entryReviewPass') != number or grant.get('reviewPass') != number or
+            grant.get('nextPass') != number + 1 or
+            grant.get('targetObjectiveId') == grant.get('originObjectiveId')):
+        return None
+    archive = directory / 'superseded-executor-retry.json'
+    retry_path = root / 'issue-retry'
+    if not retry_path.exists() and not archive.exists():
+        return None
+    recovery_path = root / 'recovery.json'
+    if not recovery_path.exists() and not recovery_path.is_symlink():
+        return None
+    refs = {name: reference(directory / name) for name in (
+        'before.json', 'bundle.json', 'prompt.md', 'events.jsonl', 'result.json',
+        'after.json', 'marker-after.json', 'review.json', 'model-completed',
+        'diagnosis.json', 'correction.json', 'cleanup.json', 'handoff.md')}
+    for ref in refs.values():
+        full_review_artifact(ref)
+    before = C.private(directory / 'before.json')
+    after = C.private(directory / 'after.json')
+    bundle = C.private(directory / 'bundle.json')
+    saved_marker = C.private(directory / 'marker-after.json')
+    if (refs['before.json']['sha256'] != marker['beforeSha256'] or
+            refs['bundle.json']['sha256'] != marker['bundleSha256'] or
+            refs['prompt.md']['sha256'] != marker['promptSha256'] or
+            value != after or before['executorPasses'] != number or
+            before['lastFinishedPass'] != number or
+            (directory / 'model-completed').read_bytes() != b'completed\n' or
+            {k: v for k, v in marker.items() if k != 'noticePending'} !=
+            {k: v for k, v in saved_marker.items() if k != 'noticePending'} or
+            value['reviewCheckpoint'] != refs['review.json']):
+        raise ValueError('supersession-review-binding-changed')
+    C.bound(root, before)
+    selected = packet(before, root)
+    verdict = result(directory / 'events.jsonl', bundle)
+    if (selected['manifest'] != marker['manifest'] or
+            selected['sourceFingerprint'] != marker['sourceFingerprint'] or
+            encoded(verdict) != (directory / 'result.json').read_bytes() or
+            verdict['verdict'] != 'pass' or verdict['scope'] != 'offline' or
+            verdict['cleanupAssessment'] != 'verified' or verdict.get('ownerRequest') is not None or
+            verdict.get('objectiveId') != grant['originObjectiveId'] or
+            verdict.get('workContinuation') != {'targetObjectiveId': grant['targetObjectiveId']} or
+            WORK.select(before, verdict, selected, C.artifact) != grant or
+            WORK.active(value, C.artifact) != grant):
+        raise ValueError('supersession-not-fresh-offline-work')
+    checkpoint = C.artifact(value['reviewCheckpoint'], protected=True)
+    for key, name in (('beforeState', 'before.json'), ('diagnosis', 'diagnosis.json'),
+                      ('correction', 'correction.json'), ('cleanup', 'cleanup.json'), ('handoff', 'handoff.md')):
+        if checkpoint[key] != refs[name]:
+            raise ValueError('supersession-checkpoint-reference-changed')
+    correction = C.artifact(checkpoint['correction'], protected=True)
+    cleanup = C.artifact(checkpoint['cleanup'], protected=True)
+    if (C.artifact(checkpoint['diagnosis'], protected=True) != verdict or
+            correction.get('workContinuation') != grant or correction.get('manifest') != selected['manifest'] or
+            correction.get('sourceFingerprint') != selected['sourceFingerprint'] or
+            cleanup.get('assessment') != 'verified' or cleanup.get('scope') != 'offline' or
+            cleanup.get('executorPass') != number):
+        raise ValueError('supersession-checkpoint-content-changed')
+    if checkpoint['previousReview'] != before['reviewCheckpoint'] or before['reviewCheckpoint'] is None:
+        raise ValueError('supersession-predecessor-missing')
+    previous = C.artifact(before['reviewCheckpoint'], protected=True)
+    predecessor = previous['reviewedThroughPass']
+    if not 0 < predecessor < number:
+        raise ValueError('supersession-predecessor-pass-invalid')
+    recovery_raw = read_source(recovery_path, root)
+    recovery = C.private(recovery_path)
+    if recovery.get('phase') != 'unrepairable':
+        return None
+    fingerprint = recovery.get('fingerprint')
+    if (not isinstance(fingerprint, str) or not re.fullmatch('[a-f0-9]{64}', fingerprint) or
+            type(recovery.get('attempts')) is not int or not 1 <= recovery['attempts'] <= 2 or
+            not isinstance(recovery.get('base'), str) or not re.fullmatch('[a-f0-9]{40}', recovery['base'])):
+        raise ValueError('supersession-recovery-invalid')
+    recovery_dir = root / 'diagnostics/recovery' / fingerprint / str(recovery['attempts'])
+    if (Path(recovery['directory']) != recovery_dir or recovery_dir != recovery_dir.resolve() or
+            recovery_dir.stat().st_uid != os.getuid() or stat.S_IMODE(recovery_dir.stat().st_mode) != 0o700):
+        raise ValueError('supersession-recovery-directory-invalid')
+    protected = recovery.get('protected', {})
+    for key, path in (('authorizationSha256', Path(value['authorizationPath'])),
+                      ('stageSha256', root / 'stage.json'), ('sessionSha256', root / 'session')):
+        if protected.get(str(path)) != value[key]:
+            raise ValueError('supersession-recovery-authority-changed')
+    incident_path = recovery_dir / 'incident.json'
+    incident_raw = read_source(incident_path, root)
+    incident_bundle = C.private(incident_path)
+    incident = incident_bundle['incident']
+    origin = incident.get('review', {})
+    if (incident_bundle.get('base') != recovery.get('base') or
+            incident.get('fingerprint') != fingerprint or incident.get('class') != 'codex_exit' or
+            incident.get('executorPass') != predecessor or incident.get('reviewExecutorPass') != predecessor or
+            incident.get('reviewMatchesCurrentPass') is not True or
+            incident.get('verdict') not in {'pass', 'changes_requested'} or
+            origin.get('objectiveId') != grant['originObjectiveId'] or origin.get('ownerRequest') is not None):
+        raise ValueError('supersession-incident-predecessor-changed')
+    if retry_path.exists():
+        retry_raw = read_source(retry_path, root)
+    else:
+        retry_raw = C.private(archive)['retry']['content'].encode()
+    pairs = [line.split('=', 1) for line in retry_raw.decode().splitlines()]
+    retry = dict(pairs)
+    if (len(pairs) != len(retry) or retry != dict(version='1', issue='19', branch=value['branch'],
+            error_class='codex_exit', fingerprint=fingerprint, attempts='3', suspended='true') or
+            sha(retry_raw) != recovery['retrySha256']):
+        raise ValueError('supersession-retry-changed')
+    return dict(schema=1, reason='different_reviewed_offline_target',
+                retry=dict(sha256=sha(retry_raw), content=retry_raw.decode()),
+                recovery=dict(path=str(recovery_path), sha256=sha(recovery_raw), content=recovery_raw.decode()),
+                incident=dict(path=str(incident_path), sha256=sha(incident_raw), content=incident_raw.decode()),
+                review=refs, predecessor=before['reviewCheckpoint'], continuation=grant)
+
+
+def archive_superseded_retry(path, raw):
+    """Publish this new authority record atomically, without replacing prior proof."""
+    if not path.exists() and not path.is_symlink():
+        descriptor, temporary = tempfile.mkstemp(prefix='.superseded-retry-', dir=path.parent)
+        try:
+            try:
+                os.fchmod(descriptor, 0o600)
+                remaining = memoryview(raw)
+                while remaining:
+                    written = os.write(descriptor, remaining)
+                    if written <= 0:
+                        raise OSError('supersession-archive-write-failed')
+                    remaining = remaining[written:]
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            try:
+                os.link(temporary, path)
+            except FileExistsError:
+                pass
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as source:
+        metadata = os.fstat(source.fileno())
+        if (not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600 or
+                metadata.st_uid != os.getuid() or source.read(len(raw) + 1) != raw):
+            raise ValueError('immutable-review-artifact-changed')
+        # Replayed bytes are not proof that an earlier file fsync completed.
+        os.fsync(source.fileno())
+
+
+def release_reviewed_continuation_retry(root, directory, marker, value):
+    binding = reviewed_continuation_retry_binding(root, directory, marker, value)
+    if binding is None:
+        return False
+    archive = directory / 'superseded-executor-retry.json'
+    def sync_directory(folder):
+        descriptor = os.open(folder, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    archive_superseded_retry(archive, encoded(binding))
+    sync_directory(directory)
+    # The wrapper holds its existing lock. Recheck authority and exact gate after
+    # the durable archive so a crash or replacement cannot release another gate.
+    current_marker = job(root)[1]
+    current_value = C.private(root / 'campaign.json')
+    C.bound(root, current_value)
+    if reviewed_continuation_retry_binding(root, directory, current_marker, current_value) != binding:
+        raise ValueError('supersession-changed-before-release')
+    retry = root / 'issue-retry'
+    if retry.exists():
+        # Persist notification intent before unlink; a crash cannot lose the
+        # updated delivery notice, and a replay after unlink cannot rearm it.
+        current_marker['noticePending'] = True
+        C.save(root / 'campaign-auto-review.json', current_marker)
+        sync_directory(root)
+        if sha(read_source(retry, root)) != binding['retry']['sha256']:
+            raise ValueError('supersession-gate-replaced')
+        retry.unlink()
+        sync_directory(root)
+    return True
+
+
+def reviewed_retry_disposition(root):
+    """Report an archived incident as history without hiding a different live gate."""
+    recovery_path = root / 'recovery.json'
+    if not recovery_path.exists():
+        return 'current'
+    recovery_raw = read_source(recovery_path, root)
+    recovery = C.private(recovery_path)
+    value = C.private(root / 'campaign.json')
+    C.bound(root, value)
+    WORK.history(value, C.artifact)
+    checkpoint = value.get('reviewCheckpoint')
+    while checkpoint is not None:
+        receipt = C.artifact(checkpoint, protected=True)
+        archive = Path(checkpoint['path']).parent / 'superseded-executor-retry.json'
+        if archive.exists():
+            saved = C.private(archive)
+            if saved['recovery']['sha256'] == sha(recovery_raw):
+                if (saved.get('schema') != 1 or saved.get('reason') != 'different_reviewed_offline_target' or
+                        saved['review']['review.json'] != checkpoint or
+                        saved['recovery']['content'].encode() != recovery_raw or
+                        sha(saved['retry']['content'].encode()) != saved['retry']['sha256'] or
+                        recovery['retrySha256'] != saved['retry']['sha256'] or
+                        recovery['phase'] != 'unrepairable' or
+                        C.artifact(receipt['correction'], protected=True).get('workContinuation') != saved['continuation']):
+                    raise ValueError('supersession-status-binding-changed')
+                for ref in saved['review'].values():
+                    full_review_artifact(ref)
+                incident = saved['incident']
+                if (sha(incident['content'].encode()) != incident['sha256'] or
+                        sha(read_source(Path(incident['path']), root)) != incident['sha256']):
+                    raise ValueError('supersession-status-incident-changed')
+                retry = root / 'issue-retry'
+                if retry.exists():
+                    return ('archived_gate_pending' if sha(read_source(retry, root)) == saved['retry']['sha256']
+                            else 'historical_superseded_new_gate')
+                return 'historical_superseded'
+        checkpoint = receipt['previousReview']
+    return 'current'
+
+
 def resume_correction(root):
     """Recover the exact saved rejection without rewriting its review or budgets."""
     if not (root / 'campaign-auto-review.json').exists():
@@ -948,7 +1173,8 @@ def resume_correction(root):
     value = C.private(root / 'campaign.json')
     C.bound(root, value)
     if (release_work_retry(root, directory, marker, value) or
-            release_work_correction_retry(root, directory, marker, value)):
+            release_work_correction_retry(root, directory, marker, value) or
+            release_reviewed_continuation_retry(root, directory, marker, value)):
         print('resumed')
         return
     retry_path = root / 'issue-retry'
@@ -1376,10 +1602,12 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion', 'pending-completed-review'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion', 'pending-completed-review', 'retry-disposition'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'pending-completed-review':
+    if args.action == 'retry-disposition':
+        print(reviewed_retry_disposition(args.root))
+    elif args.action == 'pending-completed-review':
         print('yes' if pending_completed_review(args.root) else 'no')
     elif args.action == 'transport-status':
         print(transport_status(args.root)['status'])

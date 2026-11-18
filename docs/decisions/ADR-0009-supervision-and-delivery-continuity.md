@@ -51,6 +51,28 @@ persistence/validation failures remain fatal. Maintenance, publication and resou
 model dispatch. Releasing an older gate requires its own exact authoritative
 reconciliation; a review approval alone does not supply that authority.
 
+## Exact supersession by a different reviewed offline target
+
+A newly approved independent review may stop pursuing an old failed objective and
+select a different already-authorized offline target. This does not prove the old
+defect repaired. The existing resume operation may archive and remove only the
+exact suspended `codex_exit` gate of that predecessor when its protected recovery
+is `unrepairable`, its incident/pass/origin and authority match, and the current
+review/checkpoint/after state independently grants a fresh offline entry. Recompute
+the selection from immutable before-state and verdict; same-target corrections,
+runtime grants, owner requirements, external-action recovery and delivery failures
+do not qualify. Existing release routes keep their original authority.
+
+Before removal, persist an immutable record of the exact retry bytes/hash, recovery
+and incident snapshots, review references and typed continuation. Recheck under
+the existing wrapper lock; a replaced gate is never removed. Crash replay reuses
+that record, missing gate without a record is not success, and subsequent targets
+cannot renew counters or supersede a new incident using this old proof. Recovery,
+ledgers, attempts and historical evidence remain unchanged. Persist notice intent
+before removal, then deliver the existing continuation notice without promising a
+root-cause repair. Status distinguishes the historical superseded incident from a
+new live gate. Source tests do not establish actual release or product acceptance.
+
 ## Acceptance
 
 Offline fault injection proves failed notices do not gate safe progress, retries
