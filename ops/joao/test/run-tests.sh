@@ -39,6 +39,8 @@ new_sandbox() {
   operational_id() { printf '%s' "$1"; }
   capture_queue() { list_with_phase to-do; }
   queue_comment() { return 0; }
+  publication_ready() { return 0; }
+  resource_ready() { return 0; }
 }
 
 remove_sandbox() {
@@ -844,7 +846,9 @@ test_returned_delivery_is_not_finalized() (
 test_service_uses_closed_path_and_preflight() (
   service_file="$ROOT/ops/joao/systemd/joao.service"
   grep -Fxq 'Environment=PATH=%h/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin' "$service_file"
-  grep -Fxq 'ExecStartPre=%h/rappor-security-lab/ops/joao/run.sh preflight' "$service_file"
+  if grep -q '^ExecStartPre=\|^ExecCondition=' "$service_file"; then return 1; fi
+  grep -Fxq '  preflight' "$RUNNER"
+  grep -Fxq '  if ! publication_ready; then' "$RUNNER"
   grep -Fxq 'NoNewPrivileges=true' "$service_file"
   grep -Fxq 'ProtectSystem=full' "$service_file"
 )

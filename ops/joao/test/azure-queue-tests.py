@@ -60,6 +60,34 @@ else: print('{}')
                            'authorization.json': '{"consumed":2,"remaining":8}'}.items():
             (self.root / name).write_text(text)
 
+    def test_adapter_import_does_not_dirty_installed_runner(self):
+        (self.root / 'synthetic_module.py').write_text('VALUE = 1\n')
+        self.adapter.write_text('import synthetic_module\nprint("{}")\n')
+        self.value['adapterSha256'] = hashlib.sha256(self.adapter.read_bytes()).hexdigest()
+        self.persist()
+        self.assertEqual(self.call('preflight').returncode, 0)
+        self.assertFalse((self.root / '__pycache__').exists())
+
+    def test_only_transient_comment_delivery_is_deferrable(self):
+        for code in (408, 429, 500, 502, 503, 504):
+            result = subprocess.CompletedProcess([], 65, '', f'Azure DevOps request failed with status {code}.\n')
+            with mock.patch.object(QUEUE.subprocess, 'run', return_value=result):
+                with self.assertRaises(QUEUE.CommentDeliveryUnavailable):
+                    QUEUE.invoke(self.value, ['comment'])
+                with self.assertRaises(ValueError) as error:
+                    QUEUE.invoke(self.value, ['show'])
+                self.assertNotIsInstance(error.exception, QUEUE.CommentDeliveryUnavailable)
+
+    def test_integrity_and_permission_errors_remain_fatal(self):
+        for message in ('invalid-private-binding', 'Azure DevOps request failed with status 403.',
+                        'Azure connection identity is not the configured Security account.',
+                        'Azure DevOps returned an invalid response.'):
+            result = subprocess.CompletedProcess([], 65, '', message)
+            with mock.patch.object(QUEUE.subprocess, 'run', return_value=result):
+                with self.assertRaises(ValueError) as error:
+                    QUEUE.invoke(self.value, ['comment'])
+                self.assertNotIsInstance(error.exception, QUEUE.CommentDeliveryUnavailable)
+
     def test_preserved_campaign_maps_to_different_azure_id_without_writes(self):
         self.mapped()
         before = {p.name: p.read_bytes() for p in self.root.iterdir() if p.is_file()}

@@ -14,6 +14,9 @@ read_value() {
 
 status() {
   local phase branch issue batch_count session_state suspended_state retry_state retry_attempts retry_error_class
+  local maintenance
+  maintenance=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/maintenance.py" status "$STATE_ROOT") || return $?
+  printf 'maintenance=%s\n' "$maintenance"
   phase=$(read_value phase)
   branch=$(read_value branch)
   issue=$(read_value current_issue)
@@ -85,8 +88,16 @@ resume() {
 case ${1:-status} in
   status) status ;;
   resume) resume ;;
+  hold)
+    python3 "$(dirname -- "${BASH_SOURCE[0]}")/maintenance.py" hold "$STATE_ROOT"
+    "$SYSTEMCTL_BIN" --user enable --now joao.timer
+    ;;
+  release)
+    python3 "$(dirname -- "${BASH_SOURCE[0]}")/maintenance.py" release "$STATE_ROOT"
+    "$SYSTEMCTL_BIN" --user enable --now joao.timer
+    ;;
   *)
-    printf 'usage: control.sh status|resume\n' >&2
+    printf 'usage: control.sh status|resume|hold|release\n' >&2
     exit 2
     ;;
 esac

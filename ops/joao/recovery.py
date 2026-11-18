@@ -489,10 +489,58 @@ def sandbox_preflight(root, repo):
         raise ValueError('recovery-sandbox-preflight-failed')
 
 
+def newly_exhausted_review_window(root, repo, old):
+    """Distinguish a new consumed granted window from a crash before gate removal."""
+    marker_path = root / 'campaign-auto-review.json'
+    if not marker_path.exists():
+        return False
+    marker = C.private(marker_path)
+    directory = Path(marker['directory'])
+    if directory != directory.resolve() or directory.parent != C.REVIEW_ROOT:
+        raise ValueError('invalid-review-grant-path')
+    grant_path = directory / 'recovery-review-window.json'
+    if marker['phase'] != 'review_pending' or not grant_path.exists():
+        return False
+    limit = review_limit(root, repo)
+    counter = directory / 'model-attempts'
+    meta = counter.lstat()
+    if (not stat.S_ISREG(meta.st_mode) or stat.S_IMODE(meta.st_mode) != 0o600 or meta.st_uid != os.getuid()):
+        raise ValueError('invalid-review-transport-count')
+    raw = counter.read_text().strip()
+    if not re.fullmatch('[0-9]', raw) or int(raw) > limit:
+        raise ValueError('invalid-review-transport-count')
+    if int(raw) < limit:
+        return False
+    review = load_review()
+    observed = review.transport_status(root)
+    if observed['status'] != 'exhausted' or observed['limit'] != limit:
+        # In particular, a work re-review's hard ceiling never commissions repair.
+        raise ValueError('review-window-not-recoverable')
+    grant = C.private(grant_path)
+    released = Path(old['directory']) / 'released-retry.json'
+    if (grant['target'] != old['target'] or grant['receipt'] !=
+            dict(path=str(released), sha256=C.digest(released))):
+        raise ValueError('review-window-recovery-mismatch')
+    receipt = C.private(directory / f'transport-exhaustion-{limit}.json')
+    desired = review.transport_retry(root)
+    if (receipt.get('bundleSha256') != marker['bundleSha256'] or
+            receipt.get('campaignSha256') != marker['beforeSha256'] or
+            receipt.get('consumed') != limit or receipt.get('limit') != limit or
+            receipt.get('retry') != desired or (root / 'issue-retry').read_text() != desired):
+        raise ValueError('unbound-review-window-exhaustion')
+    if retry(root)['fingerprint'] != old['fingerprint']:
+        raise ValueError('review-window-incident-changed')
+    return True
+
+
 def supervise(root, repo, model, effort):
     incident = retry(root)
     old = C.private(root / 'recovery.json') if (root / 'recovery.json').exists() else None
     if old and old['fingerprint'] == incident['fingerprint'] and old['phase'] == 'recovered':
+        unchanged(old['protected'])
+    new_window = bool(old and old['fingerprint'] == incident['fingerprint'] and old['phase'] == 'recovered'
+                      and newly_exhausted_review_window(root, repo, old))
+    if old and old['fingerprint'] == incident['fingerprint'] and old['phase'] == 'recovered' and not new_window:
         unchanged(old['protected'])
         receipt = C.private(Path(old['directory']) / 'released-retry.json')
         if C.digest(root / 'issue-retry') != receipt['sha256'] or git(repo, 'rev-parse', 'HEAD') != receipt['target']:
@@ -506,6 +554,9 @@ def supervise(root, repo, model, effort):
         return
     attempts = old['attempts'] if old and old['fingerprint'] == incident['fingerprint'] else 0
     if attempts >= MAX_REPAIRS:
+        if new_window:
+            old = dict(old, phase='unrepairable', reason='review-transport-repairs-exhausted')
+            C.save(root / 'recovery.json', old)
         raise ValueError('recovery-candidates-exhausted')
     base = git(repo, 'rev-parse', 'HEAD')
     if git(repo, 'status', '--porcelain') or git(repo, 'symbolic-ref', '--short', 'HEAD') != 'main':
@@ -664,6 +715,8 @@ def notice(root):
         if phase == 'failed' and value['attempts'] >= MAX_REPAIRS:
             text = 'As duas tentativas de reparo terminaram sem aprovação. Não haverá outra chamada automática para a mesma falha.'
         state = C.private(root / 'recovery.json')
+        if state.get('reason') == 'review-transport-repairs-exhausted':
+            text = 'A revisão voltou a esgotar a janela concedida após os dois reparos permitidos para a mesma falha. O histórico foi preservado; não haverá nova chamada nem retomada automática deste incidente.'
         path = Path(state['directory']) / 'failure.json'
         if path.exists():
             reason = C.private(path).get('reason', '')

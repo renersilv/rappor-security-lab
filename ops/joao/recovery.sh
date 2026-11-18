@@ -8,8 +8,9 @@ recovery_notice() {
 }
 
 recover_campaign_failure() {
-  local result=0 phase
-  recovery_notice || return $?
+  local result=0 phase notice_result=0
+  recovery_notice || notice_result=$?
+  if (( notice_result != 0 && notice_result != 75 )); then return "$notice_result"; fi
   python3 "$SCRIPT_DIR/recovery.py" supervise "$STATE_ROOT" --repository "$REPOSITORY_PATH" \
     --model "$MODEL" --effort "$REASONING_EFFORT" || result=$?
   recovery_flush_notice || return $?
@@ -23,9 +24,15 @@ recover_campaign_failure() {
 }
 
 recovery_flush_notice() {
-  local pending
+  local pending notice_result=0
   pending=$(python3 "$SCRIPT_DIR/recovery.py" notice-pending "$STATE_ROOT") || return $?
   [[ $pending == yes ]] || return 0
-  recovery_notice || return $?
+  recovery_notice || notice_result=$?
+  if (( notice_result == 75 )); then
+    log "Recovery notice delivery deferred; pending intent preserved"
+    return 0
+  elif (( notice_result != 0 )); then
+    return "$notice_result"
+  fi
   python3 "$SCRIPT_DIR/recovery.py" notice-done "$STATE_ROOT"
 }

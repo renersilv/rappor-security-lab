@@ -21,7 +21,7 @@ class CampaignTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         self.state = self.root / 'state'
-        self.state.mkdir()
+        self.state.mkdir(mode=0o700)
         self.operator = self.root / 'operator-reviews'
         self.operator.mkdir(mode=0o700)
         self.review_number = 0
@@ -308,6 +308,7 @@ END
 }
 source "$SCRIPT_DIR/stages.sh"
 campaign_review_flush_notice() { :; }
+publication_ready() { :; }
 run_campaign_review() { printf 'review boundary reached\n'; }
 execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
 execute_staged_item 19 "$3" joao/batch-20261023T000000Z-19-19
@@ -377,8 +378,10 @@ export JOAO_REPOSITORY_PATH=$3
 source "$1/run.sh"
 CODEX_BIN=$4
 campaign_review_flush_notice() { :; }
+publication_ready() { :; }
 run_campaign_review() { printf 'review boundary reached\n'; }
 preflight() { :; }
+resource_ready() { :; }
 issue_operational_state() { printf doing; }
 list_with_phase() { [[ $1 != doing ]] || printf '19\n'; }
 azure_queue() { case $1 in id) printf 305 ;; campaign) printf 19 ;; show) printf '{"id":305,"executor":"joao","origin":"owner","workItemType":"Task","phase":"doing"}' ;; list-retests) printf '[{"id":401,"deliveryRevision":9,"origin":"joao","executor":"raimundo"}]' ;; *) return 65 ;; esac; }

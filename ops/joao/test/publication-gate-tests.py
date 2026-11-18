@@ -136,9 +136,16 @@ class PublicationGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn('invalid_private_input', result.stdout)
 
-    def test_service_uses_only_versioned_readonly_condition(self):
+    def test_worker_preserves_readonly_gate_without_suppressing_supervision(self):
         service = (SCRIPT.parent / 'systemd/joao.service').read_text()
-        self.assertIn('ExecCondition=/usr/bin/python3 -B %h/rappor-security-lab/ops/joao/publication-gate.py', service)
+        self.assertNotIn('ExecCondition=', service)
+        runner = (SCRIPT.parent / 'run.sh').read_text()
+        self.assertIn('python3 "$SCRIPT_DIR/publication-gate.py" --state-root "$STATE_ROOT"', runner)
+        cycle = runner[runner.index('run_cycle() {'):]
+        self.assertLess(cycle.index('recovery_flush_notice'), cycle.index('if ! publication_ready'))
+        self.assertLess(cycle.index('if ! publication_ready'), cycle.index('  preflight'))
+        dispatch = (SCRIPT.parent / 'campaign.sh').read_text()
+        self.assertIn('if ! publication_ready; then', dispatch)
         source = SCRIPT.read_text()
         self.assertNotIn('subprocess', source)
         self.assertNotIn('urllib', source)

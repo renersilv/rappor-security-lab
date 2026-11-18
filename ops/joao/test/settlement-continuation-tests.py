@@ -369,6 +369,7 @@ TIMEOUT_BIN=timeout MODEL=fixture REASONING_EFFORT=xhigh
 source "$SCRIPT_DIR/campaign.sh"
 campaign_review_notice() { :; }
 campaign_review_flush_notice() { :; }
+publication_ready() { :; }
 issue_operational_state() { printf doing; }
 log() { :; }
 run_codex() { touch "$STATE_ROOT/model-called"; return 124; }

@@ -18,6 +18,7 @@ recover_campaign_failure() { record existing-recovery; return 0; }
 run_codex() { record executor; }
 issue_operational_state() { printf 'doing\n'; }
 campaign_review_flush_notice() { :; }
+publication_ready() { :; }
 campaign_command() {
   case $1 in
     phase) cat "$STATE_ROOT/campaign-phase" ;;
@@ -29,6 +30,8 @@ campaign_command() {
 campaign_review_command() {
   case $1 in
     phase) cat "$STATE_ROOT/review-phase" ;;
+    transport-status)
+      if [[ $(cat "$STATE_ROOT/review-phase") == stalled ]]; then printf 'not_pending\n'; else printf 'pending\n'; fi ;;
     settlement-mode|web-zip-mode) printf 'none\n' ;;
     web-zip-reconcile) : ;;
     resume-correction)

@@ -1067,6 +1067,14 @@ integrate_batch() {
   finalize_batch
 }
 
+resource_ready() {
+  "$HOME/.local/bin/rappor-docker-retention" --admit joao.service
+}
+
+publication_ready() {
+  python3 "$SCRIPT_DIR/publication-gate.py" --state-root "$STATE_ROOT"
+}
+
 run_cycle() {
   prepare_private_directories
   exec 9> "$RUN_LOCK"
@@ -1074,9 +1082,26 @@ run_cycle() {
     log "another run is active"
     return 0
   }
-  [[ ! -f $(state_file suspended) ]] || fail "execution is suspended; use control.sh resume"
-  preflight
+  # Observe and deliver pending notices even while execution is held or the
+  # selected candidate is unavailable. No model, repair or test runs here.
+  local maintenance
+  maintenance=$(python3 "$SCRIPT_DIR/maintenance.py" status "$STATE_ROOT") || return $?
   recovery_flush_notice || return $?
+  if [[ -f $STATE_ROOT/campaign.json ]]; then
+    campaign_review_flush_notice || return $?
+  fi
+  if [[ $maintenance == held ]]; then
+    log "Execution held for maintenance; supervision remains active"
+    return 0
+  fi
+  [[ $maintenance == none ]] || return 65
+  [[ ! -f $(state_file suspended) ]] || fail "execution is suspended; use control.sh resume"
+  if ! publication_ready; then
+    log "Candidate-dependent execution deferred; publication is not ready"
+    return 0
+  fi
+  preflight
+  resource_ready || return $?
   if [[ ! -f $(state_file batch) ]]; then
     recover_incomplete_capture || return $?
     capture_batch || {

@@ -11,6 +11,7 @@ source "$ROOT/ops/joao/run.sh"
 record() { printf '%s\n' "$1" >> "$TEST_ROOT/trace"; }
 log() { :; }
 campaign_review_flush_notice() { :; }
+publication_ready() { :; }
 issue_operational_state() { cat "$TEST_ROOT/operational"; }
 run_codex() { record forbidden-model; return 99; }
 campaign_command() {

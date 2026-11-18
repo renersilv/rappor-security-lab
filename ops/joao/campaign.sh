@@ -50,6 +50,19 @@ campaign_work_review_dispatch() {
   if [[ $phase == review_pending ]]; then
     run_campaign_review "$worktree" || result=$?
     if (( result != 0 )); then
+      # Transport exhaustion is not a rejected verdict or a renewable work grant.
+      # The controller binds consumption to this job and refuses unrelated retry state.
+      if (( result == 70 )); then
+        local transport
+        transport=$(campaign_review_command transport-status) || return $?
+        case $transport in
+          exhausted)
+            campaign_review_command record-transport-exhaustion || return $?
+            recover_campaign_failure || log "Bounded review transport recovery remains pending" ;;
+          pending|hard_limit|verdict_pending|not_pending) ;;
+          *) return 65 ;;
+        esac
+      fi
       log "Independent work review remains pending or stopped (exit $result); preserving the operational gate"
       return 75
     fi
@@ -71,11 +84,17 @@ campaign_review_notice() {
 }
 
 campaign_review_flush_notice() {
-  local phase operational
+  local phase operational notice_result=0
   campaign_review_command reconcile || return $?
   phase=$(campaign_review_command notice) || return $?
   [[ $phase != none ]] || return 0
-  campaign_review_notice "$phase" || return $?
+  campaign_review_notice "$phase" || notice_result=$?
+  if (( notice_result == 75 )); then
+    log "Campaign notice delivery deferred; pending intent preserved"
+    return 0
+  elif (( notice_result != 0 )); then
+    return "$notice_result"
+  fi
   if [[ $phase == owner_required ]]; then
     operational=$(issue_operational_state 19) || return $?
     if [[ $operational == doing ]]; then
@@ -104,7 +123,7 @@ run_campaign_review() {
     [[ $phase == review_pending ]] || return 0
   fi
   directory=$(campaign_review_command prepare) || return $?
-  campaign_review_notice reviewing || return $?
+  campaign_review_flush_notice || return $?
   # The saved executor session never reviews or writes its own checkpoint.
   # Cache only a valid response. A malformed verdict is never an approval.
   if [[ -f $directory/model-completed ]]; then
@@ -213,6 +232,11 @@ execute_campaign_item() {
     return 0
   elif [[ $operational != doing ]]; then
     return 65
+  fi
+  # Review may take minutes. Revalidate the selected deployment at dispatch.
+  if ! publication_ready; then
+    log "Campaign dispatch deferred; selected publication changed during preparation"
+    return 0
   fi
   phase=$(campaign_review_command settlement-mode) || return $?
   if [[ $phase == pending ]]; then

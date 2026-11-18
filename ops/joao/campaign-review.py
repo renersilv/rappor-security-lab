@@ -277,7 +277,7 @@ def prepare(root, *, work_rereview=None):
     marker = dict(directory=str(directory), executorPass=value['executorPasses'],
                   beforeSha256=before['sha256'], manifest=selected['manifest'],
                   sourceFingerprint=selected['sourceFingerprint'], unchangedReviews=same,
-                  phase='review_pending', noticePending=False,
+                  phase='review_pending', noticePending=True,
                   previousSourceFingerprint=previous['sourceFingerprint'] if previous else None,
                   ownerClaimResultSha256=C.digest(root / 'campaign-result.json') if result.get('phase') == 'owner_required' else None,
                   bundleSha256=C.digest(directory / 'bundle.json'),
@@ -691,6 +691,139 @@ def incident_key(root, status=70):
     else:
         identity = sha(encoded(dict(phase=marker['phase'], objective='review-transport')))
     return f'campaign_{status}_{identity}'
+
+
+def transport_limit(root):
+    spec = importlib.util.spec_from_file_location('transport_recovery', Path(__file__).with_name('recovery.py'))
+    recovery = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    return recovery.review_limit(root, Path(__file__).resolve().parents[2])
+
+
+def validate_response(root):
+    directory, marker = job(root)
+    if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
+        raise ValueError('review-snapshot-changed')
+    try:
+        verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
+        value = current(root, stalled_replay=marker['phase'] == 'stalled')
+        if C.digest(root / 'campaign.json') != marker['beforeSha256']:
+            raise ValueError('review-state-changed')
+        WORK.select(value, verdict, packet(value, root), C.artifact)
+    except ValueError as error:
+        repairable = {'invalid-review-findings', 'invalid-independent-verdict',
+                      'invalid-work-continuation-selection', 'unsafe-work-continuation',
+                      'work-rereview-objective-mismatch',
+                      'work-continuation-predecessor-mismatch', 'work-continuation-target-not-enterable',
+                      'work-continuation-source-citation-required', 'unapproved-work-runtime',
+                      'work-continuation-budget-exhausted',
+                      'missing-concrete-next-action', 'invalid-continuation-scope',
+                      'correction-must-remain-offline', 'invalid-cleanup-assessment',
+                      'unresolved-cleanup-cannot-authorize-live-work',
+                      'unresolved-timing-cannot-authorize-live-work',
+                      'invalid-review-evidence-citation', 'invalid-reviewed-progress',
+                      'invalid-reviewed-objective',
+                      'invalid-technical-correction-proof', 'missing-bound-technical-correction-proof',
+                      'invalid-settlement-review', 'missing-bound-settlement-evidence',
+                      'missing-bound-settlement-execution',
+                      'invalid-settlement-contract', 'settlement-evidence-hash-mismatch',
+                      'settlement-installed-source-mismatch', 'settlement-origin-not-protected',
+                      'settlement-origin-not-pending',
+                      'missing-actionable-owner-request', 'unexpected-owner-request'}
+        if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
+            raise
+        return 'regenerate'
+    else:
+        return 'valid'
+
+
+def transport_status(root):
+    """Classify the exact pending job without consuming a call or changing authority."""
+    directory, marker = job(root)
+    value = C.private(root / 'campaign.json')
+    C.bound(root, value)
+    if marker['executorPass'] != value['executorPasses']:
+        raise ValueError('stale-review-transport')
+    if marker['phase'] != 'review_pending':
+        return dict(status='not_pending')
+    if (C.digest(root / 'campaign.json') != marker['beforeSha256'] or
+            C.digest(directory / 'bundle.json') != marker['bundleSha256']):
+        raise ValueError('review-transport-snapshot-changed')
+    bundle = C.private(directory / 'bundle.json')
+    path = directory / 'model-attempts'
+    raw = read_source(path, directory).decode() if path.exists() else '0\n'
+    if not re.fullmatch('[0-9]\n?', raw):
+        raise ValueError('invalid-review-transport-count')
+    attempts = int(raw)
+    limit = 3 if bundle.get('workRereview') else transport_limit(root)
+    if limit not in (3, 6, 9) or attempts > limit:
+        raise ValueError('invalid-review-transport-limit')
+    # Output alone cannot prove successful transport: the wrapper writes this
+    # marker only after exit zero and complete response validation.
+    completed_path = directory / 'model-completed'
+    completed = completed_path.exists() or completed_path.is_symlink()
+    if completed and read_source(completed_path, directory) != b'completed\n':
+        raise ValueError('invalid-review-completion-marker')
+    if (directory / 'events.jsonl').exists():
+        if validate_response(root) == 'valid' and completed:
+            return dict(status='verdict_pending', attempts=attempts, limit=limit)
+    status = 'pending'
+    if attempts == limit:
+        status = 'hard_limit' if bundle.get('workRereview') else 'exhausted'
+    return dict(status=status, attempts=attempts, limit=limit)
+
+
+def transport_retry(root):
+    """Use the existing campaign incident identity, not a new per-activation identity."""
+    branch = read_source(root / 'branch', root).decode().strip()
+    base = read_source(root / 'base_sha', root).decode().strip()
+    issue = read_source(root / 'current_issue', root).decode().strip()
+    if (issue != '19' or not re.fullmatch(r'joao/batch-[0-9TZ-]+-[0-9]+-[0-9]+', branch)
+            or not re.fullmatch('[a-f0-9]{40}', base)):
+        raise ValueError('invalid-review-transport-task')
+    fingerprint = sha(f'v1:{base}:{branch}:19:codex_exit:{incident_key(root)}'.encode())
+    return (f'version=1\nissue=19\nbranch={branch}\nerror_class=codex_exit\n'
+            f'fingerprint={fingerprint}\nattempts=3\nsuspended=true\n')
+
+
+def record_transport_exhaustion(root):
+    """Reconcile consumed transport reservations once; never renew model/runtime limits."""
+    observed = transport_status(root)
+    if observed['status'] != 'exhausted':
+        raise ValueError('review-transport-not-exhausted')
+    directory, marker = job(root)
+    desired = transport_retry(root)
+    retry = root / 'issue-retry'
+    prior = read_source(retry, root).decode() if retry.exists() else None
+    expected = dict(line.split('=', 1) for line in desired.splitlines())
+    if prior is not None:
+        pairs = [line.split('=', 1) for line in prior.splitlines()]
+        actual = dict(pairs)
+        if (len(pairs) != len(actual) or set(actual) != set(expected) or
+                any(actual[key] != expected[key] for key in expected if key not in {'attempts', 'suspended'}) or
+                actual['attempts'] not in {'1', '2', '3'} or
+                actual['suspended'] != ('true' if actual['attempts'] == '3' else 'false')):
+            raise ValueError('unrelated-review-transport-retry')
+    receipt_path = directory / f'transport-exhaustion-{observed["limit"]}.json'
+    binding = dict(schema=1, bundleSha256=marker['bundleSha256'], campaignSha256=marker['beforeSha256'],
+                   consumed=observed['attempts'], limit=observed['limit'], retry=desired)
+    if receipt_path.exists():
+        saved = C.private(receipt_path)
+        if {key: saved.get(key) for key in binding} != binding or prior not in {saved['previousRetry'], desired}:
+            raise ValueError('review-transport-reconciliation-changed')
+    else:
+        put(receipt_path, encoded(dict(binding, previousRetry=prior)))
+    if prior == desired:
+        return
+    descriptor, temporary = tempfile.mkstemp(prefix='.review-transport-', dir=root)
+    try:
+        with os.fdopen(descriptor, 'wb') as output:
+            output.write(desired.encode())
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, retry)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def release_work_retry(root, directory, marker, value):
@@ -1181,10 +1314,14 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'work-review-limit':
+    if args.action == 'transport-status':
+        print(transport_status(args.root)['status'])
+    elif args.action == 'record-transport-exhaustion':
+        record_transport_exhaustion(args.root)
+    elif args.action == 'work-review-limit':
         directory, marker = job(args.root)
         if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
             raise ValueError('review-snapshot-changed')
@@ -1220,45 +1357,12 @@ def main():
     elif args.action == 'finish':
         finish(args.root)
     elif args.action == 'validate-response':
-        directory, marker = job(args.root)
-        if C.digest(directory / 'bundle.json') != marker['bundleSha256']:
-            raise ValueError('review-snapshot-changed')
-        try:
-            verdict = result(directory / 'events.jsonl', C.private(directory / 'bundle.json'))
-            value = current(args.root, stalled_replay=marker['phase'] == 'stalled')
-            if C.digest(args.root / 'campaign.json') != marker['beforeSha256']:
-                raise ValueError('review-state-changed')
-            WORK.select(value, verdict, packet(value, args.root), C.artifact)
-        except ValueError as error:
-            repairable = {'invalid-review-findings', 'invalid-independent-verdict',
-                          'invalid-work-continuation-selection', 'unsafe-work-continuation',
-                          'work-rereview-objective-mismatch',
-                          'work-continuation-predecessor-mismatch', 'work-continuation-target-not-enterable',
-                          'work-continuation-source-citation-required', 'unapproved-work-runtime',
-                          'work-continuation-budget-exhausted',
-                          'missing-concrete-next-action', 'invalid-continuation-scope',
-                          'correction-must-remain-offline', 'invalid-cleanup-assessment',
-                          'unresolved-cleanup-cannot-authorize-live-work',
-                          'unresolved-timing-cannot-authorize-live-work',
-                          'invalid-review-evidence-citation', 'invalid-reviewed-progress',
-                          'invalid-reviewed-objective',
-                          'invalid-technical-correction-proof', 'missing-bound-technical-correction-proof',
-                          'invalid-settlement-review', 'missing-bound-settlement-evidence',
-                          'missing-bound-settlement-execution',
-                          'invalid-settlement-contract', 'settlement-evidence-hash-mismatch',
-                          'settlement-installed-source-mismatch', 'settlement-origin-not-protected',
-                          'settlement-origin-not-pending',
-                          'missing-actionable-owner-request', 'unexpected-owner-request'}
-            if str(error) not in repairable and not isinstance(error, json.JSONDecodeError):
-                raise
-            print('regenerate')
-        else:
-            print('valid')
+        print(validate_response(args.root))
     elif args.action == 'reconcile':
         reconcile(args.root)
     elif args.action == 'notice':
         marker = job(args.root)[1] if (args.root / 'campaign-auto-review.json').exists() else {}
-        print(marker['phase'] if marker.get('noticePending') else 'none')
+        print(('reviewing' if marker['phase'] == 'review_pending' else marker['phase']) if marker.get('noticePending') else 'none')
     elif args.action == 'notice-done':
         _, marker = job(args.root)
         marker['noticePending'] = False

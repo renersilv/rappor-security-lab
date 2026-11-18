@@ -14,6 +14,18 @@ import tempfile
 PROJECT = '5d25148a-14fb-4bc8-8f5b-29441281d84e'
 
 
+class CommentDeliveryUnavailable(ValueError):
+    """Only transient outbound comment failures may preserve a deferred notice."""
+
+
+def transient_comment_failure(result):
+    # Closed diagnostics from the hash-pinned common adapter, never arbitrary text.
+    messages = {'Azure DevOps request was unavailable.'}
+    messages.update(f'Azure DevOps request failed with status {code}.'
+                    for code in (408, 429, 500, 502, 503, 504))
+    return result.returncode == 65 and not result.stdout.strip() and result.stderr.strip() in messages
+
+
 def private(path, maximum=None):
     path = Path(path)
     if not path.is_absolute() or path.is_symlink() or not path.is_file():
@@ -87,10 +99,18 @@ def operational_id(root, value, historical):
 
 
 def invoke(value, args):
-    environment = dict(os.environ, RAIMUNDO_RUNNER_REVISION=value['runnerRevision'])
-    result = subprocess.run([sys.executable, value['adapterPath'], '--config', value['configPath'],
-                             '--state-dir', value['queueStateDirectory'], *args], env=environment,
-                            text=True, capture_output=True, timeout=90)
+    environment = dict(os.environ, RAIMUNDO_RUNNER_REVISION=value['runnerRevision'],
+                       PYTHONDONTWRITEBYTECODE='1')
+    try:
+        result = subprocess.run([sys.executable, '-B', value['adapterPath'], '--config', value['configPath'],
+                                 '--state-dir', value['queueStateDirectory'], *args], env=environment,
+                                text=True, capture_output=True, timeout=90)
+    except subprocess.TimeoutExpired:
+        if args and args[0] == 'comment':
+            raise CommentDeliveryUnavailable('comment-delivery-timeout') from None
+        raise
+    if args and args[0] == 'comment' and transient_comment_failure(result):
+        raise CommentDeliveryUnavailable('comment-delivery-unavailable')
     if result.returncode:
         # Avoid leaking a helper/provider diagnostic into model or journal output.
         raise ValueError('azure-operation-failed')
@@ -226,6 +246,9 @@ def main():
             output = invoke(value, arguments)
             print(json.loads(output)['phase'] if args.command == 'state' else output)
         return 0
+    except CommentDeliveryUnavailable:
+        print('Azure comment delivery is temporarily unavailable; pending notice preserved.', file=sys.stderr)
+        return 75
     except (ValueError, KeyError, TypeError, OSError, subprocess.TimeoutExpired):
         print('Azure queue binding or operation failed; preserve the task and inspect host configuration.', file=sys.stderr)
         return 65

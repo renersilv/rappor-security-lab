@@ -739,6 +739,7 @@ umask 077
 SCRIPT_DIR=$1 STATE_ROOT=$2 CODEX_BIN=$3
 TIMEOUT_BIN=timeout MODEL=fixture REASONING_EFFORT=xhigh
 source "$SCRIPT_DIR/campaign.sh"
+publication_ready() { return 0; }
 state_file() { printf '%s/%s' "$STATE_ROOT" "$1"; }
 campaign_review_notice() { printf '%s\n' "$1" >> "$STATE_ROOT/notices"; }
 issue_operational_state() { printf doing; }

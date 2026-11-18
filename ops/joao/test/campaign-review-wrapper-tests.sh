@@ -15,9 +15,10 @@ queue_comment() {
   python3 -c 'import json,sys; from pathlib import Path; Path(sys.argv[1]).write_text(json.dumps({"body":sys.argv[2]}))' "$STATE_ROOT/last-notice.json" "$3"
   pending=$(cat "$STATE_ROOT/notice")
   record "notice:$pending"
+  if [[ -f $STATE_ROOT/fail-notice-always ]]; then return 75; fi
   if [[ $pending == continued && -f $STATE_ROOT/fail-notice-once ]]; then
     rm "$STATE_ROOT/fail-notice-once"
-    return 23
+    return 75
   fi
 }
 set_item_phase() {
@@ -61,6 +62,7 @@ state_file() { printf '%s/%s\n' "$STATE_ROOT" "$1"; }
 log() { :; }
 issue_operational_state() { cat "$STATE_ROOT/operational"; }
 run_codex() { record executor; }
+publication_ready() { [[ ! -f $STATE_ROOT/publication-changed ]]; }
 
 campaign_command() {
   case $1 in
@@ -157,18 +159,24 @@ printf 'PASS review_pending review precedes executor\n'
 
 fresh_case notification_retry
 touch "$STATE_ROOT/fail-notice-once"
-dispatch 23
-assert_trace 'review-model=1' 'executor=0'
-[[ $(cat "$STATE_ROOT/phase") == active ]]
 dispatch 0
-assert_trace 'review-model=1' 'review-finish=1' 'notice:continued=2' 'executor=1'
-python3 - "$STATE_ROOT/trace" <<'PY'
-from pathlib import Path
-import sys
-events = Path(sys.argv[1]).read_text().splitlines()
-assert max(i for i, v in enumerate(events) if v == 'notice:continued') < events.index('executor')
-PY
-printf 'PASS failed committed notice recovered before executor without another model\n'
+assert_trace 'review-model=1' 'executor=1'
+[[ $(cat "$STATE_ROOT/notice") == continued ]]
+dispatch 0
+assert_trace 'review-model=1' 'review-finish=1' 'notice:continued=2' 'executor=2'
+[[ $(cat "$STATE_ROOT/notice") == none ]]
+printf 'PASS failed notice stays pending while authorized work continues\n'
+
+fresh_case notification_outage_owner
+touch "$STATE_ROOT/fail-notice-always" "$STATE_ROOT/require-owner"
+dispatch 0
+assert_trace 'review-model=1' 'executor=0' 'label:blocked=0'
+[[ $(cat "$STATE_ROOT/notice") == owner_required ]]
+rm "$STATE_ROOT/fail-notice-always"
+dispatch 0
+assert_trace 'review-model=1' 'executor=0' 'notice:owner_required=2'
+[[ $(cat "$STATE_ROOT/notice") == none ]]
+printf 'PASS owner gate applies even when its notice cannot be delivered\n'
 
 fresh_case committed_crash
 printf 'active\n' > "$STATE_ROOT/phase"
@@ -341,3 +349,9 @@ for recovery_limit in 6 9; do
     printf 'PASS exhausted work review cannot inherit recovery limit %s\n' "$recovery_limit"
   )
 done
+
+fresh_case publication_changed_after_review
+touch "$STATE_ROOT/publication-changed"
+dispatch 0
+assert_trace 'review-model=1' 'executor=0'
+printf 'PASS publication is revalidated after review before execution\n'

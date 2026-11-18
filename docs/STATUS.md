@@ -1,3 +1,10 @@
+# Current structural task — T001 autonomous continuity
+
+The owner authorized correction of recurring chat dependencies on 2026-11-18.
+[T001](tasks/T001-automation-continuity.md) and ADR-0009 require independent
+regression and installed proof. Pass241 remains unresolved, with cleanup verified;
+the four Web ZIP attempts remain consumed. No product readiness is claimed.
+
 # Current authorization — AB#301 one additional Web ZIP journey
 
 After the reviewed source repair and verified pass240 settlement, the owner
