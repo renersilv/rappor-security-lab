@@ -30,6 +30,35 @@ candidate_repair_dispatch() {
   return 75
 }
 
+# Completed evidence has its own review lane. An unrelated executor suspension
+# remains unchanged even when this review succeeds or consumes its transport cap.
+campaign_pending_review_dispatch() {
+  local worktree=$1 pending result=0
+  pending=$(campaign_review_command pending-completed-review) || return $?
+  case $pending in
+    no) return 0 ;;
+    yes) ;;
+    *) return 65 ;;
+  esac
+  run_campaign_review "$worktree" || result=$?
+  (( result == 0 || result == 70 )) || return "$result"
+  if (( result == 70 )); then
+    local transport notice_result=0
+    transport=$(campaign_review_command transport-status) || return $?
+    case $transport in
+      exhausted|hard_limit)
+        queue_comment 19 '<!-- joao-campaign-review-transport:19 -->' \
+          'A revisão independente esgotou as tentativas de transporte autorizadas. A execução permanece suspensa e o diagnóstico foi preservado. Nenhuma nova análise ou tentativa de IA foi iniciada após esse limite.' || notice_result=$?
+        (( notice_result == 0 || notice_result == 75 )) || return "$notice_result"
+        if (( notice_result == 75 )); then log "Review transport limit notice deferred; the same exhausted job remains preserved"; fi ;;
+      pending|verdict_pending|not_pending) ;;
+      *) return 65 ;;
+    esac
+  fi
+  log "Completed campaign evidence review handled (exit $result); preserving executor authority"
+  return 75
+}
+
 # Review a preserved handoff before an operational gate can suppress it.
 # The protected controller alone decides eligibility and releases the exact gate.
 campaign_work_review_dispatch() {
@@ -74,7 +103,12 @@ campaign_review_notice() {
   local phase=$1 marker='<!-- joao-campaign-review:19 -->' message
   case $phase in
     reviewing) message='A revisão independente automática está em execução, limitada a 20 minutos. O próprio serviço entregará o diagnóstico ao João. Nenhuma ação sua é necessária nesta etapa.' ;;
-    continued|operator_reviewed) message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.' ;;
+    continued|operator_reviewed)
+      if [[ -e $STATE_ROOT/issue-retry ]]; then
+        message='A revisão independente entregou o diagnóstico. O bloqueio técnico anterior permanece em reconciliação; a revisão não libera outra execução nem conclui os testes da plataforma.'
+      else
+        message='A revisão independente entregou o próximo passo ao João. O serviço retoma a mesma tarefa automaticamente, nesta ativação ou no próximo ciclo de até cinco minutos. Esta revisão não conclui os testes da plataforma.'
+      fi ;;
     stalled) message='A continuação automática esgotou as revisões sem progresso relevante confirmado, incluindo o replanejamento quando aplicável. A issue permanece em andamento: é uma falha técnica, não falta de autorização. O diagnóstico foi preservado; a recuperação não pode declarar uma retomada enquanto essa condição persistir.' ;;
     owner_required) message=$(campaign_review_command notice-body) || return $? ;;
     *) return 65 ;;

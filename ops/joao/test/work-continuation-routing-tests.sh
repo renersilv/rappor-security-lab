@@ -29,6 +29,7 @@ campaign_command() {
 }
 campaign_review_command() {
   case $1 in
+    pending-completed-review) printf 'no\n' ;;
     phase) cat "$STATE_ROOT/review-phase" ;;
     transport-status)
       if [[ $(cat "$STATE_ROOT/review-phase") == stalled ]]; then printf 'not_pending\n'; else printf 'pending\n'; fi ;;

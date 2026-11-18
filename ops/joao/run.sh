@@ -210,6 +210,8 @@ check_issue_retry_gate() {
   local issue=$1 branch=$2 worktree=${3:-}
   if campaign_enabled "$issue"; then
     local repair_result=0
+    [[ -n $worktree ]] || worktree=$(read_state worktree)
+    campaign_pending_review_dispatch "$worktree" || return $?
     candidate_repair_dispatch || repair_result=$?
     (( repair_result == 0 )) || return "$repair_result"
     [[ -n $worktree ]] || worktree=$(read_state worktree)

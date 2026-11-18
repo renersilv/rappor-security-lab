@@ -14,7 +14,7 @@ read_value() {
 
 status() {
   local phase branch issue batch_count session_state suspended_state retry_state retry_attempts retry_error_class
-  local maintenance
+  local maintenance review_phase review_transport
   maintenance=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/maintenance.py" status "$STATE_ROOT") || return $?
   printf 'maintenance=%s\n' "$maintenance"
   phase=$(read_value phase)
@@ -57,6 +57,12 @@ status() {
     printf 'stage=authorized_campaign\n'
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-control.py" status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" status "$STATE_ROOT"
+    review_phase=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" phase "$STATE_ROOT") || return $?
+    review_transport=not_pending
+    if [[ $review_phase == review_pending ]]; then
+      review_transport=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" transport-status "$STATE_ROOT") || return $?
+    fi
+    printf 'campaign_review_transport=%s\n' "$review_transport"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/campaign-review.py" work-status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/objectives.py" status "$STATE_ROOT"
     python3 "$(dirname -- "${BASH_SOURCE[0]}")/recovery.py" status "$STATE_ROOT"

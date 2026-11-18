@@ -31,6 +31,26 @@ Only the corresponding exhausted ordinary review can reach existing recovery.
 Work-review hard ceilings and terminal repair outcomes remain unchanged; no empty
 timer cycle resets counters, authorizes work or fabricates a successful verdict.
 
+## Completed evidence behind an older executor gate
+
+The same supervision journey may review a newly completed, manifest-bound campaign
+pass before an older suspended executor/candidate repair gate. A read-only controller
+validates campaign authority, completion, checkpoint ancestry and exact evidence.
+The old review marker is not evidence that the new pass was reviewed. Repeated
+activations reuse the same protected review job and consumed transport count.
+A matching review transport incident retains its existing bounded recovery lane;
+this admission cannot replace that incident, renew a work review or runtime quota.
+
+This lane only reviews evidence and ends the activation. It cannot start the
+executor, settlement, Web ZIP or candidate repair, clear an unrelated gate, or
+claim that execution resumed. Review delivery notices explicitly retain the prior
+technical gate. Transport exhaustion publishes a separate idempotent notice and
+status without treating it as a rejected verdict. An outbound notice failure is
+retried from the same persisted exhausted job without another model call;
+persistence/validation failures remain fatal. Maintenance, publication and resource checks still apply before
+model dispatch. Releasing an older gate requires its own exact authoritative
+reconciliation; a review approval alone does not supply that authority.
+
 ## Acceptance
 
 Offline fault injection proves failed notices do not gate safe progress, retries

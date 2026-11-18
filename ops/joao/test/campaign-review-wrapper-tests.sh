@@ -77,6 +77,8 @@ campaign_review_command() {
   case $1 in
     settlement-mode|web-zip-mode) printf 'none\n' ;;
     web-zip-reconcile) : ;;
+    pending-completed-review) printf 'yes\n' ;;
+    transport-status) printf '%s\n' "${REVIEW_TRANSPORT_STATUS:-pending}" ;;
     work-review-limit)
       if [[ -f $STATE_ROOT/work-rereview ]]; then printf '3\n'; else printf 'none\n'; fi ;;
     resume-correction|prepare-work-review) printf 'not_eligible\n' ;;
@@ -355,3 +357,61 @@ touch "$STATE_ROOT/publication-changed"
 dispatch 0
 assert_trace 'review-model=1' 'executor=0'
 printf 'PASS publication is revalidated after review before execution\n'
+
+# The completed-evidence lane must expose exhaustion while preserving the real
+# model-attempts guard across notice retries and a service-source reload.
+(
+  fresh_case completed_review_exhaustion_notice
+  original_script_dir=$SCRIPT_DIR
+  SCRIPT_DIR="$STATE_ROOT/review-support"
+  mkdir -p "$SCRIPT_DIR" "$STATE_ROOT/job"
+  cp "$original_script_dir/CAMPAIGN_REVIEW_PROMPT.md" "$SCRIPT_DIR/"
+  printf 'print("Synthetic objective status.")\n' > "$SCRIPT_DIR/objectives.py"
+  printf 'import sys\nassert sys.argv[1] == "review-limit"\nprint(3)\n' > "$SCRIPT_DIR/recovery.py"
+  touch "$STATE_ROOT/model-timeout"
+  printf '2\n' > "$STATE_ROOT/job/model-attempts"
+  printf 'preserved old executor gate\n' > "$STATE_ROOT/issue-retry"
+  REVIEW_TRANSPORT_STATUS=exhausted NOTICE_RESULT=75
+  queue_comment() {
+    if [[ $2 == '<!-- joao-campaign-review-transport:19 -->' ]]; then
+      record cap-notice
+      printf '%s\n' "$3" > "$STATE_ROOT/cap-notice-body"
+      (( NOTICE_RESULT == 0 )) || return "$NOTICE_RESULT"
+      # The production Azure adapter upserts by the stable marker; model one row.
+      printf '%s\n' "$3" > "$STATE_ROOT/published-cap-notice"
+      return 0
+    fi
+    record ordinary-notice
+  }
+  result=0
+  campaign_pending_review_dispatch "$STATE_ROOT/worktree" || result=$?
+  [[ $result == 75 && $(cat "$STATE_ROOT/job/model-attempts") == 3 ]]
+  assert_trace 'review-model=1' 'cap-notice=1' 'review-finish=0' 'executor=0'
+  [[ ! -f $STATE_ROOT/published-cap-notice ]]
+  review_command_double=$(declare -f campaign_review_command)
+  source "${JOAO_CAMPAIGN_SHELL_SOURCE:-$original_script_dir/campaign.sh}"
+  eval "$review_command_double"
+  NOTICE_RESULT=0
+  for iteration in 1 2; do
+    result=0
+    campaign_pending_review_dispatch "$STATE_ROOT/worktree" || result=$?
+    [[ $result == 75 ]]
+  done
+  assert_trace 'review-model=1' 'cap-notice=3' 'review-finish=0' 'executor=0'
+  cmp -s "$STATE_ROOT/published-cap-notice" "$STATE_ROOT/cap-notice-body"
+  grep -q 'esgotou as tentativas de transporte autorizadas' "$STATE_ROOT/published-cap-notice"
+  grep -q 'execução permanece suspensa' "$STATE_ROOT/published-cap-notice"
+  if grep -q -E 'retoma|cinco minutos|Preciso de você' "$STATE_ROOT/published-cap-notice"; then exit 1; fi
+  NOTICE_RESULT=65
+  result=0
+  campaign_pending_review_dispatch "$STATE_ROOT/worktree" || result=$?
+  [[ $result == 65 ]]
+  assert_trace 'review-model=1' 'cap-notice=4'
+  [[ $(cat "$STATE_ROOT/job/model-attempts") == 3 && $(cat "$STATE_ROOT/issue-retry") == 'preserved old executor gate' ]]
+  REVIEW_TRANSPORT_STATUS=hard_limit NOTICE_RESULT=0
+  result=0
+  campaign_pending_review_dispatch "$STATE_ROOT/worktree" || result=$?
+  [[ $result == 75 ]]
+  assert_trace 'review-model=1' 'cap-notice=5'
+  printf 'PASS exhausted review notice retries delivery without another model or quota reset; fatal persistence errors propagate\n'
+)

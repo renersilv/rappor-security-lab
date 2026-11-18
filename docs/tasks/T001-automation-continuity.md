@@ -9,6 +9,7 @@ maintenance supervision using existing services. ADR-0009 is the work contract.
 
 ## Acceptance checklist
 
+- [ ] Newly completed bound evidence reaches review before an older executor gate, without releasing that gate.
 - [ ] Review transport exhaustion reaches the bounded matching recovery lane.
 - [ ] Notification outage cannot suppress authorized technical diagnosis.
 - [ ] Pending notices survive failure and are acknowledged only after delivery.

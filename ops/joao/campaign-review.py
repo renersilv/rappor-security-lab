@@ -153,6 +153,68 @@ def owner_claim_pending(root, value=None, *, allow_stalled_replay=False):
     return through < number
 
 
+def pending_completed_review(root):
+    """Admit only completed, bound evidence; never alter an executor retry gate."""
+    value = C.private(root / 'campaign.json')
+    if isinstance(value, dict) and value.get('phase') in {'active', 'owner_required'}:
+        # Other phases retain their existing validation and bounded retry lane.
+        return False
+    auth, _used = C.bound(root, value)
+    number = value['executorPasses']
+    if value['phase'] != 'review_pending' or number <= 0 or value['lastFinishedPass'] != number:
+        return False
+    retry_path = root / 'issue-retry'
+    if not retry_path.exists():
+        return False
+    pairs = [line.split('=', 1) for line in read_source(retry_path, root).decode().splitlines()]
+    retry = dict(pairs)
+    if (len(pairs) != len(retry) or set(retry) != {
+            'version', 'issue', 'branch', 'error_class', 'fingerprint', 'attempts', 'suspended'} or
+            retry['version'] != '1' or retry['issue'] != '19' or retry['branch'] != value['branch'] or
+            retry['error_class'] not in {'codex_exit', 'delivery_invalid'} or not re.fullmatch('[a-f0-9]{64}', retry['fingerprint']) or
+            retry['attempts'] not in {'1', '2', '3'} or
+            retry['suspended'] != ('true' if retry['attempts'] == '3' else 'false')):
+        raise ValueError('invalid-pending-review-retry')
+    if retry['error_class'] != 'codex_exit' or retry['suspended'] != 'true':
+        return False
+    through, _handoff = C.reviewed_checkpoint(value)
+    if through >= number:
+        return False
+    selected = packet(value, root)
+    result_value = C.private(root / 'campaign-result.json')
+    if (result_value.get('schema') != 1 or result_value.get('issue') != 19 or
+            result_value.get('executorPass') != number or result_value.get('phase') != 'review_pending' or
+            result_value.get('authorizationId') != auth['authorizationId']):
+        raise ValueError('unbound-completed-review-result')
+    if (root / 'campaign-auto-review.json').exists():
+        directory, marker = job(root)
+        prior = marker['executorPass']
+        if type(prior) is not int or prior > number:
+            raise ValueError('completed-review-marker-ahead')
+        if prior == number:
+            if marker['phase'] != 'review_pending':
+                return False
+            if (marker['beforeSha256'] != C.digest(root / 'campaign.json') or
+                    marker['manifest'] != selected['manifest'] or
+                    marker['bundleSha256'] != C.digest(directory / 'bundle.json') or
+                    marker['promptSha256'] != C.digest(directory / 'prompt.md')):
+                raise ValueError('completed-review-snapshot-changed')
+            expected = dict(line.split('=', 1) for line in transport_retry(root).splitlines())
+            if retry['fingerprint'] == expected['fingerprint']:
+                # Matching transport exhaustion keeps its existing bounded recovery lane.
+                return False
+        else:
+            if prior != through or marker['phase'] not in {'continued', 'operator_reviewed'}:
+                raise ValueError('unbound-previous-completed-review')
+            before = C.private(directory / 'before.json')
+            if (C.digest(directory / 'before.json') != marker['beforeSha256'] or
+                    before['executorPasses'] != prior or any(before.get(key) != value.get(key) for key in (
+                        'authorizationSha256', 'stageSha256', 'sessionSha256', 'candidateSha256',
+                        'worktree', 'branch', 'attemptsRoot'))):
+                raise ValueError('previous-review-campaign-changed')
+    return True
+
+
 def current(root, *, stalled_replay=False):
     value = C.private(root / 'campaign.json')
     C.bound(root, value)
@@ -1314,10 +1376,12 @@ def owner_notice(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion'])
+    parser.add_argument('action', choices=['prepare', 'finish', 'status', 'phase', 'reconcile', 'notice', 'notice-done', 'notice-body', 'validate-response', 'validate-candidate', 'owner-claim-pending', 'resume-correction', 'incident-key', 'settlement-mode', 'execute-settlement', 'web-zip-mode', 'execute-web-zip', 'web-zip-reconcile', 'prepare-work-review', 'work-status', 'work-review-limit', 'transport-status', 'record-transport-exhaustion', 'pending-completed-review'])
     parser.add_argument('root', type=Path)
     args = parser.parse_args()
-    if args.action == 'transport-status':
+    if args.action == 'pending-completed-review':
+        print('yes' if pending_completed_review(args.root) else 'no')
+    elif args.action == 'transport-status':
         print(transport_status(args.root)['status'])
     elif args.action == 'record-transport-exhaustion':
         record_transport_exhaustion(args.root)
