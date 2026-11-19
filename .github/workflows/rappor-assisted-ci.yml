@@ -23,7 +23,7 @@ jobs:
           RAPPOR_CI_AUDIENCE: 'rappor-review-ci'
           RAPPOR_CI_CONFIGURATION_ID: '01a1f481-2519-7ba7-8d11-98fd051729bb'
           RAPPOR_CI_ORIGIN: 'https://linux-ai2.taile60a95.ts.net:10000'
-          RAPPOR_AGENT_IMAGE: 'ghcr.io/renersilv/rappor-agent-self-hosted:sha-fccd4a3d2c2b68f95902187fffa13aebe94835c7@sha256:050d54cc9619a455458593c9c95138f1da394e8c5d1af47522c727c66570f188'
+          RAPPOR_AGENT_IMAGE: 'ghcr.io/renersilv/rappor-agent-self-hosted:sha-ebd8b7d23f91330c89454ab2db4595109852f4d6@sha256:2f3fbb50390981758e3b2df9ad88bd8e1806fc0b893c85f6450ad9334f07de33'
         run: |
           set -euo pipefail
           token_file="${RUNNER_TEMP}/rappor-oidc"
