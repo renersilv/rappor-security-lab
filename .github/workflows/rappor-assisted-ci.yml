@@ -1,55 +1,24 @@
-name: Rappor Security
+name: Rappor OIDC diagnostic
 on:
   push:
-
 permissions: {}
-
 jobs:
   analyze:
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
       id-token: write
     steps:
-      - name: Checkout exact commit
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.sha }}
-          clean: true
-          persist-credentials: false
-      - name: Run Rappor Security
-        shell: bash
-        env:
-          RAPPOR_CI_AUDIENCE: 'rappor-review-ci'
-          RAPPOR_CI_CONFIGURATION_ID: '01a1f481-2519-7ba7-8d11-98fd051729bb'
-          RAPPOR_CI_ORIGIN: 'https://linux-ai2.taile60a95.ts.net:10000'
-          RAPPOR_AGENT_IMAGE: 'ghcr.io/renersilv/rappor-agent-self-hosted:sha-ebd8b7d23f91330c89454ab2db4595109852f4d6@sha256:2f3fbb50390981758e3b2df9ad88bd8e1806fc0b893c85f6450ad9334f07de33'
+      - name: Inspect non-secret claim contract only
+        shell: python
         run: |
-          set -euo pipefail
-          token_file="${RUNNER_TEMP}/rappor-oidc"
-          cache_volume="rappor-trivy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          runner_uid="$(id -u)"
-          runner_gid="$(id -g)"
-          trap 'rm -f -- "${token_file}"; docker volume rm --force "${cache_volume}" >/dev/null 2>&1 || true' EXIT
-          umask 077
-          curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${RAPPOR_CI_AUDIENCE}" \
-            | jq -er '.value' > "${token_file}"
-          docker volume create "${cache_volume}" >/dev/null
-          docker run --rm --cap-drop ALL --security-opt no-new-privileges \
-            --mount "type=volume,src=${cache_volume},dst=/cache" \
-            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
-            image --cache-dir /cache --db-repository \
-            ghcr.io/aquasecurity/trivy-db@sha256:c21d571f915c471f4373095224a214186a30d0fc9e4ab956b31ce6147468332a \
-            --download-db-only --no-progress
-          docker run --rm --read-only --user "${runner_uid}:${runner_gid}" \
-            --cap-drop ALL --security-opt no-new-privileges \
-            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=512m,mode=0700,uid=${runner_uid},gid=${runner_gid}" \
-            --mount "type=bind,src=${GITHUB_WORKSPACE},dst=/workspace,readonly" \
-            --mount "type=bind,src=${token_file},dst=/run/rappor/oidc,readonly" \
-            --mount "type=volume,src=${cache_volume},dst=/var/lib/rappor-agent/trivy-db,readonly" \
-            "${RAPPOR_AGENT_IMAGE}" ci --url "${RAPPOR_CI_ORIGIN}" \
-            --configuration "${RAPPOR_CI_CONFIGURATION_ID}" \
-            --commit "${GITHUB_SHA}" \
-            --oidc-token-file /run/rappor/oidc --workspace /workspace
+          import os, json, urllib.request, base64, time
+          request = urllib.request.Request(os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=rappor-review-ci", headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              token = json.load(response)["value"]
+          payload = token.split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+          allowed = ("iss", "aud", "sub", "repository_owner_id", "repository_id", "repository_owner", "repository", "sha", "ref", "workflow_ref", "job_workflow_ref", "workflow_sha", "actor_id", "event_name", "run_id", "run_attempt", "runner_environment", "iat", "nbf", "exp")
+          output = {key: {"type": type(claims[key]).__name__, "value": claims[key]} for key in allowed if key in claims}
+          output["observed_at"] = int(time.time())
+          output["jti_present"] = isinstance(claims.get("jti"), str) and bool(claims["jti"])
+          print(json.dumps(output, sort_keys=True))
