@@ -23,7 +23,7 @@ jobs:
           RAPPOR_CI_AUDIENCE: 'rappor-review-ci'
           RAPPOR_CI_CONFIGURATION_ID: '01a1f481-2519-7ba7-8d11-98fd051729bb'
           RAPPOR_CI_ORIGIN: 'https://linux-ai2.taile60a95.ts.net:10000'
-          RAPPOR_AGENT_IMAGE: 'ghcr.io/renersilv/rappor-agent-self-hosted:sha-3787ac664eadd4d7027cc65c5fe4bd7a04c2f194@sha256:4c00be0540d7c1ec92f39e79c973fd50c4d8b3ba3aa7a5a380d8312b3fdc50b1'
+          RAPPOR_AGENT_IMAGE: 'ghcr.io/renersilv/rappor-agent-self-hosted:sha-45419504ad8a9286932c0c12cd6ceef7dd3d5ff5@sha256:c89570b09db76754ff5491978a1128e88acd6eb4096b479b41cd094bd7f97a67'
         run: |
           set -euo pipefail
           token_file="${RUNNER_TEMP}/rappor-oidc"
@@ -45,7 +45,7 @@ jobs:
             --download-db-only --no-progress
           docker run --rm --read-only --user "${runner_uid}:${runner_gid}" \
             --cap-drop ALL --security-opt no-new-privileges \
-            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=512m,mode=0700,uid=${runner_uid},gid=${runner_gid}" \
+            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=4g,mode=0700,uid=${runner_uid},gid=${runner_gid}" \
             --mount "type=bind,src=${GITHUB_WORKSPACE},dst=/workspace,readonly" \
             --mount "type=bind,src=${token_file},dst=/run/rappor/oidc,readonly" \
             --mount "type=volume,src=${cache_volume},dst=/var/lib/rappor-agent/trivy-db,readonly" \
